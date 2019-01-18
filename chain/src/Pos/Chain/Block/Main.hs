@@ -46,7 +46,7 @@ import           Pos.Chain.Block.Util (checkBodyProof)
 import           Pos.Chain.Delegation.Payload (DlgPayload, checkDlgPayload)
 import           Pos.Chain.Ssc.Payload (SscPayload, checkSscPayload)
 import           Pos.Chain.Ssc.Proof (SscProof, mkSscProof)
-import           Pos.Chain.Txp.Tx (Tx)
+import           Pos.Chain.Txp.Tx (Tx, TxValidationRules)
 import           Pos.Chain.Txp.TxPayload (TxPayload, checkTxPayload, txpTxs,
                      txpWitnesses)
 import           Pos.Chain.Txp.TxProof (TxProof, mkTxProof)
@@ -196,10 +196,11 @@ instance SafeCopy MainBody where
 verifyMainBody
     :: MonadError Text m
     => ProtocolMagic
+    -> TxValidationRules
     -> MainBody
     -> m ()
-verifyMainBody pm MainBody {..} = do
-    checkTxPayload _mbTxPayload
+verifyMainBody pm txValRules MainBody {..} = do
+    checkTxPayload txValRules _mbTxPayload
     checkSscPayload pm _mbSscPayload
     checkDlgPayload pm _mbDlgPayload
     checkUpdatePayload pm _mbUpdatePayload

@@ -38,6 +38,7 @@
           (hsPkgs.cardano-sl-binary)
           (hsPkgs.cardano-sl-binary-test)
           (hsPkgs.cardano-sl-chain)
+          (hsPkgs.cardano-sl-chain-test)
           (hsPkgs.cardano-sl-core)
           (hsPkgs.cardano-sl-core-test)
           (hsPkgs.cardano-sl-crypto)

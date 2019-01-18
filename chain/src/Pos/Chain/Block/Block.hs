@@ -95,6 +95,7 @@ import           Pos.Chain.Genesis.Config as Genesis (Config (..))
 import           Pos.Chain.Genesis.Hash (GenesisHash (..))
 import           Pos.Chain.Ssc.Functions (verifySscPayload)
 import           Pos.Chain.Ssc.Payload (SscPayload)
+import           Pos.Chain.Txp.Tx (TxValidationRules)
 import           Pos.Chain.Txp.TxPayload (TxPayload)
 import           Pos.Chain.Update.BlockVersion (BlockVersion,
                      HasBlockVersion (..))
@@ -135,10 +136,11 @@ getBlockHeader = \case
 verifyBlockInternal
     :: MonadError Text m
     => Genesis.Config
+    -> TxValidationRules
     -> Block
     -> m ()
-verifyBlockInternal genesisConfig =
-    either verifyGenesisBlock (verifyMainBlock genesisConfig)
+verifyBlockInternal genesisConfig txValRules =
+    either verifyGenesisBlock (verifyMainBlock genesisConfig txValRules)
 
 
 --------------------------------------------------------------------------------
@@ -323,12 +325,13 @@ mkMainBlockExplicit pm bv sv prevHash difficulty slotId sk pske body =
 verifyMainBlock
     :: MonadError Text m
     => Genesis.Config
+    -> TxValidationRules
     -> MainBlock
     -> m ()
-verifyMainBlock genesisConfig GenericBlock {..} = do
+verifyMainBlock genesisConfig txValRules GenericBlock {..} = do
     let pm = configProtocolMagic genesisConfig
     verifyMainBlockHeader pm _gbHeader
-    verifyMainBody pm _gbBody
+    verifyMainBody pm txValRules _gbBody
     -- No need to verify the main extra body data. It's an 'Attributes ()'
     -- which is valid whenever it's well-formed.
     --

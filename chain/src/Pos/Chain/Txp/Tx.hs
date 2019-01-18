@@ -16,6 +16,8 @@ module Pos.Chain.Txp.Tx
 
        , TxOut (..)
        , _TxOut
+
+       , TxValidationRules (..)
        ) where
 
 import           Universum
@@ -28,10 +30,12 @@ import           Data.Aeson (FromJSON (..), FromJSONKey (..),
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.List.NonEmpty as NE
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 import           Formatting (Format, bprint, build, builder, int, sformat, (%))
 import qualified Formatting.Buildable as Buildable
+import           Numeric.Natural (Natural)
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,
@@ -42,9 +46,11 @@ import           Pos.Binary.Class (Bi (..), Case (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
                      encodeUnknownCborDataItem, enforceSize,
                      knownCborDataItemSizeExpr, szCases)
-import           Pos.Core.Attributes (Attributes, areAttributesKnown)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown,
+                     unknownAttributesLength)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF,
                      coinToInteger, decodeTextAddress, integerToCoin)
+import           Pos.Core.Slotting (EpochOrSlot)
 import           Pos.Core.Util.LogSafe (SecureLog (..))
 import           Pos.Crypto (Hash, decodeAbstractHash, hash, hashHexF,
                      shortHashF)
@@ -97,11 +103,15 @@ txF :: Format r (Tx -> r)
 txF = build
 
 -- | Verify inputs and outputs are non empty; have enough coins.
+-- HLint suggested to use (||) instead of if then else. The suggestion
+-- was significantly less readable/intuitive.
+{-# ANN checkTx ("HLint: ignore" :: Text) #-}
 checkTx
     :: MonadError Text m
-    => Tx
+    => TxValidationRules
+    -> Tx
     -> m ()
-checkTx it =
+checkTx txValRules it =
     case verRes of
         VerSuccess -> pure ()
         failure    -> throwError $ verResSingleF failure
@@ -120,8 +130,57 @@ checkTx it =
                 ("output #"%int%" has invalid coin")
                 i
           )
+        -- The following rules check to see if we have passed a "cutoffEpoch"
+        -- after which we reject transactions larger than a size specified
+        -- in the `configuration.yaml` via the `TxValidationRules` struct.
+        , ( if currentEpoch > cutoffEpoch
+                then (fromIntegral $ tvrTxAttrSize txValRules)
+                      > unknownAttributesLength (_txAttributes it)
+                else True
+          , sformat
+                ("size of Tx unknown attributes in input #"%int%" is too large")
+                i
+          )
+        , ( if currentEpoch > cutoffEpoch
+                then all ( < (fromIntegral $ tvrAddrAttrSize txValRules))
+                         (map unknownAttributesLength txOutAddrAttribs)
+                else True
+          , sformat
+                ("size of Address unknown attributes in input #"%int%" is too large")
+                i
+          )
         ]
+    currentEpoch = tvrCurrentEpoch txValRules
+    cutoffEpoch = tvrAddrAttrCutoff txValRules
+    txOutAddresses = map txOutAddress (NE.toList (_txOutputs it))
+    txOutAddrAttribs = map addrAttributes txOutAddresses
 
+-- | Because there is no limit on the size of Attributes
+-- (which allows unecessary bloating of the blockchain)
+-- this struct introduces limits configurable via the
+-- `configuration.yaml` file which are activated at
+-- the `tvrAddrAttrCutoff` epoch.
+data TxValidationRules = TxValidationRules
+    { tvrAddrAttrCutoff :: !EpochOrSlot
+    , tvrCurrentEpoch   :: !EpochOrSlot
+    , tvrAddrAttrSize   :: !Natural
+    , tvrTxAttrSize     :: !Natural
+    } deriving (Eq, Generic, Show)
+
+instance FromJSON TxValidationRules where
+    parseJSON = withObject "txValidationRules" $ \v -> TxValidationRules
+        <$> v .: "attribResrictEpoch"
+        <*> v .: "currEpoch"
+        <*> v .: "addrAttribSize"
+        <*> v .: "txAttribSize"
+
+instance ToJSON TxValidationRules where
+    toJSON (TxValidationRules aaCutoff currEpoch aaSize taSize) =
+        object [ "attribResrictEpoch" .= aaCutoff
+               , "currEpoch" .= currEpoch
+               , "addrAttribSize" .= aaSize
+               , "txAttribSize" .= taSize
+               ]
 --------------------------------------------------------------------------------
 -- TxId
 --------------------------------------------------------------------------------

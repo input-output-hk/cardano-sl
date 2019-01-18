@@ -21,6 +21,7 @@ import           Control.Monad.State.Strict (mapStateT)
 import           Data.Default (def)
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
+import           Data.Maybe (fromMaybe)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
@@ -228,14 +229,15 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 -- corresponding functions from the Cardano core. This didn't look very easy
 -- so I skipped it for now.
 verifyBlocksPrefix
-    :: ProtocolMagic -- ^ Protocol magic
-    -> HeaderHash    -- ^ Expected tip
-    -> Maybe SlotId  -- ^ Current slot
-    -> SlotLeaders   -- ^ Slot leaders for this epoch
-    -> LastBlkSlots  -- ^ Last block slots
+    :: ProtocolMagic       -- ^ Protocol magic
+    -> TxValidationRules   -- ^ Tx validation rules
+    -> HeaderHash          -- ^ Expected tip
+    -> Maybe SlotId        -- ^ Current slot
+    -> SlotLeaders         -- ^ Slot leaders for this epoch
+    -> LastBlkSlots        -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify VerifyBlocksException (OldestFirst NE Undo)
-verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
+verifyBlocksPrefix pm txValRules tip curSlot leaders lastSlots blocks = do
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
 
@@ -243,7 +245,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 
     -- Verify block envelope
     slogUndos <- mapVerifyErrors VerifyBlocksError $
-                   slogVerifyBlocks curSlot leaders lastSlots blocks
+                   slogVerifyBlocks curSlot txValRules leaders lastSlots blocks
 
     -- We skip SSC verification
     {-
@@ -253,7 +255,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 
     -- Verify transactions
     txUndo <- mapVerifyErrors (VerifyBlocksError . pretty) $
-        tgsVerifyBlocks pm $ map toTxpBlock blocks
+        tgsVerifyBlocks pm txValRules $ map toTxpBlock blocks
 
     -- Skip delegation verification
     {-
@@ -298,11 +300,12 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 -- * Use hard-coded 'dataMustBeKnown' (instead of deriving this from 'adoptedBV')
 slogVerifyBlocks
     :: Maybe SlotId  -- ^ Current slot
+    -> TxValidationRules
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify Text (OldestFirst NE SlogUndo)
-slogVerifyBlocks curSlot leaders lastSlots blocks = do
+slogVerifyBlocks curSlot txValRules leaders lastSlots blocks = do
     adoptedBVD <- gsAdoptedBVData
 
     -- We take head here, because blocks are in oldest first order and
@@ -314,8 +317,9 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
+    -- eos assumes `curSlot` is in fact the current slot
     verResToMonadError formatAllErrors $
-        verifyBlocks dummyConfig curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks dummyConfig txValRules curSlot dataMustBeKnown adoptedBVD leaders blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in
@@ -358,15 +362,16 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
 --   I don't fully grasp the consequences of this.
 tgsVerifyBlocks
     :: ProtocolMagic
+    -> TxValidationRules
     -> OldestFirst NE TxpBlock
     -> Verify VerifyBlockFailure (OldestFirst NE TxpUndo)
-tgsVerifyBlocks pm newChain = do
+tgsVerifyBlocks pm txValRules newChain = do
     bvd <- gsAdoptedBVData
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     let verifyPure :: [TxAux] -> Verify VerifyBlockFailure TxpUndo
         verifyPure txs = nat $
           withExceptT (verifyBlockFailure txs) $
-            verifyToil pm bvd mempty epoch dataMustBeKnown txs
+            verifyToil pm txValRules bvd mempty epoch dataMustBeKnown txs
     mapM (verifyPure . convertPayload) newChain
   where
     convertPayload :: TxpBlock -> [TxAux]

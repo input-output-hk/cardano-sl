@@ -36,6 +36,7 @@ import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
                      mainBlockSlot, prevBlockL, verifyBlocks)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
                      configK)
+import           Pos.Chain.Txp (TxValidationRules (..))
 import           Pos.Chain.Update (BlockVersion (..), UpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
@@ -45,7 +46,7 @@ import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Core.Slotting (MonadSlots, SlotId)
+import           Pos.Core.Slotting (MonadSlots, SlotId, getEpochOrSlot)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
@@ -158,11 +159,18 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     -- Do pure block verification.
+    currentEos <- getEpochOrSlot <$> DB.getTipHeader
+    let txValRules = configTxValRules $ genesisConfig
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
         verifyBlocks
             genesisConfig
+            (TxValidationRules
+                   (tvrAddrAttrCutoff txValRules)
+                   currentEos
+                   (tvrAddrAttrSize txValRules)
+                   (tvrTxAttrSize txValRules))
             curSlot
             dataMustBeKnown
             adoptedBVD

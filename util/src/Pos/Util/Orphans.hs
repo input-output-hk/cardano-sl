@@ -31,6 +31,7 @@ module Pos.Util.Orphans
 
 import           Universum
 
+import           Control.Monad.Except (MonadError)
 import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..),
                      unliftIO, withUnliftIO)
 import           Control.Monad.Trans.Identity (IdentityT (..))
@@ -51,7 +52,10 @@ import qualified Formatting as F
 import           Formatting.Buildable (build)
 import qualified Language.Haskell.TH.Syntax as TH
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
+import qualified Text.JSON.Canonical as Canonical
+import           Text.JSON.Canonical.Types (Int54 (..))
 
+import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
 
 ----------------------------------------------------------------------------
@@ -72,6 +76,16 @@ instance FromJSON Byte where
 
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
+
+instance Monad m => Canonical.ToJSON m Natural where
+    toJSON x = Canonical.toJSON (Int54 $ fromIntegral x)
+
+instance MonadError SchemaError m => Canonical.FromJSON m Natural where
+    fromJSON = \case
+        (Canonical.JSNum num) ->
+            pure . fromIntegral $ int54ToInt64 num
+        other ->
+            Canonical.expected "An attribute size restriction number" (Just (show other))
 
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
     askLoggerName = pure "MonadPseudoRandom"

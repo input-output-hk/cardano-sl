@@ -276,7 +276,9 @@ saveTxDefault :: TxHistoryEnv ctx m
               -> TxpConfiguration
               -> (TxId, TxAux) -> m ()
 saveTxDefault genesisConfig txpConfig txw = do
-    res <- txpProcessTx genesisConfig txpConfig txw
+    res <- txpProcessTx genesisConfig
+                txpConfig
+                txw
     eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

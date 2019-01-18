@@ -29,16 +29,17 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Genesis (GenesisWStakeholders)
 import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
                      GlobalToilM, GlobalToilState (..), StakesView (..),
-                     ToilVerFailure, TxAux, TxUndo, TxpConfiguration (..),
-                     TxpUndo, Utxo, UtxoM, UtxoModifier, applyToil,
-                     defGlobalToilState, flattenTxPayload, gtsUtxoModifier,
-                     rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup,
-                     verifyToil)
+                     ToilVerFailure, TxAux, TxUndo, TxValidationRules,
+                     TxValidationRules (..), TxpConfiguration (..), TxpUndo,
+                     Utxo, UtxoM, UtxoModifier, applyToil, defGlobalToilState,
+                     flattenTxPayload, gtsUtxoModifier, rollbackToil,
+                     runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
+import           Pos.Core.Slotting (getEpochOrSlot)
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.DB (SomeBatchOp (..))
+import           Pos.DB (SomeBatchOp (..), getTipHeader)
 import           Pos.DB.Class (gsAdoptedBVData)
 import           Pos.DB.GState.Stakes (getRealStake, getRealTotalStake)
 import           Pos.DB.Txp.Logic.Common (buildUtxo, buildUtxoForRollback)
@@ -58,9 +59,10 @@ import qualified Pos.Util.Modifier as MM
 -- simple full node.
 txpGlobalSettings :: Genesis.Config -> TxpConfiguration -> TxpGlobalSettings
 txpGlobalSettings genesisConfig txpConfig = TxpGlobalSettings
-    { tgsVerifyBlocks   = verifyBlocks pm txpConfig
+    { tgsVerifyBlocks   = verifyBlocks pm genesisConfig txpConfig
     , tgsApplyBlocks    = applyBlocksWith
         pm
+        genesisConfig
         txpConfig
         (processBlundsSettings False $ applyToil bootStakeholders)
     , tgsRollbackBlocks = rollbackBlocks bootStakeholders
@@ -76,22 +78,31 @@ txpGlobalSettings genesisConfig txpConfig = TxpGlobalSettings
 verifyBlocks ::
        forall m. (TxpGlobalVerifyMode m)
     => ProtocolMagic
+    -> Genesis.Config
     -> TxpConfiguration
     -> Bool
     -> OldestFirst NE TxpBlock
     -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
-verifyBlocks pm txpConfig verifyAllIsKnown newChain = runExceptT $ do
+verifyBlocks pm genesisConfig txpConfig verifyAllIsKnown newChain = runExceptT $ do
     bvd <- gsAdoptedBVData
-    let verifyPure :: [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
-        verifyPure = runExceptT
-            . verifyToil pm bvd (tcAssetLockedSrcAddrs txpConfig) epoch verifyAllIsKnown
-        foldStep ::
-               (UtxoModifier, [TxpUndo])
+    let txValRules = configTxValRules $ genesisConfig
+    let verifyPure :: TxValidationRules -> [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
+        verifyPure txValRules' = runExceptT
+            . verifyToil pm txValRules' bvd (tcAssetLockedSrcAddrs txpConfig) epoch verifyAllIsKnown
+        foldStep
+            :: TxValidationRules
+            -> (UtxoModifier, [TxpUndo])
             -> TxpBlock
             -> ExceptT ToilVerFailure m (UtxoModifier, [TxpUndo])
-        foldStep (modifier, undos) (convertPayload -> txAuxes) = do
+        foldStep txValRules' (modifier, undos) (convertPayload -> txAuxes) = do
+            currentEos <- getEpochOrSlot <$> lift getTipHeader
             baseUtxo <- utxoToLookup <$> buildUtxo modifier txAuxes
-            case runUtxoM modifier baseUtxo (verifyPure txAuxes) of
+            let currentTxValRules = (TxValidationRules
+                                        (tvrAddrAttrCutoff txValRules')
+                                        currentEos
+                                        (tvrAddrAttrSize txValRules')
+                                        (tvrTxAttrSize txValRules'))
+            case runUtxoM modifier baseUtxo (verifyPure currentTxValRules txAuxes) of
                 (Left err, _) -> throwError err
                 (Right txpUndo, newModifier) ->
                     return (newModifier, txpUndo : undos)
@@ -101,7 +112,7 @@ verifyBlocks pm txpConfig verifyAllIsKnown newChain = runExceptT $ do
         -- will prepend something to the result.
         convertRes :: (UtxoModifier, [TxpUndo]) -> OldestFirst NE TxpUndo
         convertRes = OldestFirst . NE.fromList . reverse . snd
-    convertRes <$> foldM foldStep mempty newChain
+    convertRes <$> foldM (foldStep txValRules) mempty newChain
   where
     epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     convertPayload :: TxpBlock -> [TxAux]
@@ -175,14 +186,15 @@ applyBlocksWith ::
        forall extraEnv extraState ctx m.
        (TxpGlobalApplyMode ctx m, Default extraState)
     => ProtocolMagic
+    -> Genesis.Config
     -> TxpConfiguration
     -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-applyBlocksWith pm txpConfig settings blunds = do
+applyBlocksWith pm genesisConfig txpConfig settings blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
-        verdict <- verifyBlocks pm txpConfig False blocks
+        verdict <- verifyBlocks pm genesisConfig txpConfig False blocks
         whenLeft verdict $
             assertionFailed .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)

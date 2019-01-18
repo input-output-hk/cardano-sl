@@ -30,7 +30,7 @@ import           Formatting (Format, bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Common (BlockCount)
+import           Pos.Core.Common.BlockCount (BlockCount)
 import           Pos.Core.ProtocolConstants (kEpochSlots, kSlotSecurityParam)
 import           Pos.Util.Util (intords, leftToPanic)
 

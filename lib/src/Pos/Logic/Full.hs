@@ -162,7 +162,8 @@ logicFull genesisConfig txpConfig ourStakeholderId securityParams jsonLogTx =
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo genesisConfig txpConfig jsonLogTx txAux
+            , handleData = \(TxMsgContents txAux) ->
+                Txp.handleTxDo genesisConfig txpConfig jsonLogTx txAux
             }
 
         postUpdate = KeyVal

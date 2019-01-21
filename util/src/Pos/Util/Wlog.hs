@@ -13,6 +13,7 @@ module Pos.Util.Wlog
         , NamedPureLogger (..)
         , launchNamedPureLog
         , runNamedPureLog
+        , usingNamedPureLogger
         --   -- * Setup
         , setupLogging
         , setupLogging'
@@ -53,6 +54,8 @@ module Pos.Util.Wlog
         , LoggingHandler (..)
         , LoggingHandlerInternal (..)
         , injectTrace
+        , emptyConf
+        , setupFromRepresentation
         ) where
 
 import           Pos.Util.Klog.Compatibility (CanLog (..), HasLoggerName (..),
@@ -60,9 +63,11 @@ import           Pos.Util.Klog.Compatibility (CanLog (..), HasLoggerName (..),
                      LoggingHandler (..), LoggingHandlerInternal (..),
                      NamedPureLogger (..), Severity (..), WithLogger,
                      defaultInteractiveConfiguration, defaultTestConfiguration,
-                     dispatchEvents, injectTrace, launchNamedPureLog, logDebug,
-                     logError, logInfo, logMessage, logNotice, logWarning,
-                     parseLoggerConfig, productionB, removeAllHandlers,
-                     retrieveLogContent, runNamedPureLog, setLogPrefix,
-                     setupLogging, setupLogging', usingLoggerName)
+                     dispatchEvents, emptyConf, injectTrace,
+                     launchNamedPureLog, logDebug, logError, logInfo,
+                     logMessage, logNotice, logWarning, parseLoggerConfig,
+                     productionB, removeAllHandlers, retrieveLogContent,
+                     runNamedPureLog, setLogPrefix, setupFromRepresentation,
+                     setupLogging, setupLogging', usingLoggerName,
+                     usingNamedPureLogger)
 import           Pos.Util.Log (LoggerName)

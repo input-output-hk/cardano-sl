@@ -32,6 +32,7 @@ module Pos.Util.Klog.Compatibility
          , launchNamedPureLog
          , runNamedPureLog
          , removeAllHandlers
+         , usingNamedPureLogger
          , LoggingHandler (..)
          , LoggingHandlerInternal (..)
            -- * Logging configuration
@@ -40,6 +41,8 @@ module Pos.Util.Klog.Compatibility
          , parseLoggerConfig
          , setLogPrefix
          , injectTrace
+         , emptyConf
+         , setupFromRepresentation
          ) where
 
 import           Control.Concurrent (modifyMVar_)
@@ -56,12 +59,12 @@ import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration.Model as Configuration
 import           Cardano.BM.Configuration.Static (defaultConfigStdout,
                      defaultConfigTesting)
+import           Cardano.BM.Data.Configuration (Representation (..))
 import           Cardano.BM.Data.LogItem (LogSelection (Both))
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace (Trace)
 import           Cardano.BM.Setup (setupTrace)
 import           Cardano.BM.Trace (appendName, traceNamedItem)
-
 import qualified Pos.Util.Log as Log
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -300,3 +303,9 @@ retrieveLogContent fp maylines = do
 -- do nothing, logs are closed by finalizers
 removeAllHandlers :: LoggingHandler -> IO ()
 removeAllHandlers _ = pure () --unrealize
+
+emptyConf :: Configuration
+emptyConf = unsafePerformIO Configuration.empty
+
+setupFromRepresentation :: Representation -> Configuration
+setupFromRepresentation = unsafePerformIO . Configuration.setupFromRepresentation

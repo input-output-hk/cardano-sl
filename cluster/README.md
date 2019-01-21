@@ -5,7 +5,7 @@
 This module provides an executable for starting a demo cluster of nodes.
 It is designed to remove all the overhead of setting up a configuration
 and an environment and to _just work_, out-of-the-box. Minor configuration
-adjustments are however possible via environment variables. 
+adjustments are however possible via environment variables.
 
 ```
 $> stack exec -- cardano-sl-cluster-demo
@@ -54,20 +54,20 @@ prefixed with `DEMO_` with a few gotchas:
     - `--tlskey`
     - `--topology`
     - `--keyfile`
-  Those variables actually corresponds to artifacts or location handled by the 
+  Those variables actually corresponds to artifacts or location handled by the
   cluster library. Messing up with one of those can break the whole cluster.
 
-- There's an extra `LOG_SEVERITY` variable that can be set to `Debug`, `Info` 
+- There's an extra `LOG_SEVERITY` variable that can be set to `Debug`, `Info`
   and so forth to ajust logging severity for _all_ nodes.
 
 - There's an extra `STATE_DIR` variable used to provide the working directory
   for all nodes. See the [State Directory](#state-directory) section here-below.
 
 - There's an extra `SYSTEM_START_OFFSET` which can be used to tweak the system
-  start offset such that nodes can all correctly boot. 
+  start offset such that nodes can all correctly boot.
 
 - When it make senses, variable values are automatically incremented by the
-  node index. For instance, if you provide `LISTEN=127.0.0.1:3000`, then 
+  node index. For instance, if you provide `LISTEN=127.0.0.1:3000`, then
     - core0 will receive "127.0.0.1:3000"
     - core1 will receive "127.0.0.1:3001"
     - core2 will receive "127.0.0.1:3002"
@@ -86,15 +86,15 @@ $> DEMO_NO_CLIENT_AUTH=True stack exec -- cardano-sl-cluster-demo
 
 ### Relative FilePath
 
-One can provide relative filepath as values for ENV vars. They are computed from 
-the root repository folder, so for instance, providing `./state-demo` will point 
+One can provide relative filepath as values for ENV vars. They are computed from
+the root repository folder, so for instance, providing `./state-demo` will point
 to the directory `$(git rev-parse --show-toplevel)/state-demo`.
 
 
 ### State Directory
 
 By default, each node receives a temporary state directory from the system;
-probably somewhere in `/tmp`. This location can always be overriden by 
+probably somewhere in `/tmp`. This location can always be overriden by
 providing an extra `DEMO_STATE_DIR` variable with a custom location.
 
 Note that, each default has been choosen in such way that they won't conflict
@@ -120,7 +120,7 @@ Options:
   --edges=INT  Number of edge nodes to start [default: 1]
 ```
 
-So, the components of the cluster may be tweaked by providing arguments to the CLI. 
+So, the components of the cluster may be tweaked by providing arguments to the CLI.
 For instance, one could switch off the edge node by doing:
 
 ```
@@ -130,14 +130,14 @@ $> stack exec -- cardano-sl-cluster-demo --edges 0
 ## Known Issues
 
 The current logging implementation of _cardano-sl_ heavily relies on a global mutable state
-stored in a shared `MVar`. Since every node in `cardano-sl-cluster-demo` is spawned from a 
-common parent thread, they all eventually end up sharing the same logging state.  
+stored in a shared `MVar`. Since every node in `cardano-sl-cluster-demo` is spawned from a
+common parent thread, they all eventually end up sharing the same logging state.
 
 This result in a non-friendly behavior where, every logging handler get replaced by the one
-from the next node started by the cluster. So once started, every log entry gets logged _as-if_ 
-they were logged by the last node started (with default parameters, the edge node). 
+from the next node started by the cluster. So once started, every log entry gets logged _as-if_
+they were logged by the last node started (with default parameters, the edge node).
 
-This is why you won't find any log (apart from a couple of lines on start-up) inside log files, 
+This is why you won't find any log (apart from a couple of lines on start-up) inside log files,
 and duplicated lines in one of them (likely `edge.log.pub`); fixing this is non-trivial.
 
 

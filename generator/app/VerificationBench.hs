@@ -42,10 +42,10 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
                      withConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Util (realTime)
-import           Pos.Util.Wlog (LoggerConfig, Severity (Debug), logError,
-                     logInfo, removeAllHandlers, setupLogging')
+import           Pos.Util.Wlog (LoggerConfig, Severity (Debug),
+                     defaultInteractiveConfiguration, logError, logInfo,
+                     removeAllHandlers, setupLogging')
 
 import           Test.Pos.Block.Logic.Mode (BlockTestMode, TestParams (..),
                      runBlockTestMode)

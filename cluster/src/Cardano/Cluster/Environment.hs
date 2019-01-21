@@ -23,15 +23,13 @@ import qualified Prelude
 import           Universum hiding (keys, (%~), (.~), _2)
 
 import           Control.Lens (Field2 (..), at, (%~), (.~), (?~))
-import           Data.Aeson (object, (.=))
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import           Data.Map (Map, (!))
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Data.Time (addUTCTime, defaultTimeLocale, formatTime,
                      getCurrentTime)
@@ -42,11 +40,15 @@ import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory, (</>))
 import           System.IO.Temp (withSystemTempDirectory)
 
+import           Cardano.BM.Data.BackendKind (BackendKind (..))
+import           Cardano.BM.Data.Configuration (Representation (..))
+import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeKind (..))
+import           Cardano.BM.Data.Rotation (RotationParameters (..))
+
 import           Cardano.Cluster.Util (getsModify, indexedForM_, nextNtwrkAddr,
                      ntwrkAddrToNodeAddr, ntwrkAddrToString, rotations,
                      unsafeBoolFromString, unsafeElemIndex,
-                     unsafeNetworkAddressFromString, unsafeSeverityFromString,
-                     (|>))
+                     unsafeNetworkAddressFromString, (|>))
 import           Cardano.Node.Manager (Manager, mkHttpsManagerSettings,
                      newManager)
 import           Cardano.X509.Configuration (CertConfiguration (..),
@@ -66,12 +68,12 @@ import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
                      Topology (..))
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurations)
-import           Pos.Util.Log.LoggerConfig (LoggerConfig)
 import           Pos.Util.UserSecret (UserSecret, defaultUserSecret,
                      mkGenesisWalletUserSecret, usKeys, usPath, usPrimKey,
                      usVss, usWallet)
 import qualified Pos.Util.UserSecret as UserSecret
-import           Pos.Util.Wlog.Compatibility (usingNamedPureLogger)
+import           Pos.Util.Wlog (LoggerConfig, Severity (Debug),
+                     setupFromRepresentation, usingNamedPureLogger)
 import           Pos.Web.Types (TlsParams (..))
 
 
@@ -311,34 +313,38 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             logFilePath =
                 stateDir </> "logs" </> nodeId <> ".log.pub"
 
-            logSeverity =
-                -- NOTE Safe when called after 'withDefaultEnvironment'
-                unsafeSeverityFromString (env ! "LOG_SEVERITY")
+            -- logSeverity =
+            --     -- NOTE Safe when called after 'withDefaultEnvironment'
+            --     unsafeSeverityFromString (env ! "LOG_SEVERITY")
 
-            -- NOTE 1:
-            -- Unfortunately, it appears that JSON instances of types from
-            -- 'Pos.Util.Log.LoggerConfig' don't have the roundtrip property.
-            -- Therefore, trying to parse a file generated from encoding a
-            -- 'LoggerType' is hopeless.
-            -- The representations don't match.
-            loggerConfigJSON = object
-                [ "rotation" .= object
-                    [ "logLimit"  .= (104857600 :: Word64)
-                    , "keepFiles" .= (1 :: Word)
-                    ]
-                , "loggerTree" .= object
-                    [ "severity" .= logSeverity
-                    , "files"    .= [ logFilePath ]
-                    ]
-                ]
+            representation = Representation
+                            { minSeverity     = Debug --logSeverity
+                            , rotation        = RotationParameters
+                                { rpLogLimitBytes = (104857600 :: Word64)
+                                , rpMaxAgeHours   = (1 :: Word)
+                                , rpKeepFilesNum  = (1 :: Word)
+                                }
+                            , setupScribes    = [ScribeDefinition
+                                                    { scKind     = FileTextSK
+                                                    , scName     = T.pack logFilePath
+                                                    , scRotation = Nothing
+                                                    }
+                                                ]
+                            , defaultScribes  = [(FileTextSK, T.pack logFilePath)]
+                            , setupBackends   = [KatipBK]
+                            , defaultBackends = [KatipBK]
+                            , hasEKG          = Nothing
+                            , hasGUI          = Nothing
+                            , options         = HM.empty
+                            }
 
             -- NOTE 'fromJust' is safe because we are making a valid JSON by hand.
-            loggerConfig =
-                fromJust $ Aeson.parseMaybe Aeson.parseJSON $ loggerConfigJSON
+            loggerConfig = setupFromRepresentation representation
+                -- fromJust $ Aeson.parseMaybe Aeson.parseJSON $ loggerConfigJSON
 
             initLoggerConfig = do
                 createDirectoryIfMissing True (takeDirectory loggerConfigPath)
-                BL.writeFile loggerConfigPath (Aeson.encode loggerConfigJSON)
+                BL.writeFile loggerConfigPath (Aeson.encode representation)
         in
             ( Artifact loggerConfig initLoggerConfig
             , env

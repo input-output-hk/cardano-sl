@@ -11,8 +11,6 @@ module Cardano.Wallet.API
        , v1API
        , InternalAPI
        , internalAPI
-       , WIPAPI
-       , wipAPI
        ) where
 
 import           Cardano.Wallet.API.Types (WalletLoggingConfig)
@@ -22,7 +20,6 @@ import           Servant.Swagger.UI (SwaggerSchemaUI)
 
 import qualified Cardano.Wallet.API.Internal as Internal
 import qualified Cardano.Wallet.API.V1 as V1
-import qualified Cardano.Wallet.API.WIP as WIP
 
 -- | The complete API, qualified by its versions. For backward compatibility's
 -- sake, we still expose the old API under @/api/@. Specification is split under
@@ -39,9 +36,8 @@ import qualified Cardano.Wallet.API.WIP as WIP
 -- * 'Cardano.Wallet.Server' contains the main server;
 -- * 'Cardano.Wallet.API.V1.Handlers' contains all the @Handler@s serving the V1 API;
 -- * 'Cardano.Wallet.API.Internal.Handlers' contains all the @Handler@s serving the Internal API;
--- * 'Cardano.Wallet.API.WIP.Handlers' contains @Handler@s still being worked on;
 
-type WalletAPI = LoggingApi WalletLoggingConfig (V1API :<|> InternalAPI :<|> WIPAPI)
+type WalletAPI = LoggingApi WalletLoggingConfig (V1API :<|> InternalAPI)
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy
 
@@ -59,7 +55,3 @@ v1API = Proxy
 type InternalAPI = "api" :> "internal" :> Internal.API
 internalAPI :: Proxy InternalAPI
 internalAPI = Proxy
-
-type WIPAPI = "api" :> "unimplemented" :> WIP.API
-wipAPI :: Proxy WIPAPI
-wipAPI = Proxy

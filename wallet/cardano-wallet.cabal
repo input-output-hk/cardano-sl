@@ -175,18 +175,13 @@ library
       Cardano.Wallet.API.V1.Transactions
       Cardano.Wallet.API.V1.Types
       Cardano.Wallet.API.V1.Wallets
-      Cardano.Wallet.API.WIP
-      Cardano.Wallet.API.WIP.Handlers
       Cardano.Wallet.Action
       Cardano.Wallet.Client
       Cardano.Wallet.Client.Http
       Cardano.Wallet.Kernel
       Cardano.Wallet.Kernel.Accounts
       Cardano.Wallet.Kernel.Actions
-      Cardano.Wallet.Kernel.AddressPool
-      Cardano.Wallet.Kernel.AddressPoolGap
       Cardano.Wallet.Kernel.Addresses
-      Cardano.Wallet.Kernel.EosWalletId
       Cardano.Wallet.Kernel.BListener
       Cardano.Wallet.Kernel.CoinSelection
       Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -199,8 +194,6 @@ library
       Cardano.Wallet.Kernel.DB.BlockContext
       Cardano.Wallet.Kernel.DB.BlockMeta
       Cardano.Wallet.Kernel.DB.Compression
-      Cardano.Wallet.Kernel.DB.EosHdWallet
-      Cardano.Wallet.Kernel.DB.EosHdWallet.Create
       Cardano.Wallet.Kernel.DB.HdWallet
       Cardano.Wallet.Kernel.DB.HdWallet.Create
       Cardano.Wallet.Kernel.DB.HdWallet.Delete
@@ -414,7 +407,6 @@ executable wal-integr-test
       AddressSpecs
       CLI
       Error
-      HardwareWalletSpecs
       QuickCheckSpecs
       RandomStateWalk
       SetupTestEnv
@@ -527,8 +519,6 @@ test-suite unit
       Test.Infrastructure.Generator
       Test.Infrastructure.Genesis
       Test.Spec.Accounts
-      Test.Spec.AddressPool
-      Test.Spec.AddressPoolGap
       Test.Spec.Addresses
       Test.Spec.BlockMetaScenarios
       Test.Spec.CoinSelection

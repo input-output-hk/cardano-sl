@@ -17,7 +17,6 @@ import           Servant ((:<|>) (..), (:>))
 import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM,
                      ServantError (..), client, runClientM)
 
-import           Cardano.Wallet.API (WIPAPI)
 import qualified Cardano.Wallet.API.Internal as Internal
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
@@ -52,14 +51,6 @@ mkHttpClient baseUrl manager = WalletClient
         = \x -> run . updateWalletR x
     , getUtxoStatistics
         = run . getUtxoStatisticsR
-    , postEosWallet
-        = run . postEosWalletR
-    , deleteEosWallet
-        = unNoContent . run . deleteEosWalletR
-    , postUnsignedTransaction
-        = run . postUnsignedTransactionR
-    , postSignedTransaction
-        = run . postSignedTransactionR
     -- account endpoints
     , deleteAccount
         = \x -> unNoContent . run . deleteAccountR x
@@ -139,12 +130,6 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> updateWalletR
         :<|> getUtxoStatisticsR
         = walletsAPI
-
-    postEosWalletR
-        :<|> deleteEosWalletR
-        :<|> postUnsignedTransactionR
-        :<|> postSignedTransactionR
-        = client (Proxy @ WIPAPI)
 
     deleteAccountR
         :<|> getAccountR

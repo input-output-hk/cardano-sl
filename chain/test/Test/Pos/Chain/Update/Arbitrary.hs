@@ -15,10 +15,12 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Chain.Update (BlockVersion (..), BlockVersionData (..),
-                     BlockVersionModifier, SoftforkRule (..), SystemTag (..),
-                     UpdateData (..), UpdatePayload (..), UpdateProposal,
-                     UpdateProposalToSign (..), UpdateVote (..),
-                     VoteState (..), mkUpdateProposalWSign, mkUpdateVote)
+                     BlockVersionModifier, ConsensusEra,
+                     ObftConsensusStrictness, SoftforkRule (..),
+                     SystemTag (..), UpdateData (..), UpdatePayload (..),
+                     UpdateProposal, UpdateProposalToSign (..),
+                     UpdateVote (..), VoteState (..), mkUpdateProposalWSign,
+                     mkUpdateVote)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
 
@@ -41,6 +43,14 @@ instance Arbitrary BlockVersion where
     shrink = genericShrink
 
 instance Arbitrary BlockVersionModifier where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary ConsensusEra where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary ObftConsensusStrictness where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

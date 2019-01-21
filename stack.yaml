@@ -52,7 +52,7 @@ packages:
 
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 59eb60b3a227c615736db9bb1609fd5c20109098
+    commit: 45e1a0eafac774c109704be44ca06fd8cae193ba
   extra-dep: true
 # to be removed when haskell-ip is in the current stackage version
 - location:

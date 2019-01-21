@@ -197,7 +197,7 @@ nix:
 
 extra-deps:
 - git: git@github.com:input-output-hk/iohk-monitoring-framework.git
-  commit: e0d0342b64155c8bd97d193da7fae74f2ef69a0b
+  commit: dae08b9b6ed33ecc50d02d8a9d3945b990276441
 
 # Serokell-specific utilities not on stackage
 - fmt-0.6
@@ -232,7 +232,6 @@ extra-deps:
 - micro-recursion-schemes-5.0.2.2
 - token-bucket-0.1.0.1
 - lzma-clib-5.2.2
-# - iohk-monitoring-framework-0.1.0.0
 
 # katip-0.6.3.0 conflicts with Win32-2.6.1.0
 allow-newer: true

@@ -13,10 +13,15 @@ module Pos.DB.Lrc.Consumer.Delegation
        -- * Functions for getting richmen
        , getDlgRichmen
        , tryGetDlgRichmen
+       , getDlgRichmenObft
        ) where
 
 import           Universum
 
+import           Data.HashSet (fromList)
+
+import           Pos.Chain.Genesis (configGenesisWStakeholders)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Lrc (RichmenComponent (..), RichmenSet)
 import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (EpochIndex)
@@ -70,3 +75,10 @@ getDlgRichmen genesisBvd fname epoch = lrcActionOnEpochReason
 tryGetDlgRichmen
     :: MonadDBRead m => BlockVersionData -> EpochIndex -> m (Maybe RichmenSet)
 tryGetDlgRichmen = getRichmen . dlgRichmenComponent
+
+-- | For OBFT, we retrieve the genesis stakeholders and classify them as the
+-- "richmen". We don't perform any LRC operations here.
+getDlgRichmenObft
+    :: Genesis.Config
+    -> RichmenSet
+getDlgRichmenObft = fromList . configGenesisWStakeholders

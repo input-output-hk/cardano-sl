@@ -1,4 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE RecordWildCards    #-}
 
 -- | Functionality related to 'Address' data type and related types.
 
@@ -105,17 +106,9 @@ import           Pos.Core.Common.StakeholderId
 -- for internal usage.
 newtype Address' = Address'
     { unAddress' :: (AddrType, AddrSpendingData, Attributes AddrAttributes)
-    } deriving (Eq, Show, Generic, Typeable, Bi)
-    -- TODO: We are deriving 'Bi' via 'GeneralizedNewtypeDeriving'. This is
-    -- enabled in the Cabal file. It would be *very bad* if we switched to
-    -- @DeriveAnyClass@ and it was derived via the 'Generic' class instead.
-    --
-    -- When we upgrade to GHC 8.2, we can use @DerivingStrategies@ to write:
-    -- @
-    -- newtype Address' = Address' { ... }
-    --     deriving stock (Eq, Show, Generic, Typeable)
-    --     deriving newtype (Bi)
-    -- @
+    }
+    deriving stock (Eq, Show, Generic)
+    deriving newtype Bi
 
 -- | 'Address' is where you can send coins.
 data Address = Address

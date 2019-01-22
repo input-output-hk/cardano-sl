@@ -5,7 +5,7 @@
 ### Fixes
 
 - Relocate fee sanity check and make it relative to each transaction (rather than absolute) ([CO-446](https://iohk.myjetbrains.com/youtrack/issue/CO-446) [#3993](https://github.com/input-output-hk/cardano-sl/pull/3993)
-- Correction to block retrieval concurrency and exception handling, so that it will recover in case of certain network failure conditions. ([CDEC-658](https://iohk.myjetbrains.com/youtrack/issue/CDEC-658) [#3994](https://github.com/input-output-hk/cardano-sl/pull/3994))
+- Correction to block retrieval concurrency and exception handling, so that it will recover in case of certain network failure conditions. ([CDEC-658](https://iohk.myjetbrains.com/youtrack/issue/CDEC-658) [#3998](https://github.com/input-output-hk/cardano-sl/pull/3998))
 
 
 ## Cardano SL 2.0.0

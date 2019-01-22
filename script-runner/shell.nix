@@ -13,8 +13,8 @@ let
 
     BIN=$(realpath dist/build/testcases/testcases)
 
-    mkdir -pv ~/dedup/poc-state-${cfg.name}
-    cd ~/dedup/poc-state-${cfg.name}
+    mkdir -pv states/poc-state-${cfg.name}
+    cd states/poc-state-${cfg.name}
 
     SCRIPT=none $BIN --configuration-file ${cfgFiles}/configuration.yaml --configuration-key ${cfg.key} --log-console-off --db-path db --keyfile secret.key --log-config ${./log-config.yaml} --logs-prefix logs --topology ${./. + "/topology-${cfg.name}.yaml"}
   '';

@@ -24,6 +24,7 @@ import           Universum hiding (keys, (%~), (.~), _2)
 
 import           Control.Lens (Field2 (..), at, (%~), (.~), (?~))
 import qualified Data.Aeson as Aeson
+import           Data.Aeson.Types (Value (..))
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.HashMap.Strict as HM
@@ -48,7 +49,8 @@ import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.Cluster.Util (getsModify, indexedForM_, nextNtwrkAddr,
                      ntwrkAddrToNodeAddr, ntwrkAddrToString, rotations,
                      unsafeBoolFromString, unsafeElemIndex,
-                     unsafeNetworkAddressFromString, (|>))
+                     unsafeNetworkAddressFromString, unsafeSeverityFromString,
+                     (|>))
 import           Cardano.Node.Manager (Manager, mkHttpsManagerSettings,
                      newManager)
 import           Cardano.X509.Configuration (CertConfiguration (..),
@@ -72,8 +74,8 @@ import           Pos.Util.UserSecret (UserSecret, defaultUserSecret,
                      mkGenesisWalletUserSecret, usKeys, usPath, usPrimKey,
                      usVss, usWallet)
 import qualified Pos.Util.UserSecret as UserSecret
-import           Pos.Util.Wlog (LoggerConfig, Severity (Debug),
-                     setupFromRepresentation, usingNamedPureLogger)
+import           Pos.Util.Wlog (LoggerConfig, setupFromRepresentation,
+                     usingNamedPureLogger)
 import           Pos.Web.Types (TlsParams (..))
 
 
@@ -311,14 +313,28 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                 stateDir </> "logs" </> nodeId <> ".json"
 
             logFilePath =
-                stateDir </> "logs" </> nodeId <> ".log.pub"
+                stateDir </> "logs" </> nodeId <> ".log"
 
-            -- logSeverity =
-            --     -- NOTE Safe when called after 'withDefaultEnvironment'
-            --     unsafeSeverityFromString (env ! "LOG_SEVERITY")
+            -- logFilePathAll = map
+            --     (\(NodeName nodeIdText, _) ->
+            --         stateDir </> "logs" </> (T.unpack nodeIdText) <> ".log")
+            --     nodes
+
+            mapScribes = concat $ map
+                (\(NodeName nodeIdText, _) ->
+                    [ ( "default." <> nodeIdText <> ".slotting"
+                      , String (T.pack ("FileTextSK::" <> stateDir </> "logs" </> (T.unpack nodeIdText) <> ".log")))
+                    , ( "default." <> nodeIdText
+                      , String (T.pack ("FileTextSK::" <> stateDir </> "logs" </> (T.unpack nodeIdText) <> ".log")))
+                    ])
+                nodes
+
+            logSeverity =
+                -- NOTE Safe when called after 'withDefaultEnvironment'
+                unsafeSeverityFromString (env ! "LOG_SEVERITY")
 
             representation = Representation
-                            { minSeverity     = Debug --logSeverity
+                            { minSeverity     = logSeverity
                             , rotation        = RotationParameters
                                 { rpLogLimitBytes = (104857600 :: Word64)
                                 , rpMaxAgeHours   = (1 :: Word)
@@ -335,7 +351,8 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                             , defaultBackends = [KatipBK]
                             , hasEKG          = Nothing
                             , hasGUI          = Nothing
-                            , options         = HM.empty
+                            , options         = HM.fromList
+                                                [ ("mapScribes", HM.fromList mapScribes) ]
                             }
 
             -- NOTE 'fromJust' is safe because we are making a valid JSON by hand.

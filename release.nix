@@ -218,8 +218,24 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       jobsets.tests.shellcheck
       jobsets.tests.stylishHaskell
       jobsets.tests.swaggerSchemaValidation
+      # libs are nix-tools.libs.$pkg -- which contains the lib of the relevant pkg
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.libs)))
+      # exes are nix-tools.exes.$pkg -- which will contain *all* executables of the relevant pkg
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.exes)))
+      # benchmarks are nix-tools.benchmarks.$pkg.$benchmark
+      (builtins.concatLists
+       (builtins.concatLists
+        (lib.attrValues
+         (lib.mapAttrs
+          (name: value: lib.attrValues (lib.mapAttrs (_: allLinux) value))
+          jobsets.nix-tools.benchmarks))))
+#      # tests are nix-tools.tests.$pkg.$test
+#      (builtins.concatLists
+#       (builtins.concatLists
+#        (lib.attrValues
+#	 (lib.mapAttrs
+#	  (name: value: lib.attrValues (lib.mapAttrs (_: allLinux) value))
+#	  jobsets.nix-tools.tests))))
     ];
   });
 }

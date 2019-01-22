@@ -69,7 +69,7 @@ import qualified Text.Parsec as Parsec
 
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
 import           Pos.Infra.Network.DnsDomains (NodeAddr (..))
-import           Pos.Util.Log.Severity (Severity (..))
+import           Pos.Util.Wlog (Severity (..))
 
 
 -- * Miscellaneous

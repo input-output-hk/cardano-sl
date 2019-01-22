@@ -14953,21 +14953,12 @@ testnet_wallet: &testnet_wallet
 
 testnet_wallet_win64: &testnet_wallet_win64
   <<: *testnet_wallet
-  update:
-    <<: *testnet_wallet_update
-    systemTag: win64
 
 testnet_wallet_macos64: &testnet_wallet_macos64
   <<: *testnet_wallet
-  update:
-    <<: *testnet_wallet_update
-    systemTag: macos64
 
 testnet_wallet_linux64: &testnet_wallet_linux64
   <<: *testnet_wallet
-  update:
-    <<: *testnet_wallet_update
-    systemTag: linux
 
 ##############################################################################
 ##                                                                          ##

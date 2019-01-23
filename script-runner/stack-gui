@@ -2,12 +2,19 @@
 
 # usage: ./stack-gui testnet
 
+# UI usage:
+#
+# Up/down arrows: navigate menus
+# Left arrow: return to higher menu level
+# Enter: activate menu items
+# 'q': return to higher menu level or (at toplevel) quit the Brick UI
+
 set -e
 set -x
 
 pushd ..
 stack build cardano-sl-script-runner cardano-sl-node cardano-sl-tools
-export PATH=$(realpath .stack-work/install/x86_64-linux-nix/lts-12.17/8.4.4/bin/):$PATH
+export PATH=$(realpath $(stack path --local-install-root)/bin):$PATH
 popd
 
 NAME=$1

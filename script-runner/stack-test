@@ -2,12 +2,15 @@
 
 # usage: ./stack-test test4.2
 
+# on Mac (and OS's with different `mktemp` versions)
+# usage: ALT_MKTEMP=1 ./stack-test test4.2
+
 set -e
 set -x
 
 pushd ..
 stack build cardano-sl-script-runner cardano-sl-node cardano-sl-tools
-export PATH=$(realpath .stack-work/install/x86_64-linux-nix/lts-12.17/8.4.4/bin/):$PATH
+export PATH=$(realpath $(stack path --local-install-root)/bin):$PATH
 popd
 
 export SCRIPT=$1
@@ -17,7 +20,12 @@ LOGCFG=$(realpath ./log-config.yaml)
 TOPO=$(realpath ./topology-local.yaml)
 POLFILE=$(realpath ../scripts/policies/policy_script-runner.yaml)
 
-T=$(mktemp -d -p . testrun-XXXXXX)
+if [ -z "$ALT_MKTEMP" ]; then
+  T=$(mktemp -d -t . testrun-XXXXXX)
+else
+  T=$(mktemp -d -p . testrun-XXXXXX)
+fi
+
 cd $T
 mkdir poc-state
 

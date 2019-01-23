@@ -145,7 +145,7 @@ instance NFData ConsensusEra
 -- tell us whether we are in the Original or OBFT consensus eras.
 consensusEraBVD :: BlockVersionData -> ConsensusEra
 consensusEraBVD bvd = if obftEraFlagValue == bvdUnlockStakeEpoch bvd
-                         then OBFT ObftLenient
+                         then OBFT ObftStrict
                          else Original
 
 deriveSimpleBi ''BlockVersionData [

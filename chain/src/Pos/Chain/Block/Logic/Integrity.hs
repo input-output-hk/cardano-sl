@@ -83,6 +83,8 @@ verifyFromEither :: Text -> Either Text b -> VerificationRes
 verifyFromEither txt (Left reason) = verifyGeneric [(False, txt <> ": " <> reason)]
 verifyFromEither txt (Right _)     = verifyGeneric [(True, txt)]
 
+{-# ANN verifyHeader ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.

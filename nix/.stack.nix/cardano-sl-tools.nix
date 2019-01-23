@@ -115,7 +115,9 @@
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
             (hsPkgs.yaml)
-          ] ++ pkgs.lib.optional (!system.isWindows) (hsPkgs.unix);
+          ] ++ (if !system.isWindows
+            then [ (hsPkgs.unix) ]
+            else [ (hsPkgs.Win32) ]);
         };
         "cardano-addr-convert" = {
           depends = [

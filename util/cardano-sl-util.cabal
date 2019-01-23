@@ -188,6 +188,7 @@ test-suite util-test
                      , universum >= 1.1.0
                      , unordered-containers
                      , yaml
+
   build-tool-depends: hspec-discover:hspec-discover
 
   ghc-options:         -threaded

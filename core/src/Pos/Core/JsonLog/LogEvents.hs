@@ -30,9 +30,8 @@ module Pos.Core.JsonLog.LogEvents
 import           Universum
 
 import           Control.Monad.Except (MonadError)
-import           Data.Aeson (FromJSON, ToJSON, Value (..), encode, parseJSON,
-                     toEncoding, (.:))
-import           Data.Aeson.Encoding.Internal (pairStr, pairs)
+import           Data.Aeson (FromJSON, ToJSON, Value (..), encode, object,
+                     parseJSON, toJSON, (.:), (.=))
 import           Data.Aeson.Options (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
 import           Data.Aeson.Types (typeMismatch)
@@ -135,18 +134,22 @@ data InvReqDataFlowLog =
     deriving (Eq, Generic, Show)
 
 instance ToJSON InvReqDataFlowLog where
-    toEncoding (InvReqAccepted str rece sen closed) =
-        pairs . pairStr "invReqAccepted"
-            . pairs $ pairStr "reqStart" (toEncoding str)
-            <> pairStr "reqReceived" (toEncoding rece)
-            <> pairStr "reqSent" (toEncoding sen)
-            <> pairStr "reqClosed" (toEncoding closed)
-    toEncoding (InvReqRejected str rece) =
-        pairs . pairStr "invReqRejected"
-            . pairs $ pairStr "reqStart" (toEncoding str)
-            <> pairStr "reqReceived" (toEncoding rece)
-    toEncoding (InvReqException exception) =
-            pairs $ pairStr "invReqException" (toEncoding exception)
+    toJSON (InvReqAccepted str rece sen closed) =
+        object [ "invReqAccepted" .=
+            object [ "reqStart" .=  toJSON str
+                   , "reqReceived" .= toJSON rece
+                   , "reqSent" .= toJSON sen
+                   , "reqClosed" .= toJSON closed
+                   ]
+               ]
+    toJSON (InvReqRejected str rece) =
+        object [ "invReqRejected" .=
+            object [ "reqStart" .= toJSON str
+                   , "reqReceived" .= rece
+                   ]
+               ]
+    toJSON (InvReqException exception) =
+            object [ "invReqException" .= toJSON exception]
 
 instance FromJSON InvReqDataFlowLog where
     parseJSON (Object o)

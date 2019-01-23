@@ -35,10 +35,8 @@ module Pos.Chain.Genesis.Config
 import           Universum
 
 import           Control.Exception (throwIO)
-import           Data.Aeson (FromJSON, ToJSON, Value (..), object, pairs,
-                     parseJSON, toEncoding, toJSON, (.:), (.=))
-import           Data.Aeson.Encoding (pairStr)
-import           Data.Aeson.Encoding.Internal (pair)
+import           Data.Aeson (FromJSON, ToJSON, Value (..), object, parseJSON,
+                     toJSON, (.:), (.=))
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -98,13 +96,6 @@ instance ToJSON StaticConfig where
                ]
     toJSON (GCSpec value) = object ["spec" .= (toJSON value)]
 
-    toEncoding (GCSrc gcsFile gcsHash) =
-        pairs $ "src" `pair`
-            (pairs $ mconcat [ "file" .= gcsFile
-                             , "hash" .= gcsHash
-                             ])
-    toEncoding (GCSpec value) = pairs $ pairStr "spec" (toEncoding value)
-
 instance FromJSON StaticConfig where
     parseJSON (Object o)
         | HM.member "src" o  = GCSrc <$> ((o .: "src") >>= (.: "file"))
@@ -155,7 +146,6 @@ instance FromJSON StaticConfig where
                           avvmBalanceFactor
                           useHeavyDlg
                           seed)
-        | otherwise = fail "Incorrect JSON encoding for StaticConfig"
 
     parseJSON invalid = typeMismatch "StaticConfig" invalid
 

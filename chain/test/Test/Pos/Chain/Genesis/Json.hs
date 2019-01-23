@@ -28,8 +28,9 @@ import           Test.Pos.Core.ExampleHelpers (feedPM, feedPMWithRequiresMagic)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
                      goldenFileCanonicalEquiv, goldenTestCanonicalJSONDec,
                      goldenTestJSONDec, goldenTestJSONPretty, goldenValueEquiv)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow,
-                     roundTripsCanonicalJSONShow)
+import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonYamlShow,
+                     roundTripsCanonicalJSONShow
+                     )
 
 --------------------------------------------------------------------------------
 -- StaticConfig
@@ -65,7 +66,7 @@ golden_StaticConfig_GCSrc =
 
 roundTripStaticConfig :: Property
 roundTripStaticConfig =
-    eachOf 100 (feedPM genStaticConfig) roundTripsAesonShow
+    roundTripsAesonYamlShow 100 (feedPM genStaticConfig)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

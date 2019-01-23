@@ -33,7 +33,6 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?),
                      (.=))
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Encoding.Internal as A
 import qualified Data.Aeson.Types as A
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.Map.Strict as M
@@ -102,7 +101,7 @@ newtype NodeRegion = NodeRegion Text
     deriving (Show, Generic, Ord, Eq, IsString)
 
 instance ToJSON NodeRegion where
-    toEncoding (NodeRegion text) = A.text text
+    toJSON (NodeRegion text) = A.String text
 
 instance FromJSON NodeRegion where
     parseJSON = fmap NodeRegion . parseJSON
@@ -111,7 +110,7 @@ newtype NodeRoutes = NodeRoutes [[NodeName]]
     deriving (Eq, Generic, Show)
 
 instance ToJSON NodeRoutes where
-    toEncoding (NodeRoutes nameList) = A.list toEncoding nameList
+    toJSON (NodeRoutes nameList) = toJSON nameList
 
 instance FromJSON NodeRoutes where
     parseJSON = fmap NodeRoutes . parseJSON

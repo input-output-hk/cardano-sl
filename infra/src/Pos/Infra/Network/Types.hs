@@ -82,7 +82,7 @@ newtype NodeName = NodeName Text
     deriving (Show, Generic, Ord, Eq, IsString)
 
 instance ToJSON NodeName where
-    toEncoding (NodeName name) = A.text name
+    toJSON (NodeName name) = String name
 
 instance ToJSONKey NodeName where
   toJSONKey = ToJSONKeyText f g

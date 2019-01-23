@@ -27,6 +27,7 @@ import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Genesis (configGenesisHash)
 import qualified Pos.Chain.Genesis as Genesis
 import           Pos.Chain.Ssc (SscContext)
 import           Pos.Chain.Update (ConfirmedProposalState (..), SoftwareVersion,
@@ -263,6 +264,7 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar ns = do
     securityParameter <- liftIO $ getSecurityParameter ns
     slotCount         <- liftIO $ getSlotCount ns
     initialUtxo       <- liftIO $ ccUtxo . initCardanoContext <$> getCoreConfig ns
+    genesisHash       <- liftIO $ Node.mkGenesisHash . Genesis.getGenesisHash . configGenesisHash <$> getCoreConfig ns
     feePolicy         <- liftIO $ getFeePolicy ns >>= \case
         Core.TxFeePolicyTxSizeLinear a -> return a
         _ -> fail "getNodeSettings: Unsupported / Unknown fee policy."
@@ -286,7 +288,10 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar ns = do
              securityParameter
         , setSlotCount =
             V1 slotCount
-        , setInitialUtxo = Utxo initialUtxo
+        , setGenesisUtxo =
+            Utxo initialUtxo
+        , setGenesisHash =
+            genesisHash
         }
 
 data SettingsCtx = SettingsCtx

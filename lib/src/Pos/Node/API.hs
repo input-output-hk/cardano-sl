@@ -28,7 +28,7 @@ import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Version (Version, parseVersion, showVersion)
-import           Formatting (bprint, build, shown, (%))
+import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
 import           GHC.Generics (Generic, Rep)
 import qualified Network.Transport as NT
@@ -41,6 +41,7 @@ import           Text.ParserCombinators.ReadP (readP_to_S)
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
+import           Pos.Crypto.Hashing (Hash, hashHexF)
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
@@ -599,6 +600,24 @@ newtype Utxo = Utxo Core.Utxo
     deriving stock (Generic, Show, Eq)
     deriving newtype (ToJSON, FromJSON)
 
+
+newtype GenesisHash = GenesisHash Text
+    deriving stock (Generic, Show, Eq)
+    deriving (ToJSON, FromJSON)
+
+mkGenesisHash :: Hash a -> GenesisHash
+mkGenesisHash a = GenesisHash $ (sformat hashHexF) a
+
+
+instance Example GenesisHash
+instance Arbitrary GenesisHash where
+    arbitrary = error "TODO"
+
+instance ToSchema GenesisHash where
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(Text)
+        pure $ NamedSchema (Just "Hash") s
+
 instance Arbitrary Utxo where
     arbitrary = return $ Utxo Map.empty
 
@@ -608,7 +627,6 @@ instance ToSchema Utxo where
         pure $ NamedSchema (Just "LocalTimeDifference") s
 
 
-instance ToSchema Core.TxOutAux
 
 instance Example Core.TxOut
 instance Arbitrary Core.TxOut where
@@ -640,7 +658,8 @@ data NodeSettings = NodeSettings
     , setMaxTxSize         :: !MaxTxSize
     , setFeePolicy         :: !TxFeePolicy
     , setSecurityParameter :: !SecurityParameter
-    , setInitialUtxo       :: !Utxo
+    , setGenesisUtxo       :: !Utxo
+    , setGenesisHash       :: !GenesisHash
     } deriving (Show, Eq, Generic)
 
 deriveJSON Aeson.defaultOptions ''NodeSettings
@@ -657,7 +676,8 @@ instance ToSchema NodeSettings where
       & ("maxTxSize"          --^ "The largest allowed transaction size")
       & ("feePolicy"          --^ "The fee policy.")
       & ("securityParameter"  --^ "The security parameter.")
-      & ("initialUtxo"  --^ "The first utxo.")
+      & ("genesisUtxo"        --^ "The first utxo.")
+      & ("genesisHash"        --^ "")
     )
 
 instance Arbitrary NodeSettings where
@@ -667,6 +687,7 @@ instance Arbitrary NodeSettings where
                              <*> arbitrary
                              <*> arbitrary
                              <*> pure "0e1c9322a"
+                             <*> arbitrary
                              <*> arbitrary
                              <*> arbitrary
                              <*> arbitrary

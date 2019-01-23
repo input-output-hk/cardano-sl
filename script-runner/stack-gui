@@ -1,0 +1,37 @@
+#!/bin/sh
+
+# usage: ./stack-gui testnet
+
+set -e
+set -x
+
+pushd ..
+stack build cardano-sl-script-runner cardano-sl-node cardano-sl-tools
+export PATH=$(realpath .stack-work/install/x86_64-linux-nix/lts-12.17/8.4.4/bin/):$PATH
+popd
+
+NAME=$1
+
+case "$NAME" in
+  mainnet)
+    KEY=mainnet_full
+    ;;
+  testnet)
+    KEY=testnet_full
+    ;;
+  staging)
+    KEY=mainnet_dryrun_full
+    ;;
+  *)
+    echo "error, you must give a cluster name, '$0 testnet' for example"
+    exit 1
+    ;;
+esac
+CFG=$(realpath ../lib/configuration.yaml)
+LOGCFG=$(realpath ./log-config.yaml)
+TOPO=$(realpath ./topology-${NAME}.yaml)
+
+mkdir -pv states/poc-state-${NAME}
+cd states/poc-state-${NAME}
+
+SCRIPT=none testcases --configuration-file $CFG --configuration-key "$KEY" --log-console-off --db-path db --keyfile secret.key --log-config $LOGCFG --logs-prefix logs --topology $TOPO

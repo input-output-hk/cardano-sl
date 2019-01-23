@@ -19,6 +19,7 @@ import           Pos.Binary.Limit (Limit)
 -- TODO should move these into the Diffusion module subtree.
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
+import           Pos.Chain.Update (ConsensusEra (..), consensusEraBVD)
 import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening,
                      mlMCShares, mlMCVssCertificate)
 import           Pos.Core (StakeholderId)
@@ -46,9 +47,9 @@ sscRelays
     -> [Relay]
 sscRelays logic =
     [ commitmentRelay logic (postSscCommitment logic)
-    , openingRelay (postSscOpening logic)
+    , openingRelay logic (postSscOpening logic)
     , sharesRelay logic (postSscShares logic)
-    , vssCertRelay (postSscVssCert logic)
+    , vssCertRelay logic (postSscVssCert logic)
     ]
 
 -- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
@@ -61,23 +62,25 @@ commitmentRelay
     :: Logic IO
     -> KV.KeyVal (Tagged MCCommitment StakeholderId) MCCommitment IO
     -> Relay
-commitmentRelay logic kv = sscRelay kv (mlMCCommitment <$> getAdoptedBVData logic)
+commitmentRelay logic kv = sscRelay logic kv (mlMCCommitment <$> getAdoptedBVData logic)
 
 openingRelay
-    :: KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening IO
+    :: Logic IO
+    -> KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening IO
     -> Relay
-openingRelay kv = sscRelay kv (pure mlMCOpening)
+openingRelay logic kv = sscRelay logic kv (pure mlMCOpening)
 
 sharesRelay
     :: Logic IO
     -> KV.KeyVal (Tagged MCShares StakeholderId) MCShares IO
     -> Relay
-sharesRelay logic kv = sscRelay kv (mlMCShares <$> getAdoptedBVData logic)
+sharesRelay logic kv = sscRelay logic kv (mlMCShares <$> getAdoptedBVData logic)
 
 vssCertRelay
-    :: KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate IO
+    :: Logic IO
+    -> KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate IO
     -> Relay
-vssCertRelay kv = sscRelay kv (pure mlMCVssCertificate)
+vssCertRelay logic kv = sscRelay logic kv (pure mlMCVssCertificate)
 
 sscRelay
     :: ( Buildable contents
@@ -87,16 +90,24 @@ sscRelay
        , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
        )
-    => KV.KeyVal (Tagged contents StakeholderId) contents IO
+    => Logic IO
+    -> KV.KeyVal (Tagged contents StakeholderId) contents IO
     -> IO (Limit contents)
     -> Relay
-sscRelay kv mkLimit =
+sscRelay logic kv mkLimit =
     InvReqData NoMempool $
         InvReqDataParams
           { invReqMsgType = MsgMPC
           , contentsToKey = KV.toKey kv
-          , handleInv = \_ -> KV.handleInv kv
-          , handleReq = \_ -> KV.handleReq kv
-          , handleData = \_ -> KV.handleData kv
+          , handleInv = \_ x -> ifObft False $ (KV.handleInv kv) x
+          , handleReq = \_ x -> ifObft Nothing $ (KV.handleReq kv) x
+          , handleData = \_ x -> ifObft False $ (KV.handleData kv) x
           , irdpMkLimit = mkLimit
           }
+  where
+    ifObft :: a -> IO a -> IO a
+    ifObft d action = do
+        era <- consensusEraBVD <$> (getAdoptedBVData logic)
+        case era of
+            OBFT _ -> pure d
+            _      -> action

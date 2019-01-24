@@ -1,7 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module OrphanedLenses where
+module OrphanedLenses () where
 
 import           Control.Lens (makeLensesWith)
 

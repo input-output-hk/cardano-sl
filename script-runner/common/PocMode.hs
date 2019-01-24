@@ -49,8 +49,6 @@ import           Data.Default (Default (def))
 import qualified Data.Map as Map
 import           Prelude (show)
 
-import           BrickUITypes (CustomEvent)
-
 import           Pos.Chain.Block (HasSlogContext (slogContext),
                      HasSlogGState (slogGState))
 import           Pos.Chain.Genesis as Genesis (Config)
@@ -59,8 +57,7 @@ import           Pos.Client.KeyStorage (MonadKeys (modifySecret),
                      MonadKeysRead (getSecret), getSecretDefault,
                      modifySecretDefault)
 import           Pos.Context (HasNodeContext (nodeContext))
-import           Pos.Core (SlotCount, SlotId)
-import           Pos.Core (HasPrimaryKey (primaryKey))
+import           Pos.Core (HasPrimaryKey (primaryKey), SlotCount, SlotId)
 import           Pos.Core.JsonLog (CanJsonLog (jsonLog))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (misbehaviorMetrics),
                      MonadReporting (report))
@@ -263,6 +260,6 @@ instance MonadKeys PocMode where
 type instance MempoolExt PocMode = EmptyMempoolExt
 
 instance MonadTxpLocal PocMode where
-    txpNormalize pm = withReaderT _acRealModeContext . txNormalize pm
+    txpNormalize pm tvr = withReaderT _acRealModeContext . txNormalize pm tvr
     txpProcessTx genesisConfig txpConfig = withReaderT _acRealModeContext . txProcessTransaction genesisConfig txpConfig
 

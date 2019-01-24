@@ -19,7 +19,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as T
 import qualified Data.Vector as V
 import           Formatting
-import           Universum hiding (HashMap, list, on, state, when)
+import           Universum hiding (HashMap, list, on, state)
 
 import           Brick (App (App, appAttrMap, appChooseCursor, appDraw, appHandleEvent, appStartEvent),
                      BrickEvent (AppEvent, VtyEvent), EventM, Next, Widget,
@@ -143,8 +143,8 @@ proposalUi state = do
   let
     renderProposal :: Either ConfirmedProposalState (UpId,ProposalState) -> Widget Name
     renderProposal (Left proposal) = renderUpdateProposalLabel (str "Confirmed: ") (cpsUpdateProposal proposal)
-    renderProposal (Right (upid, PSUndecided prop)) = renderUpdateProposalLabel (str "Undecided: ") (upsProposal prop)
-    renderProposal (Right (upid, PSDecided prop)) = renderUpdateProposalLabel (str "Decided: ") (upsProposal $ dpsUndecided prop)
+    renderProposal (Right (_upid, PSUndecided prop)) = renderUpdateProposalLabel (str "Undecided: ") (upsProposal prop)
+    renderProposal (Right (_upid, PSDecided prop)) = renderUpdateProposalLabel (str "Decided: ") (upsProposal $ dpsUndecided prop)
   let
     renderProposalState :: (UpId, ProposalState) -> Widget Name
     renderProposalState (upid, PSDecided prop) = do

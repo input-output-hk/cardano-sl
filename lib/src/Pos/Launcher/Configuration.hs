@@ -31,6 +31,7 @@ module Pos.Launcher.Configuration
        , ccNode_L
        , ccWallet_L
        , ccReqNetMagic_L
+       , ccTxValRules_L
 
        , cfoFilePath_L
        , cfoKey_L

@@ -183,7 +183,7 @@ let
           cp ${./log-configs/daedalus.yaml}                                                                           $out/daedalus/log-config-prod.yaml
           cp ${./lib/configuration.yaml}                                                                              $out/daedalus/
           cp ${./lib}/*genesis*.json                                                                                  $out/daedalus/
-          (cd $out && ${pkgs.zip}/bin/zip -9 CardanoSL.zip daedalus/)
+          (cd $out && ${pkgs.zip}/bin/zip -9 -r CardanoSL.zip daedalus/)
           # add CardanoSL.zip to the hydra-build-products to make
           # hydra provide a link to it.
           mkdir -p $out/nix-support

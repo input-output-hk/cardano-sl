@@ -44,6 +44,7 @@
           (hsPkgs.filepath)
           (hsPkgs.formatting)
           (hsPkgs.hashable)
+          (hsPkgs.iohk-monitoring)
           (hsPkgs.katip)
           (hsPkgs.lens)
           (hsPkgs.lrucache)

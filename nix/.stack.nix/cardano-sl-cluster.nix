@@ -44,6 +44,7 @@
           (hsPkgs.filepath)
           (hsPkgs.formatting)
           (hsPkgs.iproute)
+          (hsPkgs.iohk-monitoring)
           (hsPkgs.lens)
           (hsPkgs.optparse-applicative)
           (hsPkgs.parsec)
@@ -54,6 +55,7 @@
           (hsPkgs.time)
           (hsPkgs.tls)
           (hsPkgs.universum)
+          (hsPkgs.unordered-containers)
         ];
       };
       exes = {

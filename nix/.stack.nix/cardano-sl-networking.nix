@@ -77,8 +77,10 @@
           depends = [
             (hsPkgs.async)
             (hsPkgs.base)
+            (hsPkgs.cardano-sl-networking)
             (hsPkgs.cardano-sl-util)
             (hsPkgs.contravariant)
+            (hsPkgs.iohk-monitoring)
             (hsPkgs.lens)
             (hsPkgs.MonadRandom)
             (hsPkgs.mtl)
@@ -103,6 +105,7 @@
             (hsPkgs.safe-exceptions)
             (hsPkgs.serokell-util)
             (hsPkgs.text)
+            (hsPkgs.cardano-sl-networking)
           ];
         };
         "bench-log-reader" = {
@@ -121,6 +124,7 @@
             (hsPkgs.text)
             (hsPkgs.formatting)
             (hsPkgs.unliftio-core)
+            (hsPkgs.cardano-sl-networking)
           ];
         };
       };

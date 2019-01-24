@@ -196,7 +196,7 @@ nix:
   shell-file: nix/stack-shell.nix
 
 extra-deps:
-- git: git@github.com:input-output-hk/iohk-monitoring-framework.git
+- git: https://github.com/input-output-hk/iohk-monitoring-framework.git
   commit: dae08b9b6ed33ecc50d02d8a9d3945b990276441
 
 # Serokell-specific utilities not on stackage

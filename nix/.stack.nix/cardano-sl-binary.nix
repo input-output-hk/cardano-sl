@@ -39,7 +39,7 @@
           (hsPkgs.formatting)
           (hsPkgs.hashable)
           (hsPkgs.lens)
-          (hsPkgs.micro-recursion-schemes)
+          (hsPkgs.recursion-schemes)
           (hsPkgs.safecopy)
           (hsPkgs.safe-exceptions)
           (hsPkgs.serokell-util)

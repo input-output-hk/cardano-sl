@@ -13951,11 +13951,11 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , hspec-discover
 , lens
-, micro-recursion-schemes
 , mtl
 , pretty-show
 , QuickCheck
 , quickcheck-instances
+, recursion-schemes
 , safe-exceptions
 , safecopy
 , serokell-util
@@ -13994,7 +13994,7 @@ digest
 formatting
 hashable
 lens
-micro-recursion-schemes
+recursion-schemes
 safe-exceptions
 safecopy
 serokell-util
@@ -14505,6 +14505,7 @@ license = stdenv.lib.licenses.mit;
 , docopt
 , filepath
 , formatting
+, iohk-monitoring
 , iproute
 , lens
 , optparse-applicative
@@ -14518,6 +14519,7 @@ license = stdenv.lib.licenses.mit;
 , time
 , tls
 , universum
+, unordered-containers
 }:
 mkDerivation {
 
@@ -14550,6 +14552,7 @@ containers
 directory
 filepath
 formatting
+iohk-monitoring
 iproute
 lens
 optparse-applicative
@@ -14561,6 +14564,7 @@ text
 time
 tls
 universum
+unordered-containers
 ];
 executableHaskellDepends = [
 ansi-terminal
@@ -16656,6 +16660,7 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , hspec-discover
+, iohk-monitoring
 , katip
 , lens
 , lrucache
@@ -16719,6 +16724,7 @@ file-embed
 filepath
 formatting
 hashable
+iohk-monitoring
 katip
 lens
 lrucache
@@ -45471,6 +45477,104 @@ doCheck = false;
 homepage = "http://snapframework.com/";
 description = "HAProxy protocol 1.5 support for io-streams";
 license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"iohk-monitoring" = callPackage
+({
+  mkDerivation
+, aeson
+, array
+, async
+, auto-update
+, base
+, bytestring
+, clock
+, containers
+, contravariant
+, directory
+, download
+, ekg
+, ekg-core
+, exceptions
+, fetchgit
+, filepath
+, katip
+, lens
+, mtl
+, random
+, safe-exceptions
+, scientific
+, stdenv
+, stm
+, template-haskell
+, text
+, time
+, time-units
+, transformers
+, unix
+, unordered-containers
+, vector
+, yaml
+}:
+mkDerivation {
+
+pname = "iohk-monitoring";
+version = "0.1.1.0";
+src = fetchgit {
+
+url = "git@github.com:input-output-hk/iohk-monitoring-framework.git";
+sha256 = "1c48frgvcxmawhc8zalgd83zzr2j0h0kxawgdimmzlcdxrf506gd";
+rev = "dae08b9b6ed33ecc50d02d8a9d3945b990276441";
+fetchSubmodules = true;
+
+};
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+array
+async
+auto-update
+base
+bytestring
+clock
+containers
+contravariant
+directory
+ekg
+ekg-core
+exceptions
+filepath
+katip
+lens
+mtl
+safe-exceptions
+scientific
+stm
+template-haskell
+text
+time
+time-units
+transformers
+unix
+unordered-containers
+vector
+yaml
+];
+executableHaskellDepends = [
+async
+base
+bytestring
+download
+mtl
+random
+text
+unix
+];
+doHaddock = false;
+doCheck = false;
+description = "logging, benchmarking and monitoring framework";
+license = stdenv.lib.licenses.mit;
 
 }) {};
 "ip" = callPackage

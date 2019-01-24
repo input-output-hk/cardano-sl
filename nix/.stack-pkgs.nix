@@ -80,6 +80,7 @@
         universum = ./.stack.nix/universum.nix;
         serokell-util = ./.stack.nix/serokell-util.nix;
         inspector = ./.stack.nix/inspector.nix;
+        iohk-monitoring = ./.stack.nix/iohk-monitoring.nix;
       };
     };
   resolver = "lts-12.17";

@@ -13951,11 +13951,11 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , hspec-discover
 , lens
-, micro-recursion-schemes
 , mtl
 , pretty-show
 , QuickCheck
 , quickcheck-instances
+, recursion-schemes
 , safe-exceptions
 , safecopy
 , serokell-util
@@ -13994,7 +13994,7 @@ digest
 formatting
 hashable
 lens
-micro-recursion-schemes
+recursion-schemes
 safe-exceptions
 safecopy
 serokell-util

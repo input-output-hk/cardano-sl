@@ -42,6 +42,23 @@ power user. It's simpler to have only one global config file.
 
 If using NixOS, see [`iohk-binary-cache.nix`](../nix/iohk-binary-cache.nix).
 
+## Using command-line options
+
+Rather than configuring the binary caches, they can be given as options to
+`nix-build`, like so:
+
+```sh
+$ nix-build \
+  --option substituters "https://hydra.iohk.io https://cache.nixos.org" \
+  --option trusted-substituters "" \
+  --option trusted-public-keys "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" \
+  default.nix
+```
+
+The user must be a "trusted" nix user. This can be set in [nix.conf](https://nixos.org/nix/manual/#name-11).
+For NixOS systems, it can be set by the `nix.trustedUsers` option in
+`/etc/nixos/configuration.nix`.
+
 ## Other configuration
 
 You may wish to adjust the `max-jobs` and `cores` settings in

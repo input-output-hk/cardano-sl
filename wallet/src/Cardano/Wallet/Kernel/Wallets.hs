@@ -1,16 +1,13 @@
 module Cardano.Wallet.Kernel.Wallets (
       createHdWallet
-    , createEosHdWallet
     , updateHdWallet
     , updatePassword
     , deleteHdWallet
-    , deleteEosHdWallet
     , defaultHdAccountId
     , defaultHdAddressId
     , defaultHdAddress
       -- * Errors
     , CreateWalletError(..)
-    , CreateEosWalletError(..)
     , UpdateWalletPasswordError(..)
     -- * Internal & testing use only
     , createWalletHdRnd
@@ -28,18 +25,15 @@ import           Data.Acid.Advanced (update')
 import           Pos.Core (Address, Timestamp)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PassPhrase,
-                     PublicKey, changeEncPassphrase, checkPassMatches,
-                     emptyPassphrase, firstHardened, safeDeterministicKeyGen)
+                     changeEncPassphrase, checkPassMatches, emptyPassphrase,
+                     firstHardened, safeDeterministicKeyGen)
 
 import           Cardano.Mnemonic (Mnemonic)
 import qualified Cardano.Mnemonic as Mnemonic
 import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
-import           Cardano.Wallet.Kernel.AddressPoolGap (AddressPoolGap)
-import           Cardano.Wallet.Kernel.DB.AcidState (CreateEosHdWallet (..),
-                     CreateHdWallet (..), DeleteHdRoot (..), RestoreHdWallet,
+import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
+                     DeleteHdRoot (..), RestoreHdWallet,
                      UpdateHdRootPassword (..), UpdateHdWallet (..))
-import           Cardano.Wallet.Kernel.DB.EosHdWallet (EosHdRoot (..))
-import qualified Cardano.Wallet.Kernel.DB.EosHdWallet.Create as EosHD
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel,
                      HdAccountId (..), HdAccountIx (..), HdAddress,
                      HdAddressId (..), HdAddressIx (..), HdRoot, HdRootId,
@@ -49,7 +43,6 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.Decrypt (decryptHdLvl2DerivationPath,
                      eskToWalletDecrCredentials)
-import           Cardano.Wallet.Kernel.EosWalletId (genEosWalletId)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      walletProtocolMagic, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -84,22 +77,6 @@ instance Buildable CreateWalletError where
         bprint "CreateWalletDefaultAddressDerivationFailed"
 
 instance Show CreateWalletError where
-    show = formatToString build
-
-data CreateEosWalletError =
-      CreateEosWalletFailed EosHD.CreateEosHdRootError
-      -- ^ When trying to create the 'EosWallet', the DB operation failed.
-
-instance Arbitrary CreateEosWalletError where
-    arbitrary = oneof
-        [ CreateEosWalletFailed . EosHD.CreateEosHdRootExists <$> arbitrary
-        ]
-
-instance Buildable CreateEosWalletError where
-    build (CreateEosWalletFailed dbOperation) =
-        bprint ("CreateEosWalletFailed " % F.build) dbOperation
-
-instance Show CreateEosWalletError where
     show = formatToString build
 
 data UpdateWalletPasswordError =
@@ -242,37 +219,6 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
 
                  Right hdRoot -> return (Right hdRoot)
 
--- | Creates a new EOS HD 'Wallet'.
-createEosHdWallet :: PassiveWallet
-                  -> [PublicKey]
-                  -- ^ External wallet's accounts public keys.
-                  -> AddressPoolGap
-                  -- ^ Address pool gap for this wallet.
-                  -> AssuranceLevel
-                  -- ^ The 'AssuranceLevel' for this wallet, namely after how many
-                  -- blocks each transaction is considered 'adopted'. This translates
-                  -- in the frontend with a different threshold for the confirmation
-                  -- range (@low@, @medium@, @high@).
-                  -> WalletName
-                  -- ^ The name for this wallet.
-                  -> IO (Either CreateEosWalletError EosHdRoot)
-createEosHdWallet pw accountsPKs addressPoolGap assuranceLevel walletName = do
-    -- Here, we review the definition of a wallet down to a list of account public keys with
-    -- no relationship whatsoever from the wallet's point of view. New addresses can be derived
-    -- for each account at will and discovered using the address pool discovery algorithm
-    -- described in BIP-44. Public keys are managed and provided from an external sources.
-    newEosWalletId <- genEosWalletId
-    let newEosRoot = EosHdRoot newEosWalletId
-                               walletName
-                               assuranceLevel
-                               addressPoolGap
-    res <- update' (pw ^. wallets) $ CreateEosHdWallet newEosRoot accountsPKs
-    return $ case res of
-        Left e@(EosHD.CreateEosHdRootExists _) ->
-            Left $ CreateEosWalletFailed e
-        Right _ ->
-            Right newEosRoot
-
 -- | Creates an HD wallet where new accounts and addresses are generated
 -- via random index derivation.
 --
@@ -392,17 +338,6 @@ deleteHdWallet nm wallet rootId = do
             -- Fix properly as part of [CBR-404].
             Keystore.delete nm (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
             return $ Right ()
-
-deleteEosHdWallet :: PassiveWallet
-                  -> HD.HdRootId
-                  -> IO (Either HD.UnknownHdRoot ())
-deleteEosHdWallet wallet rootId = do
-    -- STEP 1: Remove the HdRoot via an acid-state transaction which will
-    --         also delete any associated accounts and addresses.
-    res <- update' (wallet ^. wallets) $ DeleteHdRoot rootId
-    case res of
-        Left err -> return (Left err)
-        Right () -> return (Right ())
 
 {-------------------------------------------------------------------------------
   Wallet update

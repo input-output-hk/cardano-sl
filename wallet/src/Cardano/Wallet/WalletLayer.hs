@@ -5,12 +5,10 @@ module Cardano.Wallet.WalletLayer
     , CreateWallet(..)
     -- ** Errors
     , CreateWalletError(..)
-    , CreateEosWalletError(..)
     , GetWalletError(..)
     , UpdateWalletError(..)
     , UpdateWalletPasswordError(..)
     , DeleteWalletError(..)
-    , DeleteEosWalletError(..)
     , GetUtxosError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
@@ -24,8 +22,6 @@ module Cardano.Wallet.WalletLayer
     , DeleteAccountError(..)
     , UpdateAccountError(..)
     , ImportWalletError(..)
-    , NewUnsignedTransactionError(..)
-    , SubmitSignedTransactionError(..)
     ) where
 
 import           Universum
@@ -49,13 +45,11 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (APIResponse, SliceOf (..))
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
-                     AccountIndex, AccountUpdate, Address, EosWallet,
-                     EosWalletId, ForceNtpCheck, NewAccount, NewAddress,
-                     NewEosWallet, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, SignedTransaction,
-                     SpendingPassword, Transaction, UnsignedTransaction,
-                     V1 (..), Wallet, WalletAddress, WalletId, WalletImport,
-                     WalletUpdate)
+                     AccountIndex, AccountUpdate, Address, ForceNtpCheck,
+                     NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
+                     PasswordUpdate, Payment, Redemption, SpendingPassword,
+                     Transaction, V1 (..), Wallet, WalletAddress, WalletId,
+                     WalletImport, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -93,23 +87,6 @@ instance Arbitrary CreateWalletError where
 instance Buildable CreateWalletError where
     build (CreateWalletError kernelError) =
         bprint ("CreateWalletError " % build) kernelError
-
-data CreateEosWalletError =
-    CreateEosWalletError Kernel.CreateEosWalletError
-
--- | Unsound show instance needed for the 'Exception' instance.
-instance Show CreateEosWalletError where
-    show = formatToString build
-
-instance Exception CreateEosWalletError
-
-instance Arbitrary CreateEosWalletError where
-    arbitrary = oneof [ CreateEosWalletError <$> arbitrary
-                      ]
-
-instance Buildable CreateEosWalletError where
-    build (CreateEosWalletError kernelError) =
-        bprint ("CreateEosWalletError " % build) kernelError
 
 data GetWalletError =
       GetWalletError Kernel.UnknownHdRoot
@@ -186,19 +163,6 @@ instance Buildable DeleteWalletError where
         bprint ("DeleteWalletWalletIdDecodingFailed " % build) txt
     build (DeleteWalletError kernelError) =
         bprint ("DeleteWalletError " % build) kernelError
-
-data DeleteEosWalletError =
-    DeleteEosWalletError Kernel.UnknownHdRoot
-
--- | Unsound show instance needed for the 'Exception' instance.
-instance Show DeleteEosWalletError where
-    show = formatToString build
-
-instance Exception DeleteEosWalletError
-
-instance Buildable DeleteEosWalletError where
-    build (DeleteEosWalletError kernelError) =
-        bprint ("DeleteEosWalletError " % build) kernelError
 
 data GetUtxosError =
       GetUtxosWalletIdDecodingFailed Text
@@ -423,7 +387,6 @@ data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- wallets
       createWallet         :: CreateWallet -> m (Either CreateWalletError Wallet)
-    , createEosWallet      :: NewEosWallet -> m (Either CreateEosWalletError EosWallet)
     , getWallets           :: m (IxSet Wallet)
     , getWallet            :: WalletId -> m (Either GetWalletError Wallet)
     , updateWallet         :: WalletId
@@ -433,7 +396,6 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> PasswordUpdate
                            -> m (Either UpdateWalletPasswordError Wallet)
     , deleteWallet         :: WalletId -> m (Either DeleteWalletError ())
-    , deleteEosWallet      :: EosWalletId -> m (Either DeleteEosWalletError ())
     , getUtxos             :: WalletId
                            -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts
@@ -525,26 +487,6 @@ data ActiveWalletLayer m = ActiveWalletLayer {
                    -- The payment we need to perform.
                    -> m (Either EstimateFeesError Coin)
 
-      -- | Prepares unsigned transaction. Please note that this function does /not/
-      -- perform a payment, it just creates a new transaction which will be signed
-      -- and submitted to the blockchain later.
-      --
-      -- It returns transaction and list of the source addresses with corresponding
-      -- derivation paths. These addresses and paths will be used by third party to
-      -- provide a proof that it has a right to spend money from these addresses.
-    , createUnsignedTx :: InputGrouping
-                       -- An preference on how to group inputs during coin selection
-                       -> ExpenseRegulation
-                       -- Who pays the fee, if the sender or the receivers.
-                       -> Payment
-                       -- The payment we need to perform.
-                       -> m (Either NewUnsignedTransactionError UnsignedTransaction)
-
-      -- | Takes externally-signed transaction and submits it to the blockchain.
-      -- The result of 'submitSignedTx' is equal to 'pay'.
-    , submitSignedTx :: SignedTransaction
-                     -> m (Either SubmitSignedTransactionError (Tx, TxMeta))
-
       -- | Redeem ada
     , redeemAda :: Redemption -> m (Either RedeemAdaError (Tx, TxMeta))
 
@@ -628,51 +570,3 @@ instance Buildable RedeemAdaError where
         bprint ("RedeemAdaWalletIdDecodingFailed " % build) txt
     build (RedeemAdaInvalidRedemptionCode txt) =
         bprint ("RedeemAdaInvalidRedemptionCode " % build) txt
-
-data NewUnsignedTransactionError =
-      NewUnsignedTransactionError Kernel.NewTransactionError
-    | NewTransactionWalletIdDecodingFailed Text
-
-instance Show NewUnsignedTransactionError where
-    show = formatToString build
-
-instance Exception NewUnsignedTransactionError
-
-instance Buildable NewUnsignedTransactionError where
-    build (NewUnsignedTransactionError err) =
-        bprint ("NewUnsignedTransactionError " % build) err
-    build (NewTransactionWalletIdDecodingFailed txt) =
-        bprint ("NewTransactionWalletIdDecodingFailed " % build) txt
-
-data SubmitSignedTransactionError =
-      SubmitSignedTransactionError Kernel.PaymentError
-    | SubmitSignedTransactionWalletIdDecodingFailed Text
-    | SubmitSignedTransactionNotBase16Format
-    | SubmitSignedTransactionUnableToDecode
-    | SubmitSignedTransactionInvalidSrcAddress
-    | SubmitSignedTransactionSigNotBase16Format
-    | SubmitSignedTransactionInvalidSig
-    | SubmitSignedTransactionInvalidPK
-
-instance Show SubmitSignedTransactionError where
-    show = formatToString build
-
-instance Exception SubmitSignedTransactionError
-
-instance Buildable SubmitSignedTransactionError where
-    build (SubmitSignedTransactionError err) =
-        bprint ("NewUnsignedTransactionError " % build) err
-    build (SubmitSignedTransactionWalletIdDecodingFailed txt) =
-        bprint ("NewTransactionWalletIdDecodingFailed " % build) txt
-    build SubmitSignedTransactionNotBase16Format =
-        bprint ("SubmitSignedTransactionNotBase16Format")
-    build SubmitSignedTransactionUnableToDecode =
-        bprint ("SubmitSignedTransactionUnableToDecode")
-    build SubmitSignedTransactionInvalidSrcAddress =
-        bprint ("SubmitSignedTransactionInvalidSrcAddress")
-    build SubmitSignedTransactionSigNotBase16Format =
-        bprint ("SubmitSignedTransactionSigNotBase16Format")
-    build SubmitSignedTransactionInvalidSig =
-        bprint ("SubmitSignedTransactionInvalidSig")
-    build SubmitSignedTransactionInvalidPK =
-        bprint ("SubmitSignedTransactionInvalidPK")

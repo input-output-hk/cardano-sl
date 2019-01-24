@@ -169,10 +169,6 @@ toWallet db hdRoot = V1.Wallet {
     , walCreatedAt                  = V1 createdAt
     , walAssuranceLevel             = v1AssuranceLevel
     , walSyncState                  = V1.Synced
-    -- FIXME: Now we have 2 types of wallet: regular and external.
-    -- Currently there's only regular wallets, it will be changed in
-    -- next CHW-related PRs.
-    , walType                       = V1.WalletRegular
     }
   where
     (hasSpendingPassword, mbLastUpdate) =

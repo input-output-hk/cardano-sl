@@ -36,15 +36,10 @@ module Cardano.Wallet.API.V1.Types (
   , WalletUpdate (..)
   , WalletId (..)
   , exampleWalletId
-  , WalletType (..)
   , WalletOperation (..)
   , SpendingPassword
-  , EosWallet (..)
-  , NewEosWallet (..)
-  , WalletAndTxHistory (..)
   -- * Addresses
   , AddressOwnership (..)
-  , AddressIndex
   , AddressValidity (..)
   -- * Accounts
   , Account (..)
@@ -60,12 +55,6 @@ module Cardano.Wallet.API.V1.Types (
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
-  , AddressPath
-  , AddressLevel
-  , addressLevelToWord32
-  , word32ToAddressLevel
-  , IsChangeAddress (..)
-  , mkAddressPathBIP44
   -- * Payments
   , Payment (..)
   , PaymentSource (..)
@@ -74,17 +63,7 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionType (..)
   , TransactionDirection (..)
   , TransactionStatus(..)
-  , TransactionAsBase16
-  , mkTransactionAsBase16
-  , rawTransactionAsBase16
-  , TransactionSignatureAsBase16
-  , mkTransactionSignatureAsBase16
-  , rawTransactionSignatureAsBase16
   , EstimatedFees (..)
-  , AddressAndPath (..)
-  , UnsignedTransaction (..)
-  , AddressWithProof (..)
-  , SignedTransaction (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
   -- * Importing a wallet from a backup
@@ -123,8 +102,6 @@ module Cardano.Wallet.API.V1.Types (
   , ErrNotEnoughMoney(..)
   , toServantError
   , toHttpErrorStatus
-  -- * EOS-wallet id
-  , module Cardano.Wallet.Kernel.EosWalletId
   , module Cardano.Wallet.Types.UtxoStatistics
   ) where
 
@@ -170,13 +147,10 @@ import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..),
 import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
                      jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
-import           Cardano.Wallet.Kernel.AddressPoolGap (AddressPoolGap)
-import           Cardano.Wallet.Kernel.EosWalletId (EosWalletId)
 import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
 
 import           Cardano.Mnemonic (Mnemonic)
-import qualified Pos.Binary.Class as Bi
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as Core
 import qualified Pos.Core as Core
@@ -500,102 +474,6 @@ instance BuildableSafeGen NewWallet where
         newwalName
         newwalOperation
 
--- | Type for representation of serialized transaction in Base16-format.
--- We use it for external wallets (to send/receive raw transaction during
--- external signing).
-newtype TransactionAsBase16 = TransactionAsBase16Unsafe
-    { eoswalTransactionAsBase16 :: Text
-    } deriving (Eq, Generic, Ord, Show)
-
-deriveJSON Aeson.defaultOptions ''TransactionAsBase16
-instance Arbitrary TransactionAsBase16 where
-    arbitrary = TransactionAsBase16Unsafe <$> pure
-        "839f8200d8185826825820e981442c2be40475bb42193ca35907861d90715854de6fcba767b98f1789b51219439aff9f8282d818584a83581ce7fe8e468d2249f18cd7bf9aec0d4374b7d3e18609ede8589f82f7f0a20058208200581c240596b9b63fc010c06fbe92cf6f820587406534795958c411e662dc014443c0688e001a6768cc861b0037699e3ea6d064ffa0"
-
-instance ToSchema TransactionAsBase16 where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "eoswal" (\(--^) props -> props
-            & ("transactionAsBase16" --^ "Serialized transaction in Base16-format.")
-        )
-
-deriveSafeBuildable ''TransactionAsBase16
-instance BuildableSafeGen TransactionAsBase16 where
-    buildSafeGen sl TransactionAsBase16Unsafe{..} = bprint ("{"
-        %" transactionAsBase16="%buildSafe sl
-        %" }")
-        eoswalTransactionAsBase16
-
--- | Type for representation of transaction signature in Base16-format.
--- We use it for external wallet. Please note that technically there's no
--- signature of transaction, but signature of the hash of transaction.
-newtype TransactionSignatureAsBase16 = TransactionSignatureAsBase16Unsafe
-    { rawTransactionSignatureAsBase16 :: Text
-    } deriving (Eq, Generic, Ord, Show)
-
-deriveJSON Aeson.defaultOptions ''TransactionSignatureAsBase16
-instance Arbitrary TransactionSignatureAsBase16 where
-    arbitrary = TransactionSignatureAsBase16Unsafe <$> pure
-        "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
-
-instance ToSchema TransactionSignatureAsBase16 where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "raw" (\(--^) props -> props
-            & ("transactionSignatureAsBase16" --^ "Signature of the hash of transaction in Base16-format.")
-        )
-
-deriveSafeBuildable ''TransactionSignatureAsBase16
-instance BuildableSafeGen TransactionSignatureAsBase16 where
-    buildSafeGen sl TransactionSignatureAsBase16Unsafe{..} = bprint ("{"
-        %" transactionSignatureAsBase16="%buildSafe sl
-        %" }")
-        rawTransactionSignatureAsBase16
-
--- | Makes tx signature as Base16-text.
-mkTransactionSignatureAsBase16 :: Core.Signature Txp.TxSigData -> TransactionSignatureAsBase16
-mkTransactionSignatureAsBase16 (Core.Signature txSig) =
-    TransactionSignatureAsBase16Unsafe . Base16.encode . CC.unXSignature $ txSig
-
-instance Buildable [PublicKey] where
-    build = bprint listJson
-
--- | A type modelling the request for a new 'EosWallet',
--- on the mobile client or hardware wallet.
-data NewEosWallet = NewEosWallet
-    { neweoswalAccountsPublicKeys :: ![PublicKey]
-    , neweoswalAddressPoolGap     :: !(Maybe AddressPoolGap)
-    , neweoswalAssuranceLevel     :: !AssuranceLevel
-    , neweoswalName               :: !WalletName
-    } deriving (Eq, Show, Generic)
-
-deriveJSON Aeson.defaultOptions ''NewEosWallet
-instance Arbitrary NewEosWallet where
-    arbitrary = NewEosWallet <$> arbitrary
-                             <*> arbitrary
-                             <*> arbitrary
-                             <*> pure "My EOS-wallet"
-
-instance ToSchema NewEosWallet where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "neweoswal" (\(--^) props -> props
-            & ("accountsPublicKeys" --^ "External wallet's accounts public keys.")
-            & ("addressPoolGap"     --^ "Address pool gap for this wallet.")
-            & ("assuranceLevel"     --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
-            & ("name"               --^ "External wallet's name.")
-        )
-
-deriveSafeBuildable ''NewEosWallet
-instance BuildableSafeGen NewEosWallet where
-    buildSafeGen sl NewEosWallet{..} = bprint ("{"
-        %" accountsPublicKeys="%build
-        %" addressPoolGap="%build
-        %" assuranceLevel="%buildSafe sl
-        %" name="%buildSafe sl
-        %" }")
-        neweoswalAccountsPublicKeys
-        neweoswalAddressPoolGap
-        neweoswalAssuranceLevel
-        neweoswalName
-
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
       uwalAssuranceLevel :: !AssuranceLevel
@@ -809,32 +687,6 @@ instance Arbitrary SyncState where
                     , pure Synced
                     ]
 
--- | 'Wallet' type.
-data WalletType
-    = WalletRegular
-    -- ^ Regular Cardano wallet.
-    | WalletExternal
-    -- ^ External wallet (mobile app or hardware wallet).
-    deriving (Bounded, Enum, Eq, Ord, Show, Generic)
-
-instance Arbitrary WalletType where
-    arbitrary = elements [minBound .. maxBound]
-
--- Drops the @Wallet@ prefix.
-deriveJSON Aeson.defaultOptions { A.constructorTagModifier = drop 6 . map C.toLower
-                                   } ''WalletType
-
-instance ToSchema WalletType where
-    declareNamedSchema _ = do
-        pure $ NamedSchema (Just "WalletType") $ mempty
-            & type_ .~ SwaggerString
-            & enum_ ?~ ["regular", "external"]
-
-deriveSafeBuildable ''WalletType
-instance BuildableSafeGen WalletType where
-    buildSafeGen _ WalletRegular  = "regular"
-    buildSafeGen _ WalletExternal = "external"
-
 -- | A 'Wallet'.
 data Wallet = Wallet {
       walId                         :: !WalletId
@@ -845,17 +697,7 @@ data Wallet = Wallet {
     , walCreatedAt                  :: !(V1 Core.Timestamp)
     , walAssuranceLevel             :: !AssuranceLevel
     , walSyncState                  :: !SyncState
-    , walType                       :: !WalletType
     } deriving (Eq, Ord, Show, Generic)
-
---
--- IxSet indices
---
-
-
-
-
-
 deriveJSON Aeson.defaultOptions ''Wallet
 
 instance ToSchema Wallet where
@@ -877,14 +719,11 @@ instance ToSchema Wallet where
             --^ "The assurance level of the wallet."
             & "syncState"
             --^ "The sync state for this wallet."
-            & "type"
-            --^ "Wallet type: regular wallet or external one (mobile app or hardware wallet)."
         )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
-                     <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
@@ -898,12 +737,10 @@ instance BuildableSafeGen Wallet where
     %" id="%buildSafe sl
     %" name="%buildSafe sl
     %" balance="%buildSafe sl
-    %" type="%buildSafe sl
     %" }")
     walId
     walName
     walBalance
-    walType
 
 instance Buildable [Wallet] where
     build = bprint listJson
@@ -913,46 +750,6 @@ instance ToSchema PublicKey where
         pure $ NamedSchema (Just "PublicKey") $ mempty
             & type_ .~ SwaggerString
             & format ?~ "base58"
-
--- | Externally-owned sequential (EOS) wallet (mobile client or hardware wallet).
-data EosWallet = EosWallet
-    { eoswalId             :: !EosWalletId
-    , eoswalName           :: !WalletName
-    , eoswalAddressPoolGap :: !AddressPoolGap
-    , eoswalBalance        :: !(V1 Core.Coin)
-    , eoswalAssuranceLevel :: !AssuranceLevel
-    } deriving (Eq, Ord, Show, Generic)
-
-deriveJSON Aeson.defaultOptions ''EosWallet
-instance ToSchema EosWallet where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "eoswal" (\(--^) props -> props
-            & ("id"                 --^ "Unique wallet's identifier.")
-            & ("name"               --^ "Wallet's name.")
-            & ("addressPoolGap"     --^ "Address pool gap for this wallet.")
-            & ("balance"            --^ "Current balance, in Lovelaces.")
-            & ("assuranceLevel"     --^ "The assurance level of the wallet.")
-        )
-
-instance Arbitrary EosWallet where
-    arbitrary = EosWallet <$> arbitrary
-                          <*> pure "My EOS-wallet"
-                          <*> arbitrary
-                          <*> arbitrary
-                          <*> arbitrary
-
-deriveSafeBuildable ''EosWallet
-instance BuildableSafeGen EosWallet where
-  buildSafeGen sl EosWallet{..} = bprint ("{"
-    %" id="%buildSafe sl
-    %" name="%buildSafe sl
-    %" addressPoolGap="%build
-    %" balance="%buildSafe sl
-    %" }")
-    eoswalId
-    eoswalName
-    eoswalAddressPoolGap
-    eoswalBalance
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -1315,135 +1112,6 @@ instance BuildableSafeGen NewAddress where
         newaddrSpendingPassword
         newaddrAccountIndex
         newaddrWalletId
-
-
-type AddressIndex = Word32
-
--- | If we're talking about "hardened" indexes - we mean values above
--- 2^31 == maxBound `div` 2 + 1
-hardenedValue :: Word32
-hardenedValue = maxBound `div` 2 + 1
-
-addressLevelToWord32 :: AddressLevel -> Word32
-addressLevelToWord32 (AddressLevelNormal lvl)   = lvl
-addressLevelToWord32 (AddressLevelHardened lvl) = lvl + hardenedValue
-
-word32ToAddressLevel :: Word32 -> AddressLevel
-word32ToAddressLevel lvl =
-    if lvl <= hardenedValue then
-        AddressLevelNormal lvl
-    else
-        AddressLevelHardened (lvl - hardenedValue)
-
-data AddressLevel
-    = AddressLevelHardened Word32
-    | AddressLevelNormal Word32
-    deriving (Eq, Generic, Ord, Show)
-
-instance ToSchema AddressLevel where
-    declareNamedSchema _ = do
-        NamedSchema _ word32Schema <- declareNamedSchema (Proxy @Word32)
-        pure $ NamedSchema (Just "AddressLevel") $ word32Schema
-            & description ?~ mconcat
-                [ "Address path level according to BIP-32 definition. "
-                , "Levels in the (0..2^31-1) range are treated as normal, "
-                , "those in the (2^31..2^32-1) range are treated as hardened."
-                ]
-
-instance Arbitrary AddressLevel where
-    arbitrary = oneof
-        [ AddressLevelHardened <$> arbitrary
-        , AddressLevelNormal   <$> arbitrary
-        ]
-
-deriveSafeBuildable ''AddressLevel
-instance BuildableSafeGen AddressLevel where
-    buildSafeGen sl = \case
-        AddressLevelNormal lvl   -> bprint (buildSafe sl) lvl
-        AddressLevelHardened lvl -> bprint (buildSafe sl%"'") lvl
-
-instance ToJSON AddressLevel where
-    toJSON = toJSON . addressLevelToWord32
-
-instance FromJSON AddressLevel where
-    parseJSON = fmap word32ToAddressLevel . parseJSON
-
-newtype IsChangeAddress = IsChangeAddress Bool deriving (Show, Eq)
-
--- | BIP44 derivation path, for work with external wallets, for example:
--- m / purpose' / coin_type' / account' / change / address_index
--- m /      44' /      1815' /       0' /      0 /             1
---
--- NOTE See:
---   - https://github.com/satoshilabs/slips/blob/master/slip-0044.md
---   - https://github.com/satoshilabs/slips/pull/123
-data AddressPath = AddressPath
-    { addrpathPurpose      :: AddressLevel
-    , addrpathCoinType     :: AddressLevel
-    , addrpathAccount      :: AddressLevel
-    , addrpathChange       :: AddressLevel
-    , addrpathAddressIndex :: AddressLevel
-    } deriving (Show, Eq, Generic)
-
-deriveJSON Aeson.defaultOptions ''AddressPath
-
-instance ToSchema AddressPath where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "addrpath" (\(--^) props -> props
-            & ("purpose"      --^ "44, refers to BIP-44.")
-            & ("coinType"     --^ "1815 for ADA (Ada Lovelace's birthdate).")
-            & ("account"      --^ "Account index, used as child index in BIP-32 derivation.")
-            & ("change"       --^ "0 if external (e.g. payment addr), 1 if internal (e.g. change addr).")
-            & ("addressIndex" --^ "Address index counter, incremental.")
-        )
-
-instance Arbitrary AddressPath where
-    arbitrary = AddressPath <$> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
-
-deriveSafeBuildable ''AddressPath
-instance BuildableSafeGen AddressPath where
-    buildSafeGen sl AddressPath{..} = bprint (""
-        %"{ purpose="%buildSafe sl
-        %", coin_type="%buildSafe sl
-        %", account="%buildSafe sl
-        %", change="%buildSafe sl
-        %", address_index="%buildSafe sl
-        %" }")
-        addrpathPurpose
-        addrpathCoinType
-        addrpathAccount
-        addrpathChange
-        addrpathAddressIndex
-
--- Smart constructor to create BIP44 derivation paths
---
--- NOTE Our account indexes are already referred to as "hardened" and
--- are therefore referred to as indexes above 2^31 == maxBound `div` 2 + 1
--- AddressPath makes it explicit whether a path should be hardened or not
--- instead of relying on a convention on number.
-mkAddressPathBIP44
-    :: IsChangeAddress   -- ^ Whether this is an internal (for change) or external address (for payments)
-    -> Account           -- ^ Underlying account
-    -> Maybe AddressPath -- ^ If 'Nothing' - address level is out-of-bound (31-byte unsigned integer).
-mkAddressPathBIP44 (IsChangeAddress isChange) acct = AddressPath
-    <$> pure (AddressLevelHardened 44)
-    <*> pure (AddressLevelHardened 1815)
-    <*> pure (word32ToAddressLevel actualIndex)
-    <*> pure (AddressLevelNormal $ if isChange then 1 else 0)
-    <*> checkWord31 AddressLevelNormal (getAddressIndex acct)
-  where
-    getAddressIndex = fromIntegral . length . accAddresses
-    checkWord31 mkLevel n =
-        if n >= hardenedValue then
-            Nothing
-        else
-            Just (mkLevel n)
-    AccountIndex actualIndex = accIndex acct
-
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
@@ -1839,182 +1507,6 @@ instance BuildableSafeGen Transaction where
 instance Buildable [Transaction] where
     build = bprint listJson
 
--- | Technically we have serialized 'Tx' here, from the core.
-mkTransactionAsBase16 :: Txp.Tx -> TransactionAsBase16
-mkTransactionAsBase16 =
-    TransactionAsBase16Unsafe . Base16.encode . Bi.serialize'
-
-rawTransactionAsBase16 :: TransactionAsBase16 -> Text
-rawTransactionAsBase16 (TransactionAsBase16Unsafe txtTx) = txtTx
-
-instance Buildable [AddressLevel] where
-    build = bprint listJson
-
--- | Source address and corresponding derivation path, for external wallet.
-data AddressAndPath = AddressAndPath
-    { aapSrcAddress     :: !(V1 Core.Address) -- AsBase58
-    -- ^ Source address in Base58-format.
-    , aapDerivationPath :: ![AddressLevel]
-    -- ^ Derivation path used during generation of this address.
-    } deriving (Show, Ord, Eq, Generic)
-
-deriveJSON Aeson.defaultOptions ''AddressAndPath
-
-instance ToSchema AddressAndPath where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "aap" (\(--^) props -> props
-            & ("srcAddress"     --^ "Source address that corresponds to transaction input.")
-            & ("derivationPath" --^ "Derivation path corresponding to this address.")
-        )
-
-instance Arbitrary AddressAndPath where
-    arbitrary = AddressAndPath <$> arbitrary
-                               <*> arbitrary
-
-deriveSafeBuildable ''AddressAndPath
-instance BuildableSafeGen AddressAndPath where
-    buildSafeGen sl AddressAndPath{..} = bprint ("{"
-        %" srcAddress="%buildSafe sl
-        %" derivationPath="%buildSafe sl
-        %" }")
-        aapSrcAddress
-        aapDerivationPath
-
-instance Buildable [AddressAndPath] where
-    build = bprint listJson
-
--- | A 'Wallet''s 'UnsignedTransaction'.
-data UnsignedTransaction = UnsignedTransaction
-    { rtxHex          :: !TransactionAsBase16
-    -- ^ Serialized transaction in Base16-format.
-    , rtxSrcAddresses :: ![AddressAndPath]
-    -- ^ Addresses (with derivation paths) which will be used as a sources of money.
-    } deriving (Show, Ord, Eq, Generic)
-
-deriveJSON Aeson.defaultOptions ''UnsignedTransaction
-
-instance ToSchema UnsignedTransaction where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "rtx" (\(--^) props -> props
-            & ("hex"          --^ "New raw transaction in Base16-format.")
-            & ("srcAddresses" --^ "Source addresses (with derivation paths), correspond to transaction inputs.")
-        )
-
-instance Arbitrary UnsignedTransaction where
-    arbitrary = UnsignedTransaction <$> arbitrary
-                                    <*> arbitrary
-
-deriveSafeBuildable ''UnsignedTransaction
-instance BuildableSafeGen UnsignedTransaction where
-    buildSafeGen sl UnsignedTransaction{..} = bprint ("{"
-        %" hex="%buildSafe sl
-        %" srcAddresses="%buildSafe sl
-        %" }")
-        rtxHex
-        rtxSrcAddresses
-
--- | To proof that the external wallet has the right to spend the input,
--- it returns the source address, the signature and the derived PK of
--- the transaction input.
-data AddressWithProof = AddressWithProof
-    { awpSrcAddress  :: !(V1 Core.Address)
-    -- ^ Source address.
-    , awpTxSignature :: !TransactionSignatureAsBase16
-    -- ^ Base16-encoded signature of transaction (made by derived SK).
-    , awpDerivedPK   :: !PublicKey
-    -- ^ Base58-encoded derived PK (corresponding to derived SK).
-    } deriving (Show, Ord, Eq, Generic)
-
-deriveJSON Aeson.defaultOptions ''AddressWithProof
-
-instance ToSchema AddressWithProof where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "awp" (\(--^) props -> props
-            & ("srcAddress"  --^ "Source address in Base58-format.")
-            & ("txSignature" --^ "Transaction signature by derived SK.")
-            & ("derivedPK"   --^ "Derived PK in Base58-format.")
-        )
-
-instance Arbitrary AddressWithProof where
-    arbitrary = AddressWithProof <$> arbitrary
-                                 <*> arbitrary
-                                 <*> arbitrary
-
-deriveSafeBuildable ''AddressWithProof
-instance BuildableSafeGen AddressWithProof where
-    buildSafeGen sl AddressWithProof{..} = bprint ("{"
-        %" srcAddress="%buildSafe sl
-        %" txSignature="%buildSafe sl
-        %" derivedPK="%build -- sl
-        %" }")
-        awpSrcAddress
-        awpTxSignature
-        awpDerivedPK
-
-instance Buildable [AddressWithProof] where
-    build = bprint listJson
-
--- | A 'Wallet''s 'SignedTransaction'. It is assumed
--- that this transaction was signed on the client-side
--- (mobile client or hardware wallet).
-data SignedTransaction = SignedTransaction
-    { stxTransaction     :: !TransactionAsBase16
-    -- ^ Serialized transaction in base16-format.
-    , stxAddrsWithProofs :: ![AddressWithProof]
-    -- ^ Addresses with proofs for inputs of this transaction.
-    } deriving (Show, Ord, Eq, Generic)
-
-deriveJSON Aeson.defaultOptions ''SignedTransaction
-instance ToSchema SignedTransaction where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "stx" (\(--^) props -> props
-            & ("transaction"     --^ "New transaction that wasn't submitted in the blockchain yet.")
-            & ("addrsWithProofs" --^ "Source addresses with proofs for inputs.")
-        )
-
-instance Arbitrary SignedTransaction where
-    arbitrary = SignedTransaction <$> arbitrary
-                                  <*> arbitrary
-
-deriveSafeBuildable ''SignedTransaction
-instance BuildableSafeGen SignedTransaction where
-    buildSafeGen sl SignedTransaction{..} = bprint ("{"
-        %" transaction="%buildSafe sl
-        %" addrsWithProofs="%buildSafe sl
-        %" }")
-        stxTransaction
-        stxAddrsWithProofs
-
--- | We use it for external wallets: if it's already presented in wallet db,
--- we return a wallet info and complete transactions history as well.
-data WalletAndTxHistory = WalletAndTxHistory
-    { waltxsWallet       :: !Wallet
-    , waltxsTransactions :: ![Transaction]
-    } deriving (Eq, Ord, Show, Generic)
-
-deriveJSON Aeson.defaultOptions ''WalletAndTxHistory
-
-instance ToSchema WalletAndTxHistory where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "waltxs" (\(--^) props -> props
-            & ("wallet"       --^ "Wallet information.")
-            & ("transactions" --^ "List of all transactions related to this wallet.")
-        )
-
-instance Arbitrary WalletAndTxHistory where
-    arbitrary = WalletAndTxHistory <$> arbitrary
-                                   <*> arbitrary
-
-deriveSafeBuildable ''WalletAndTxHistory
-instance BuildableSafeGen WalletAndTxHistory where
-    buildSafeGen sl WalletAndTxHistory{..} = bprint ("{"
-        %" wallet="%buildSafe sl
-        %" transactions="%buildSafe sl
-        %" }")
-        waltxsWallet
-        waltxsTransactions
-
-
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate
   { updSoftwareVersion   :: !Text
@@ -2181,8 +1673,6 @@ type family New (original :: *) :: * where
         NewAccount
     New WalletAddress =
         NewAddress
-    New EosWallet =
-        NewEosWallet
 
 type CaptureWalletId = Capture "walletId" WalletId
 
@@ -2196,16 +1686,12 @@ instance Example Core.Address
 instance Example AccountIndex
 instance Example AccountBalance
 instance Example AccountAddresses
-instance Example AddressLevel
-instance Example AddressPath
-instance Example AddressPoolGap
 instance Example WalletId
 instance Example AssuranceLevel
 instance Example LocalTimeDifference
 instance Example PaymentDistribution
 instance Example AccountUpdate
 instance Example Wallet
-instance Example EosWallet
 instance Example WalletUpdate
 instance Example WalletOperation
 instance Example PasswordUpdate
@@ -2262,14 +1748,6 @@ instance Example NewWallet where
                         <*> pure "My Wallet"
                         <*> example
 
-instance Example TransactionAsBase16 where
-    example = TransactionAsBase16Unsafe <$> pure
-        "839f8200d8185826825820de3151a2d9cd8e2bbe292a6153d679d123892ddcfbee869c4732a5c504a7554d19386cff9f8282d818582183581caeb153a5809a084507854c9f3e5795bcca89781f9c386d957748cd42a0001a87236a1f1b00780aa6c7d62110ffa0"
-
-instance Example TransactionSignatureAsBase16 where
-    example = TransactionSignatureAsBase16Unsafe <$> pure
-        "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
-
 instance Example PublicKey where
     example = PublicKey <$> pure xpub
       where
@@ -2283,12 +1761,6 @@ instance Example PublicKey where
         encodedPublicKey :: Text
         encodedPublicKey =
             "bNfWjshJG9xxy6VkpV2KurwGah3jQWjGb4QveDGZteaCwupdKWAi371r8uS5yFCny5i5EQuSNSLKqvRHmWEoHe45pZ"
-
-instance Example NewEosWallet where
-    example = NewEosWallet <$> example
-                           <*> example
-                           <*> example
-                           <*> pure "My EOS-Wallet"
 
 instance Example PaymentSource where
     example = PaymentSource <$> example
@@ -2306,27 +1778,6 @@ instance Example Redemption where
                          <*> example
                          <*> example
                          <*> example
-
-instance Example AddressAndPath where
-    example = AddressAndPath <$> example
-                             <*> example
-
-instance Example UnsignedTransaction where
-    example = UnsignedTransaction <$> example
-                                  <*> example
-
-instance Example WalletAndTxHistory where
-    example = WalletAndTxHistory <$> example
-                                 <*> example
-
-instance Example AddressWithProof where
-    example = AddressWithProof <$> example
-                               <*> example
-                               <*> example
-
-instance Example SignedTransaction where
-    example = SignedTransaction <$> example
-                                <*> example
 
 instance Example WalletImport where
     example = WalletImport <$> example

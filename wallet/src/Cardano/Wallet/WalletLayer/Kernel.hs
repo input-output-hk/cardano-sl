@@ -112,11 +112,9 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
     passiveWalletLayer w invoke = PassiveWalletLayer
         { -- Operations that modify the wallet
           createWallet         = Wallets.createWallet         w
-        , createEosWallet      = Wallets.createEosWallet      w
         , updateWallet         = Wallets.updateWallet         w
         , updateWalletPassword = Wallets.updateWalletPassword w
         , deleteWallet         = Wallets.deleteWallet         w
-        , deleteEosWallet      = Wallets.deleteEosWallet      w
         , createAccount        = Accounts.createAccount       w
         , updateAccount        = Accounts.updateAccount       w
         , deleteAccount        = Accounts.deleteAccount       w
@@ -174,8 +172,6 @@ bracketActiveWallet walletPassiveLayer passiveWallet walletDiffusion runActiveLa
           walletPassiveLayer = walletPassiveLayer
         , pay                = Active.pay              w
         , estimateFees       = Active.estimateFees     w
-        , createUnsignedTx   = Active.createUnsignedTx w
-        , submitSignedTx     = Active.submitSignedTx   w
         , redeemAda          = Active.redeemAda        w
         , getNodeInfo        = Info.getNodeInfo        w
         }

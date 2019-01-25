@@ -32,24 +32,26 @@ import           Pos.Util (_neHead)
 
 import           Test.Pos.Chain.Txp.Arbitrary (genAddressBloatedTx)
 import           Test.Pos.Util.QuickCheck.Arbitrary (sublistN)
+import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
+
 
 spec :: Spec
 spec = describe "Txp.Core" $ do
     describe "checkTx" $ do
-        prop description_checkTxGood checkTxGood
+        prop description_checkTxGood (checkTxGood True)
         prop description_checkTxBad checkTxBad
         prop description_checkTxBloatedBeforeEpoch $
             forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood blTx beforeCutoffEpochIndex === True
+            checkTxGood True blTx beforeCutoffEpochIndex
         prop description_checkTxBloatedAfterEpoch $
             forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood blTx afterCutoffEpochIndex === False
+            checkTxGood False blTx afterCutoffEpochIndex
         prop description_checkTxBloatedAddBeforeSlotIndex $
             forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood blTx beforeCutoffLocalSlotIndex === True
+            checkTxGood True blTx beforeCutoffLocalSlotIndex
         prop description_checkTxBloatedAddAfterSlotIndex $
             forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood blTx afterCutoffLocalSlotIndex === False
+            checkTxGood False blTx afterCutoffLocalSlotIndex
     describe "topsortTxs" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
@@ -80,8 +82,13 @@ spec = describe "Txp.Core" $ do
     description_checkTxBloatedAddAfterSlotIndex =
         "creates a bloated Tx via Attributes AddrAttributes after cutoff local slot index"
 
-checkTxGood :: Tx -> TxValidationRules -> Bool
-checkTxGood tx txValRules = isRight $ checkTx txValRules tx
+checkTxGood :: Bool -> Tx -> TxValidationRules -> Property
+checkTxGood isGood tx txValRules = checker result
+  where
+    result = checkTx txValRules tx
+    checker = if isGood
+                 then qcIsRight
+                 else qcIsLeft
 
 checkTxBad :: Tx -> TxValidationRules -> Bool
 checkTxBad UnsafeTx {..} txValRules =

@@ -132,6 +132,7 @@
             (hsPkgs.base)
             (hsPkgs.cardano-sl)
             (hsPkgs.cardano-sl-chain)
+            (hsPkgs.cardano-sl-chain-test)
             (hsPkgs.cardano-sl-core)
             (hsPkgs.cardano-sl-crypto)
             (hsPkgs.cardano-sl-db)

@@ -27,7 +27,8 @@ import           Test.Pos.Infra.Gen (genAllStaticallyKnownPeers, genDnsDomains,
                      genNodeAddrMaybe, genNodeMetadata, genNodeName,
                      genNodeRegion, genNodeRoutes, genNodeType, genTopology)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonYamlShow)
 
 --------------------------------------------------------------------------------
 -- NodeMetaData
@@ -39,7 +40,7 @@ golden_NodeMetadata =
 
 roundTripNodeMetaData :: Property
 roundTripNodeMetaData =
-    eachOf 1000 genNodeMetadata roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genNodeMetadata
 
 --------------------------------------------------------------------------------
 -- NodeName
@@ -47,7 +48,7 @@ roundTripNodeMetaData =
 
 roundTripNodeName :: Property
 roundTripNodeName =
-    eachOf 1000 genNodeName roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genNodeName
 
 --------------------------------------------------------------------------------
 -- NodeRegion
@@ -55,7 +56,7 @@ roundTripNodeName =
 
 roundTripNodeRegion :: Property
 roundTripNodeRegion =
-    eachOf 1000 genNodeRegion roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genNodeRegion
 
 --------------------------------------------------------------------------------
 -- NodeRoutes
@@ -63,7 +64,7 @@ roundTripNodeRegion =
 
 roundTripNodeRoutes :: Property
 roundTripNodeRoutes =
-    eachOf 1000 genNodeRoutes roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genNodeRoutes
 
 --------------------------------------------------------------------------------
 -- NodeType
@@ -71,7 +72,7 @@ roundTripNodeRoutes =
 
 roundTripNodeType :: Property
 roundTripNodeType =
-    eachOf 1000 genNodeType roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genNodeType
 
 --------------------------------------------------------------------------------
 -- DnsDomains
@@ -79,7 +80,7 @@ roundTripNodeType =
 
 roundTripDnsDomains :: Property
 roundTripDnsDomains =
-    eachOf 1000 genDnsDomains roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genDnsDomains
 
 --------------------------------------------------------------------------------
 -- Valency
@@ -87,7 +88,7 @@ roundTripDnsDomains =
 
 roundTripValency :: Property
 roundTripValency =
-    eachOf 1000 (Gen.int (Range.constant 1 100)) roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 (Gen.int (Range.constant 1 100))
 
 --------------------------------------------------------------------------------
 -- Fallbacks
@@ -95,7 +96,7 @@ roundTripValency =
 
 roundTripFallbacks :: Property
 roundTripFallbacks =
-    eachOf 1000 (Gen.int (Range.constant 1 100)) roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 (Gen.int (Range.constant 1 100))
 
 --------------------------------------------------------------------------------
 -- NodeAddr (Maybe DNS.Domain)
@@ -103,7 +104,7 @@ roundTripFallbacks =
 
 roundTripNodeAddrMaybe :: Property
 roundTripNodeAddrMaybe =
-    eachOf 1000 genNodeAddrMaybe roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genNodeAddrMaybe
 
 --------------------------------------------------------------------------------
 -- NodeAddr
@@ -111,7 +112,7 @@ roundTripNodeAddrMaybe =
 
 roundTripNodeAddr :: Property
 roundTripNodeAddr =
-    eachOf 1000 (genNodeAddr genDomain) roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 (genNodeAddr genDomain)
 
 --------------------------------------------------------------------------------
 -- MaxBucketSize
@@ -119,7 +120,7 @@ roundTripNodeAddr =
 
 roundTripMaxBucketSize :: Property
 roundTripMaxBucketSize =
-    eachOf 1000 genMaxBucketSize roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genMaxBucketSize
 
 --------------------------------------------------------------------------------
 -- MaxBucketSize
@@ -127,7 +128,7 @@ roundTripMaxBucketSize =
 
 roundTripAllStaticallyKnownPeers :: Property
 roundTripAllStaticallyKnownPeers =
-    eachOf 1000 genAllStaticallyKnownPeers roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genAllStaticallyKnownPeers
 
 --------------------------------------------------------------------------------
 -- Topology
@@ -151,15 +152,7 @@ golden_TopologyTraditional =
 
 roundTripTopology :: Property
 roundTripTopology =
-    eachOf 1000 genTopology roundTripsAesonShow
-
-roundTripTopologyYaml :: Property
-roundTripTopologyYaml =
-    eachOf 1000 genTopology (\a -> tripping a Y.encode unsafeDecode)
-  where
-    unsafeDecode a = case Y.decodeEither' a of
-      Left _  -> Nothing
-      Right b -> Just b
+    roundTripsAesonYamlShow 1000 genTopology
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes

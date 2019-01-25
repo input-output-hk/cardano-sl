@@ -42,14 +42,7 @@ import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
 import           Test.Pos.Crypto.Gen
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
-                     roundTripsAesonBuildable, roundTripsAesonShow)
-
---------------------------------------------------------------------------------
--- ProtocolMagic
---------------------------------------------------------------------------------
-
-roundTripProtocolMagicAeson :: Property
-roundTripProtocolMagicAeson = eachOf 1000 genProtocolMagic roundTripsAesonShow
+                     roundTripsAesonBuildable)
 
 --------------------------------------------------------------------------------
 -- PublicKey
@@ -377,10 +370,6 @@ golden_HDAddressPayload = goldenTestBi hdap "test/golden/HDAddressPayload"
 
 roundTripHDAddressPayloadBi :: Property
 roundTripHDAddressPayloadBi = eachOf 1000 genHDAddressPayload roundTripsBiShow
-
-roundTripHDAddressPayloadAeson :: Property
-roundTripHDAddressPayloadAeson =
-    eachOf 1000 genHDAddressPayload roundTripsAesonShow
 
 --------------------------------------------------------------------------------
 

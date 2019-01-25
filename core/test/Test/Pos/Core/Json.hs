@@ -18,7 +18,7 @@ import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
-                     roundTripsAesonBuildable, roundTripsAesonShow)
+                     roundTripsAesonYamlBuildable, roundTripsAesonYamlShow)
 
 --------------------------------------------------------------------------------
 -- Address
@@ -56,7 +56,7 @@ golden_Address4 =
 
 roundTripAddressShow :: Property
 roundTripAddressShow =
-    eachOf 100 genAddress roundTripsAesonShow
+    roundTripsAesonYamlShow 100 genAddress
 
 roundTripAddressBuildable :: Property
 roundTripAddressBuildable =
@@ -67,7 +67,7 @@ roundTripAddressBuildable =
 --------------------------------------------------------------------------------
 
 roundTripRedeemPublicKey :: Property
-roundTripRedeemPublicKey = eachOf 1000 genRedeemPublicKey roundTripsAesonShow
+roundTripRedeemPublicKey = roundTripsAesonYamlShow 1000 genRedeemPublicKey
 
 --------------------------------------------------------------------------------
 -- Coin
@@ -95,7 +95,7 @@ roundTripMillisecond = eachOf 1000 genMillisecond roundTripsAesonBuildable
 --------------------------------------------------------------------------------
 
 roundTripByte :: Property
-roundTripByte = eachOf 1000 genByte roundTripsAesonShow
+roundTripByte = roundTripsAesonYamlShow 1000 genByte
 
 --------------------------------------------------------------------------------
 -- CoinPortion
@@ -109,7 +109,7 @@ roundTripCoinPortion = eachOf 1000 genCoinPortion roundTripsAesonBuildable
 --------------------------------------------------------------------------------
 
 roundTripFlatSlotId :: Property
-roundTripFlatSlotId = eachOf 1000 genFlatSlotId roundTripsAesonShow
+roundTripFlatSlotId = roundTripsAesonYamlShow 1000 genFlatSlotId
 
 --------------------------------------------------------------------------------
 -- TxFeePolicy
@@ -156,7 +156,7 @@ golden_InvReqDataFlowLog_InvReqException =
 
 roundTripInvReqDataFlowLog :: Property
 roundTripInvReqDataFlowLog =
-    eachOf 1000 genInvReqDataFlowLog roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genInvReqDataFlowLog
 
 tests :: IO Bool
 tests = (&&) <$> H.checkSequential $$discoverGolden

@@ -9,7 +9,7 @@ module Test.Pos.Infra.Json
 import           Universum
 
 import           Data.Map
-import           Hedgehog (Property, tripping)
+import           Hedgehog (Property)
 import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -21,12 +21,11 @@ import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
                      NodeMetadata (..), NodeRegion (..), NodeRoutes (..),
                      Topology (..))
 
-import qualified Data.Yaml as Y
 import           Test.Pos.Infra.Gen (genAllStaticallyKnownPeers, genDnsDomains,
                      genDomain, genMaxBucketSize, genNodeAddr,
                      genNodeAddrMaybe, genNodeMetadata, genNodeName,
                      genNodeRegion, genNodeRoutes, genNodeType, genTopology)
-import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
+import           Test.Pos.Util.Golden (discoverGolden, goldenTestJSON)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
                      roundTripsAesonYamlShow)
 

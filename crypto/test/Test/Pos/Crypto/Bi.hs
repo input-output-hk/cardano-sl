@@ -24,12 +24,11 @@ import qualified Hedgehog as H
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (AbstractHash, EncShare, PassPhrase,
-                     ProtocolMagic (..), ProtocolMagicId (..), ProxyCert,
-                     ProxySecretKey, PublicKey (..), RedeemSignature,
+                     ProtocolMagic (..), ProtocolMagicId (..), PublicKey (..),
                      RequiresNetworkMagic (..), SafeSigner (FakeSigner),
                      Secret, SecretKey (..), SecretProof,
-                     SignTag (SignForTestingOnly), Signature, VssKeyPair,
-                     WithHash, decryptShare, deriveHDPassphrase, deterministic,
+                     SignTag (SignForTestingOnly), VssKeyPair, WithHash,
+                     decryptShare, deriveHDPassphrase, deterministic,
                      deterministicVssKeyGen, genSharedSecret, hash, mkSigned,
                      noPassEncrypt, packHDAddressAttr, proxySign,
                      redeemDeterministicKeyGen, redeemSign,
@@ -41,8 +40,7 @@ import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Crypto.Gen
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
-import           Test.Pos.Util.Tripping (discoverRoundTrip,
-                     roundTripsAesonBuildable)
+import           Test.Pos.Util.Tripping (discoverRoundTrip)
 
 --------------------------------------------------------------------------------
 -- PublicKey
@@ -54,9 +52,6 @@ golden_PublicKey = goldenTestBi pkey "test/golden/PublicKey"
 
 roundTripPublicKeyBi :: Property
 roundTripPublicKeyBi = eachOf 1000 genPublicKey roundTripsBiBuildable
-
-roundTripPublicKeyAeson :: Property
-roundTripPublicKeyAeson = eachOf 1000 genPublicKey roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- SecretKey
@@ -79,15 +74,8 @@ golden_Signature = goldenTestBi sig "test/golden/Signature"
     Right skey = SecretKey <$> xprv (getBytes 10 128)
     sig        = sign exampleProtocolMagic SignForTestingOnly skey ()
 
-genUnitSignature :: Gen (Signature ())
-genUnitSignature = do pm <- genProtocolMagic
-                      genSignature pm (pure ())
-
 roundTripSignatureBi :: Property
 roundTripSignatureBi = eachOf 1000 genUnitSignature roundTripsBiBuildable
-
-roundTripSignatureAeson :: Property
-roundTripSignatureAeson = eachOf 1000 genUnitSignature roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- Signed
@@ -132,10 +120,6 @@ roundTripRedeemPublicKeyBi :: Property
 roundTripRedeemPublicKeyBi =
     eachOf 1000 genRedeemPublicKey roundTripsBiBuildable
 
-roundTripRedeemPublicKeyAeson :: Property
-roundTripRedeemPublicKeyAeson =
-    eachOf 1000 genRedeemPublicKey roundTripsAesonBuildable
-
 --------------------------------------------------------------------------------
 -- RedeemSecretKey
 --------------------------------------------------------------------------------
@@ -158,17 +142,9 @@ golden_RedeemSignature = goldenTestBi rsig "test/golden/RedeemSignature"
     Just rsk = snd <$> redeemDeterministicKeyGen (getBytes 0 32)
     rsig     = redeemSign exampleProtocolMagic SignForTestingOnly rsk ()
 
-genUnitRedeemSignature :: Gen (RedeemSignature ())
-genUnitRedeemSignature = do pm <- genProtocolMagic
-                            genRedeemSignature pm (pure ())
-
 roundTripRedeemSignatureBi :: Property
 roundTripRedeemSignatureBi =
     eachOf 1000 genUnitRedeemSignature roundTripsBiBuildable
-
-roundTripRedeemSignatureAeson :: Property
-roundTripRedeemSignatureAeson =
-    eachOf 1000 genUnitRedeemSignature roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- VssPublicKey
@@ -192,15 +168,8 @@ golden_ProxyCert = goldenTestBi pcert "test/golden/ProxyCert"
     Right skey = SecretKey <$> xprv (getBytes 10 128)
     pcert      = safeCreateProxyCert exampleProtocolMagic (FakeSigner skey) pkey ()
 
-genUnitProxyCert :: Gen (ProxyCert ())
-genUnitProxyCert = do pm <- genProtocolMagic
-                      genProxyCert pm $ pure ()
-
 roundTripProxyCertBi :: Property
 roundTripProxyCertBi = eachOf 100 genUnitProxyCert roundTripsBiBuildable
-
-roundTripProxyCertAeson :: Property
-roundTripProxyCertAeson = eachOf 100 genUnitProxyCert roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- ProxySecretKey
@@ -213,17 +182,9 @@ golden_ProxySecretKey = goldenTestBi psk "test/golden/ProxySecretKey"
     Right skey = SecretKey <$> xprv (getBytes 10 128)
     psk        = safeCreatePsk exampleProtocolMagic (FakeSigner skey) pkey ()
 
-genUnitProxySecretKey :: Gen (ProxySecretKey ())
-genUnitProxySecretKey = do pm <- genProtocolMagic
-                           genProxySecretKey pm $ pure ()
-
 roundTripProxySecretKeyBi :: Property
 roundTripProxySecretKeyBi =
     eachOf 100 genUnitProxySecretKey roundTripsBiBuildable
-
-roundTripProxySecretKeyAeson :: Property
-roundTripProxySecretKeyAeson =
-    eachOf 100 genUnitProxySecretKey roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- ProxySignature
@@ -240,9 +201,6 @@ roundTripProxySignatureBi :: Property
 roundTripProxySignatureBi = eachOf 100
                                    genUnitProxySignature
                                    roundTripsBiBuildable
-    where genUnitProxySignature = do
-              pm <- genProtocolMagic
-              genProxySignature pm (pure ()) (pure ())
 
 --------------------------------------------------------------------------------
 -- SharedSecretData
@@ -321,15 +279,8 @@ roundTripSecretProofBi = eachOf 20 genSecretProof roundTripsBiShow
 golden_AbstractHash :: Property
 golden_AbstractHash = goldenTestBi (hash ()) "test/golden/AbstractHash"
 
-genUnitAbstractHash :: Gen (AbstractHash Blake2b_256 ())
-genUnitAbstractHash = genAbstractHash $ pure ()
-
 roundTripAbstractHashBi :: Property
 roundTripAbstractHashBi = eachOf 1000 genUnitAbstractHash roundTripsBiBuildable
-
-roundTripAbstractHashAeson :: Property
-roundTripAbstractHashAeson =
-    eachOf 1000 genUnitAbstractHash roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- WithHash

@@ -17,6 +17,7 @@ module Test.Pos.Crypto.Gen
         , genRedeemKeypair
         , genRedeemPublicKey
         , genRedeemSecretKey
+        , genUnitRedeemSignature
 
         -- VSS Key Generators
         , genVssKeyPair
@@ -26,12 +27,16 @@ module Test.Pos.Crypto.Gen
         , genProxyCert
         , genProxySecretKey
         , genProxySignature
+        , genUnitProxyCert
+        , genUnitProxySecretKey
+        , genUnitProxySignature
 
         -- Signature Generators
         , genSignature
         , genSignatureEncoded
         , genSigned
         , genRedeemSignature
+        , genUnitSignature
 
         -- Secret Generators
         , genDecShare
@@ -43,6 +48,7 @@ module Test.Pos.Crypto.Gen
         -- Hash Generators
         , genAbstractHash
         , genWithHash
+        , genUnitAbstractHash
 
         -- SafeSigner Generators
         , genSafeSigner
@@ -63,6 +69,7 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
+import           Crypto.Hash (Blake2b_256)
 import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Crypto.Configuration (ProtocolMagic (..),
@@ -153,6 +160,10 @@ genRedeemSecretKey = do
         Nothing      -> error "Error generating a RedeemSecretKey."
         Just (_, sk) -> return sk
 
+genUnitRedeemSignature :: Gen (RedeemSignature ())
+genUnitRedeemSignature = do pm <- genProtocolMagic
+                            genRedeemSignature pm (pure ())
+
 ----------------------------------------------------------------------------
 -- VSS Key Generators
 ----------------------------------------------------------------------------
@@ -189,6 +200,19 @@ genProxySignature pm genA genW = do
     let psk = createPsk pm issuerSk (toPublic delegateSk) w
     return $ proxySign pm SignProxySK delegateSk psk a
 
+genUnitProxyCert :: Gen (ProxyCert ())
+genUnitProxyCert = do pm <- genProtocolMagic
+                      genProxyCert pm $ pure ()
+
+genUnitProxySecretKey :: Gen (ProxySecretKey ())
+genUnitProxySecretKey = do pm <- genProtocolMagic
+                           genProxySecretKey pm $ pure ()
+
+genUnitProxySignature :: Gen (ProxySignature () ())
+genUnitProxySignature = do
+    pm <- genProtocolMagic
+    genProxySignature pm (pure ()) (pure ())
+
 ----------------------------------------------------------------------------
 -- Signature Generators
 ----------------------------------------------------------------------------
@@ -215,6 +239,10 @@ genRedeemSignature pm genA =
   where
     gst  = genSignTag
     grsk = genRedeemSecretKey
+
+genUnitSignature :: Gen (Signature ())
+genUnitSignature = do pm <- genProtocolMagic
+                      genSignature pm (pure ())
 
 ----------------------------------------------------------------------------
 -- Secret Generators
@@ -264,6 +292,9 @@ genAbstractHash
     => Gen a
     -> Gen (AbstractHash algo a)
 genAbstractHash genA = abstractHash <$> genA
+
+genUnitAbstractHash :: Gen (AbstractHash Blake2b_256 ())
+genUnitAbstractHash = genAbstractHash $ pure ()
 
 genWithHash :: Bi a => Gen a -> Gen (WithHash a)
 genWithHash genA = withHash <$> genA

@@ -96,8 +96,8 @@ yamlAesonCustomRender val enc dec =
 
 -- | Round trip using given encode and decode functions for types with a
 --   `Buildable` instance
-trippingBuildable :: (Buildable (f a), Eq (f a), Show b, Applicative f, MonadTest m) => a -> (a -> b) -> (b -> f a) -> m ()
-trippingBuildable x enc dec =
+trippingBuildable :: (Buildable (f a), Eq (f a), Show b, Applicative f, MonadTest m) => a -> (a -> b) -> (b -> f a) -> String -> m ()
+trippingBuildable x enc dec format =
   let mx = pure x
       i = enc x
       my = dec i
@@ -107,7 +107,8 @@ trippingBuildable x enc dec =
             Nothing ->
                 withFrozenCallStack $
                     failWith Nothing $ Prelude.unlines
-                        [ "━━━ Original ━━━"
+                        [ mconcat ["━━━ ", format," ━━━"]
+                        , "━━━ Original ━━━"
                         , buildPretty mx
                         , "━━━ Intermediate ━━━"
                         , show i
@@ -120,7 +121,8 @@ trippingBuildable x enc dec =
                     failWith
                         (Just $ Diff "━━━ " "- Original" "/" "+ Roundtrip" " ━━━" diff) $
                             Prelude.unlines
-                            [ "━━━ Intermediate ━━━"
+                            [ mconcat ["━━━ ", format," ━━━"]
+                            , "━━━ Intermediate ━━━"
                             , show i
                             ]
 

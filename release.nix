@@ -169,28 +169,25 @@ let
         (lib.mapAttrs (_: (lib.mapAttrs (_: (lib.mapAttrs' (n: v: lib.nameValuePair (lib.systems.examples.mingwW64.config + "-" + n) v)))))
           mapped-nix-tools-cross))
       // {
-        daedalus-mingw32-pkg = pkgs.stdenv.mkDerivation {
-        name = "daedalus-mingw32-pkg";
-        version = "1.2.3.4";
+        daedalus-mingw32-pkg = pkgs.runCommand "daedalus-mingw32-pkg" {} ''
+          mkdir -p daedalus $out
 
-        phases = [ "installPhase" ];
+          cd daedalus
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet.x86_64-linux}/bin/cardano-node.exe .
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-launcher.exe .
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-x509-certificates.exe .
+          cp ${./log-configs/daedalus.yaml} log-config-prod.yaml
+          cp ${./lib/configuration.yaml} configuration.yaml
+          cp ${./lib}/*genesis*.json .
+          echo ${cardano.rev} > commit-id
+          ${pkgs.zip}/bin/zip -9 $out/CardanoSL.zip *
 
-        installPhase = ''
-          mkdir -p $out/daedalus
-          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet.x86_64-linux}/bin/cardano-node.exe                $out/daedalus/
-          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-launcher.exe          $out/daedalus/
-          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-x509-certificates.exe $out/daedalus/
-          cp ${./log-configs/daedalus.yaml}                                                                           $out/daedalus/log-config-prod.yaml
-          cp ${./lib/configuration.yaml}                                                                              $out/daedalus/
-          cp ${./lib}/*genesis*.json                                                                                  $out/daedalus/
-          (cd $out && ${pkgs.zip}/bin/zip -9 -r CardanoSL.zip daedalus/)
           # add CardanoSL.zip to the hydra-build-products to make
           # hydra provide a link to it.
           mkdir -p $out/nix-support
           echo "file binary-dist \"$out/CardanoSL.zip\"" \
               > $out/nix-support/hydra-build-products
         '';
-        };
       };
 
   mapped' = mapTestOn platforms';

@@ -43,14 +43,14 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configBlockVersionData,
                      configEpochSlots)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
-import           Pos.Chain.Txp (TxValidationRules (..), TxpConfiguration)
+import           Pos.Chain.Txp (TxpConfiguration, mkLiveTxValidationRules)
 import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Reporting (MonadReporting)
-import           Pos.Core.Slotting (getEpochOrSlot)
+import           Pos.Core.Slotting (epochOrSlotToEpochIndex, getEpochOrSlot)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener)
 import           Pos.DB.Block.GState.SanityCheck (sanityCheckDB)
@@ -136,15 +136,11 @@ normalizeMempool genesisConfig txpConfig = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    currentEos <- getEpochOrSlot <$> getTipHeader
-    let txValRules = configTxValRules $ genesisConfig
+    currentEpoch <- epochOrSlotToEpochIndex . getEpochOrSlot <$> getTipHeader
+    let txValRulesConfig = configTxValRules $ genesisConfig
+        txValRules = mkLiveTxValidationRules currentEpoch txValRulesConfig
     sscNormalize genesisConfig
-    txpNormalize genesisConfig (TxValidationRules
-                                   (tvrAddrAttrCutoff txValRules)
-                                   currentEos
-                                   (tvrAddrAttrSize txValRules)
-                                   (tvrTxAttrSize txValRules))
-                                                   txpConfig
+    txpNormalize genesisConfig txValRules txpConfig
     usNormalize (configBlockVersionData genesisConfig)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,

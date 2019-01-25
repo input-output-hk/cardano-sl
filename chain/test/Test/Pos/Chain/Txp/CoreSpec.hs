@@ -25,8 +25,7 @@ import           Pos.Chain.Txp (Tx (..), TxIn (..), TxOut (..),
                      TxValidationRules (..), checkTx, topsortTxs)
 import           Pos.Core (mkCoin)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
-                     SlotId (..), epochOrSlotFromSlotId)
+import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (hash, whData, withHash)
 import           Pos.Util (_neHead)
 
@@ -42,16 +41,16 @@ spec = describe "Txp.Core" $ do
         prop description_checkTxBad checkTxBad
         prop description_checkTxBloatedBeforeEpoch $
             forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood True blTx beforeCutoffEpochIndex
+            checkTxGood True blTx beforeCutoffEpochIndex0
+        prop description_checkTxBloatedBeforeEpoch $
+            forAll genAddressBloatedTx $ \ blTx ->
+            checkTxGood True blTx beforeCutoffEpochIndex1
         prop description_checkTxBloatedAfterEpoch $
             forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood False blTx afterCutoffEpochIndex
-        prop description_checkTxBloatedAddBeforeSlotIndex $
+            checkTxGood False blTx afterCutoffEpochIndex0
+        prop description_checkTxBloatedAfterEpoch $
             forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood True blTx beforeCutoffLocalSlotIndex
-        prop description_checkTxBloatedAddAfterSlotIndex $
-            forAll genAddressBloatedTx $ \ blTx ->
-            checkTxGood False blTx afterCutoffLocalSlotIndex
+            checkTxGood False blTx afterCutoffEpochIndex1
     describe "topsortTxs" $ do
         prop "doesn't change the random set of transactions" $
             forAll (resize 10 $ arbitrary) $ \(NonNegative l) ->
@@ -77,10 +76,6 @@ spec = describe "Txp.Core" $ do
         "creates a bloated Tx via Attributes AddrAttributes before cutoff epoch"
     description_checkTxBloatedAfterEpoch =
         "creates a bloated Tx via Attributes AddrAttributes after cutoff epoch"
-    description_checkTxBloatedAddBeforeSlotIndex =
-        "creates a bloated Tx via Attributes AddrAttributes before cutoff local slot index"
-    description_checkTxBloatedAddAfterSlotIndex =
-        "creates a bloated Tx via Attributes AddrAttributes after cutoff local slot index"
 
 checkTxGood :: Bool -> Tx -> TxValidationRules -> Property
 checkTxGood isGood tx txValRules = checker result
@@ -181,38 +176,30 @@ txGen size = do
 -- Values that test when to enforce the
 -- Tx validation rules.
 
-beforeCutoffEpochIndex :: TxValidationRules
-beforeCutoffEpochIndex = TxValidationRules
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 100) (UnsafeLocalSlotIndex 0))
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 99) (UnsafeLocalSlotIndex 0))
+beforeCutoffEpochIndex0 :: TxValidationRules
+beforeCutoffEpochIndex0 = TxValidationRules
+    (EpochIndex 100)
+    (EpochIndex 99)
     1
     1
 
-beforeCutoffLocalSlotIndex :: TxValidationRules
-beforeCutoffLocalSlotIndex = TxValidationRules
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 100) (UnsafeLocalSlotIndex 5))
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 100) (UnsafeLocalSlotIndex 4))
+beforeCutoffEpochIndex1 :: TxValidationRules
+beforeCutoffEpochIndex1 = TxValidationRules
+    (EpochIndex 9878)
+    (EpochIndex 9)
     10000
     10000
 
-afterCutoffEpochIndex :: TxValidationRules
-afterCutoffEpochIndex = TxValidationRules
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 101) (UnsafeLocalSlotIndex 0))
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 102) (UnsafeLocalSlotIndex 0))
+afterCutoffEpochIndex0 :: TxValidationRules
+afterCutoffEpochIndex0 = TxValidationRules
+    (EpochIndex 101)
+    (EpochIndex 102)
     128
     128
 
-afterCutoffLocalSlotIndex :: TxValidationRules
-afterCutoffLocalSlotIndex = TxValidationRules
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 100) (UnsafeLocalSlotIndex 6))
-    (epochOrSlotFromSlotId
-        $ SlotId (EpochIndex 100) (UnsafeLocalSlotIndex 7))
+afterCutoffEpochIndex1 :: TxValidationRules
+afterCutoffEpochIndex1 = TxValidationRules
+    (EpochIndex 47)
+    (EpochIndex 7002)
     128
     128

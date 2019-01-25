@@ -47,8 +47,7 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData (..),
                      StaticConfig, canonicalGenesisJson,
                      mkConfigFromStaticConfig, prettyGenesisJson)
-import           Pos.Core (Address, EpochIndex (..), EpochOrSlot (..),
-                     decodeTextAddress)
+import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto (RequiresNetworkMagic (..))
@@ -75,7 +74,7 @@ data Configuration = Configuration
     , ccNode        :: !NodeConfiguration
     , ccWallet      :: !WalletConfiguration
     , ccReqNetMagic :: !RequiresNetworkMagic
-    , ccTxValRules  :: !TxValidationRules
+    , ccTxValRules  :: !TxValidationRulesConfig
     } deriving (Eq, Generic , Show)
 
 instance FromJSON Configuration where
@@ -111,20 +110,7 @@ instance FromJSON Configuration where
             | otherwise -> pure RequiresMagic
         ccTxValRules <- if
             | HM.member "txValidationRules" o -> do
-                valRulesObj <- o .: "txValidationRules"
-
-                attribResEpoch <- valRulesObj .: "attribResrictEpoch"
-                aaSize <- valRulesObj .: "addrAttribSize"
-                taSize <- valRulesObj .: "txAttribSize"
-                -- attribResEpoch is used twice because
-                -- the second field of TxValidationRules
-                -- is for the current Epoch, which is taken
-                -- from the state later on.
-                pure $ TxValidationRules
-                           (EpochOrSlot . Left $ EpochIndex attribResEpoch)
-                           (EpochOrSlot . Left $ EpochIndex attribResEpoch)
-                           aaSize
-                           taSize
+                o .: "txValidationRules"
             | otherwise -> fail "No TxValidationRules specified in configuration.yaml"
         pure $ Configuration {..}
 
@@ -275,7 +261,7 @@ printInfoOnStart ::
     -> WalletConfiguration
     -> TxpConfiguration
     -> RequiresNetworkMagic
-    -> TxValidationRules
+    -> TxValidationRulesConfig
     -> m ()
 printInfoOnStart
     dumpGenesisPath
@@ -319,7 +305,7 @@ dumpConfiguration
     -> WalletConfiguration
     -> TxpConfiguration
     -> RequiresNetworkMagic
-    -> TxValidationRules
+    -> TxValidationRulesConfig
     -> m ()
 dumpConfiguration
     genesisConfig
@@ -327,7 +313,7 @@ dumpConfiguration
     walletConfig
     txpConfig
     rnm
-    txValRules = do
+    txValRulesConf = do
         let conf =
                 Configuration
                 { ccGenesis = genesisConfig
@@ -340,7 +326,7 @@ dumpConfiguration
                 , ccNode = nodeConfiguration
                 , ccWallet = walletConfig
                 , ccReqNetMagic = rnm
-                , ccTxValRules = txValRules
+                , ccTxValRules = txValRulesConf
                 }
         putText . decodeUtf8 . Yaml.encode $ conf
         exitSuccess

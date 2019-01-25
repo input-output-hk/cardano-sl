@@ -32,14 +32,15 @@ import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      MemPool, ToilVerFailure (..), TxAux (..), TxId, TxUndo,
                      TxValidationRules (..), TxpConfiguration (..), UndoMap,
                      Utxo, UtxoLookup, UtxoModifier, extendLocalToilM,
-                     mpLocalTxs, normalizeToil, processTx, topsortTxs,
-                     utxoToLookup)
+                     mkLiveTxValidationRules, mpLocalTxs, normalizeToil,
+                     processTx, topsortTxs, utxoToLookup)
 import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex, SlotCount, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
-import           Pos.Core.Slotting (MonadSlots (..), getEpochOrSlot)
+import           Pos.Core.Slotting (MonadSlots (..), epochOrSlotToEpochIndex,
+                     getEpochOrSlot)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadGState (..))
@@ -135,13 +136,9 @@ txProcessTransactionAbstract epochSlots genesisConfig buildEnv txAction itw@(txI
     extraEnv <- lift $ buildEnv utxo txAux
     bvd <- gsAdoptedBVData
     let env = (utxoToLookup utxo, extraEnv)
-    let txValRules = configTxValRules $ genesisConfig
-    currentEos <- getEpochOrSlot <$> getTipHeader
-    let currentTxValRules = (TxValidationRules
-                                (tvrAddrAttrCutoff txValRules)
-                                currentEos
-                                (tvrAddrAttrSize txValRules)
-                                (tvrTxAttrSize txValRules))
+    currentEpoch <- epochOrSlotToEpochIndex . getEpochOrSlot <$> getTipHeader
+    let txValRulesConfig = configTxValRules $ genesisConfig
+        txValRules = mkLiveTxValidationRules currentEpoch txValRulesConfig
     pRes <- lift . withTxpLocalDataLog $ \txpData -> do
         mp <- lift $ getMemPool txpData
         undo <- lift $ getLocalUndos txpData
@@ -150,7 +147,7 @@ txProcessTransactionAbstract epochSlots genesisConfig buildEnv txAction itw@(txI
         tm <- hoist generalize $
                   processTransactionPure
                   bvd
-                  currentTxValRules
+                  txValRules
                   epoch
                   env
                   tipDB

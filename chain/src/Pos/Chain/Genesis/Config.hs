@@ -64,7 +64,7 @@ import           Pos.Chain.Genesis.ProtocolConstants
 import           Pos.Chain.Genesis.Spec (GenesisSpec (..))
 import           Pos.Chain.Genesis.WStakeholders (GenesisWStakeholders)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
-import           Pos.Chain.Txp.Tx (TxValidationRules)
+import           Pos.Chain.Txp.Tx (TxValidationRulesConfig)
 import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
 import           Pos.Core.Common (BlockCount, SharedSeed)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
@@ -169,7 +169,7 @@ data Config = Config
     , configGeneratedSecrets  :: Maybe GeneratedSecrets
     , configGenesisData       :: GenesisData
     , configGenesisHash       :: GenesisHash
-    , configTxValRules        :: TxValidationRules
+    , configTxValRules        :: TxValidationRulesConfig
     }
 
 configK :: Config -> Int
@@ -265,10 +265,10 @@ mkConfigFromStaticConfig
     -- ^ Optional seed which overrides one from testnet initializer if
     -- provided.
     -> RequiresNetworkMagic
-    -> TxValidationRules
+    -> TxValidationRulesConfig
     -> StaticConfig
     -> m Config
-mkConfigFromStaticConfig confDir mSystemStart mSeed rnm txValRules  = \case
+mkConfigFromStaticConfig confDir mSystemStart mSeed rnm txValRulesConfig  = \case
     -- If a 'GenesisData' source file is given, we check its hash against the
     -- given expected hash, parse it, and use the GenesisData to fill in all of
     -- the obligations.
@@ -306,7 +306,7 @@ mkConfigFromStaticConfig confDir mSystemStart mSeed rnm txValRules  = \case
             , configGeneratedSecrets  = Nothing
             , configGenesisData       = overriddenGenesisData
             , configGenesisHash       = GenesisHash $ coerce theGenesisHash
-            , configTxValRules        = txValRules
+            , configTxValRules        = txValRulesConfig
             }
 
     -- If a 'GenesisSpec' is given, we ensure we have a start time (needed if
@@ -331,7 +331,7 @@ mkConfigFromStaticConfig confDir mSystemStart mSeed rnm txValRules  = \case
             -- specified in Configuration.
             overriddenSpec = updateGS theSpec
 
-        pure $ mkConfig theSystemStart overriddenSpec txValRules
+        pure $ mkConfig theSystemStart overriddenSpec txValRulesConfig
   where
     updateGD :: GenesisData -> GenesisData
     updateGD gd = gd { gdProtocolConsts = updateGPC (gdProtocolConsts gd) }
@@ -345,14 +345,14 @@ mkConfigFromStaticConfig confDir mSystemStart mSeed rnm txValRules  = \case
     updatePM :: ProtocolMagic -> ProtocolMagic
     updatePM pm = pm { getRequiresNetworkMagic = rnm }
 
-mkConfig :: Timestamp -> GenesisSpec -> TxValidationRules -> Config
-mkConfig theSystemStart spec txValRules = Config
+mkConfig :: Timestamp -> GenesisSpec -> TxValidationRulesConfig -> Config
+mkConfig theSystemStart spec txValRulesConfig = Config
     { configProtocolMagic     = pm
     , configProtocolConstants = pc
     , configGeneratedSecrets  = Just ggdSecrets
     , configGenesisData       = genesisData
     , configGenesisHash       = genesisHash
-    , configTxValRules        = txValRules
+    , configTxValRules        = txValRulesConfig
     }
   where
     pm = gpcProtocolMagic (gsProtocolConstants spec)

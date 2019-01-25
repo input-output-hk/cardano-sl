@@ -16,7 +16,8 @@ import           Hedgehog.Internal.Property (failWith)
 
 import           Pos.Chain.Txp (TxpConfiguration (..))
 
-import           Test.Pos.Chain.Txp.Gen (genTxpConfiguration)
+import           Test.Pos.Chain.Txp.Gen (genTxValidationRulesConfig,
+                     genTxpConfiguration)
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
                      exampleAddress2, exampleAddress3, exampleAddress4)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
@@ -81,6 +82,14 @@ golden_prettyEquivalence_TxpConfiguration2 = withFrozenCallStack $ do
         case equivTest of
             Left err    -> failWith Nothing $ "could not decode: " <> show err
             Right bool' -> assert bool'
+
+-------------------------------------------------------------------------------
+-- TxValidationRules
+-------------------------------------------------------------------------------
+
+roundTripTxValidationRulesConfig :: Property
+roundTripTxValidationRulesConfig =
+    eachOf 200 genTxValidationRulesConfig roundTripsAesonShow
 
 -------------------------------------------------------------------------------
 -- Main test export

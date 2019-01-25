@@ -54,7 +54,6 @@ import           Pos.Core.Common (AddrAttributes, Address (..), Coin,
                      IsBootstrapEraAddr (..), makePubKeyAddress)
 import           Pos.Core.Merkle (MerkleNode (..), MerkleRoot (..))
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..))
 import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx),
                      hash, sign, toPublic)
 
@@ -82,13 +81,12 @@ instance Arbitrary TxSigData where
 -- use checkTx but aren't explicitly checking if
 -- checkTx is behaving as it should.
 instance Arbitrary TxValidationRules where
-    arbitrary = do
-        cutoffEpoch <- arbitrary
-        pure $ TxValidationRules (EpochOrSlot . Left $ EpochIndex cutoffEpoch)
-                                 (EpochOrSlot . Left $ EpochIndex (cutoffEpoch - 1))
-                                 1
-                                 1
-    shrink = genericShrink
+  arbitrary = do
+      e0 <- arbitrary
+      e1 <- arbitrary
+      let [currentEpoch, cutoffEpoch] = sort [e0, e1]
+      pure $ TxValidationRules cutoffEpoch currentEpoch 1 1
+  shrink = genericShrink
 
 genAddrAttribBloated :: Gen (Attributes AddrAttributes)
 genAddrAttribBloated =

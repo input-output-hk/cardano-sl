@@ -13,21 +13,20 @@ import           Pos.Chain.Ssc (SscConfiguration (SscConfiguration))
 import           Pos.Chain.Txp (TxpConfiguration (TxpConfiguration))
 import           Pos.Chain.Update (UpdateConfiguration (UpdateConfiguration))
 import           Pos.Configuration (NodeConfiguration (NodeConfiguration))
-import           Pos.Core.Slotting (SlotCount)
 import           Pos.Crypto.Configuration
                      (RequiresNetworkMagic (RequiresMagic, RequiresNoMagic))
 import           Pos.Crypto.Hashing (unsafeMkAbstractHash)
 import           Pos.Launcher.Configuration (Configuration (Configuration),
                      ThrottleSettings (ThrottleSettings),
                      WalletConfiguration (WalletConfiguration))
-import           Test.Pos.Chain.Txp.Gen (genTxValidationRules_randomCutoff)
+import           Test.Pos.Chain.Txp.Gen (genTxValidationRulesConfig)
 import           Test.Pos.Chain.Update.Gen (genApplicationName, genBlockVersion,
                      genSystemTag)
 
 -- TODO, move a lot of the chain specific generators into cardano-sl-chain
 
-genConfiguration :: SlotCount -> Gen Configuration
-genConfiguration epochSlots = Configuration <$> genGenesis <*> genNtp <*> genUpdate <*> genSsc <*> genDlg <*> genTxp <*> genBlock <*> genNode <*> genWallet <*> genReqNetMagic <*> genTxValidationRules_randomCutoff epochSlots
+genConfiguration :: Gen Configuration
+genConfiguration = Configuration <$> genGenesis <*> genNtp <*> genUpdate <*> genSsc <*> genDlg <*> genTxp <*> genBlock <*> genNode <*> genWallet <*> genReqNetMagic <*> genTxValidationRulesConfig
 
 genGenesis :: Gen StaticConfig
 -- TODO, GCSpec not covered

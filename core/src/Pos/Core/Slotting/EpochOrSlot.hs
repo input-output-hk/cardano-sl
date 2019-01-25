@@ -24,6 +24,7 @@ module Pos.Core.Slotting.EpochOrSlot
        , epochOrSlot
        , epochOrSlotG
        , epochOrSlotToSlot
+       , epochOrSlotToEpochIndex
        ) where
 
 import           Universum
@@ -236,6 +237,11 @@ epochOrSlot f g = either f g . unEpochOrSlot
 -- returned.
 epochOrSlotToSlot :: EpochOrSlot -> SlotId
 epochOrSlotToSlot = epochOrSlot (flip SlotId localSlotIndexMinBound) identity
+
+-- | Convert 'EpochOrSlot' to the corresponding epoch. This throws away
+-- slot information.
+epochOrSlotToEpochIndex :: EpochOrSlot -> EpochIndex
+epochOrSlotToEpochIndex = epochOrSlot identity siEpoch
 
 -- -----------------------------------------------------------------------------
 -- TH derived instances at the end of the file.

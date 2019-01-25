@@ -21,6 +21,7 @@ module Test.Pos.Chain.Txp.Gen
        , genTxProof
        , genTxSig
        , genTxSigData
+       , genTxValidationRulesConfig
        , genTxUndo
        , genTxWitness
        , genUnknownWitnessType
@@ -39,12 +40,14 @@ import qualified Hedgehog.Range as Range
 import           Pos.Chain.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
                      TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
                      TxPayload, TxProof (..), TxSig, TxSigData (..), TxUndo,
-                     TxWitness, TxpConfiguration (..), TxpUndo, mkTxPayload)
+                     TxValidationRulesConfig (..), TxWitness,
+                     TxpConfiguration (..), TxpUndo, mkTxPayload)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (Hash, ProtocolMagic, decodeHash, sign)
 
 import           Test.Pos.Core.Gen (gen32Bytes, genAddress, genBytes, genCoin,
-                     genMerkleRoot, genScript, genTextHash, genWord32)
+                     genEpochIndex, genMerkleRoot, genScript, genTextHash,
+                     genWord32)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genPublicKey,
                      genRedeemPublicKey, genRedeemSignature, genSecretKey,
                      genSignTag)
@@ -61,6 +64,12 @@ genPkWitness pm = PkWitness <$> genPublicKey <*> genTxSig pm
 genRedeemWitness :: ProtocolMagic -> Gen TxInWitness
 genRedeemWitness pm =
     RedeemWitness <$> genRedeemPublicKey <*> genRedeemSignature pm genTxSigData
+
+genTxValidationRulesConfig :: Gen TxValidationRulesConfig
+genTxValidationRulesConfig =
+    TxValidationRulesConfig <$> genEpochIndex
+                            <*> Gen.integral (Range.constant 1 1000)
+                            <*> Gen.integral (Range.constant 1 1000)
 
 genScriptWitness :: Gen TxInWitness
 genScriptWitness = ScriptWitness <$> genScript <*> genScript

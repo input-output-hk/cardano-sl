@@ -14,14 +14,16 @@ import           Hedgehog (Property, assert, withTests)
 import qualified Hedgehog as H
 import           Hedgehog.Internal.Property (failWith)
 
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (TxValidationRulesConfig (..),
+                     TxpConfiguration (..))
+import           Pos.Core.Slotting (EpochIndex (..))
 
 import           Test.Pos.Chain.Txp.Gen (genTxValidationRulesConfig,
                      genTxpConfiguration)
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
                      exampleAddress2, exampleAddress3, exampleAddress4)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
-                     goldenTestJSONPretty, goldenValueEquiv)
+                     goldenTestJSONPretty, goldenTestYaml, goldenValueEquiv)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 
 -------------------------------------------------------------------------------
@@ -84,15 +86,25 @@ golden_prettyEquivalence_TxpConfiguration2 = withFrozenCallStack $ do
             Right bool' -> assert bool'
 
 -------------------------------------------------------------------------------
--- TxValidationRules
+-- TxValidationRulesConfig
 -------------------------------------------------------------------------------
+
+golden_TxpValidationRulesConfigJson :: Property
+golden_TxpValidationRulesConfigJson =
+    goldenTestJSONPretty exampleTxValidationRulesConfig
+        "test/golden/json/TxValidationRulesConfig"
+
+golden_TxpValidationRulesConfigYaml :: Property
+golden_TxpValidationRulesConfigYaml =
+    goldenTestYaml exampleTxValidationRulesConfig
+        "test/golden/yaml/TxValidationRulesConfig"
 
 roundTripTxValidationRulesConfig :: Property
 roundTripTxValidationRulesConfig =
     eachOf 200 genTxValidationRulesConfig roundTripsAesonShow
 
 -------------------------------------------------------------------------------
--- Main test export
+-- Example datatypes
 -------------------------------------------------------------------------------
 
 exampleTxpConfiguration0 :: TxpConfiguration
@@ -109,6 +121,12 @@ exampleTxpConfiguration2 :: TxpConfiguration
 exampleTxpConfiguration2 = TxpConfiguration 700 talsa
   where
     talsa = S.fromList [exampleAddress4, exampleAddress]
+
+exampleTxValidationRulesConfig :: TxValidationRulesConfig
+exampleTxValidationRulesConfig = TxValidationRulesConfig
+                                     (EpochIndex 2)
+                                     128
+                                     128
 
 -------------------------------------------------------------------------------
 -- Main test export

@@ -5,6 +5,7 @@ import           Universum
 import           Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
 import           Data.Aeson.Encode.Pretty (Config (..), Indent (..),
                      NumberFormat (..), encodePretty', keyOrder)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
@@ -12,6 +13,7 @@ import           Data.SafeCopy (SafeCopy, safeGet, safePut)
 import           Data.Serialize (runGetLazy, runPutLazy)
 import qualified Data.Text.Lazy as LT (unpack)
 import           Data.Text.Lazy.Builder (toLazyText)
+import qualified Data.Yaml as Y
 import           Formatting.Buildable (build)
 import           Hedgehog (Gen, Group, Property, PropertyT, TestLimit,
                      discoverPrefix, forAll, property, withTests, (===))
@@ -148,3 +150,19 @@ makeRelativeToTestDir rel = do
                     then Just dir
                     else findTestDir dir
 
+
+--------------------------------------------------------------------------------
+-- YAML golden testing
+--------------------------------------------------------------------------------
+
+-- | Test if a datatype's Yaml encoding matches the encoding in the file,
+-- and if the decoding of the file contents matches the datatype
+goldenTestYaml :: (Eq a, FromJSON a, HasCallStack, Show a, ToJSON a)
+               => a -> FilePath -> Property
+goldenTestYaml x path = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        bs <- liftIO (BS.readFile path)
+        Y.encode x === bs
+        case Y.decodeEither' bs of
+            Left err -> failWith Nothing $ "could not decode: " <> show err
+            Right x' -> x === x'

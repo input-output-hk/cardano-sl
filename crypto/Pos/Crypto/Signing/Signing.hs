@@ -7,6 +7,7 @@ module Pos.Crypto.Signing.Signing
        -- * Keys
          emptyPass
        , keyGen
+       , keyGenNew
        , deterministicKeyGen
 
        -- * Signing and verification
@@ -53,26 +54,32 @@ import           Pos.Crypto.Signing.Types.Tag (SignTag)
 emptyPass :: ScrubbedBytes
 emptyPass = mempty
 
--- TODO: this is just a placeholder for actual (not ready yet) derivation
--- of keypair from seed in cardano-crypto API
-createKeypairFromSeed :: BS.ByteString -> (CC.XPub, CC.XPrv)
-createKeypairFromSeed seed =
-    let prv = CC.generate seed emptyPass
-    in  (CC.toXPub prv, prv)
-
 -- | Generate a key pair. It's recommended to run it with 'runSecureRandom'
 -- from "Pos.Crypto.Random" because the OpenSSL generator is probably safer
 -- than the default IO generator.
 keyGen :: MonadRandom m => m (PublicKey, SecretKey)
-keyGen = do
-    seed <- getRandomBytes 32
-    let (pk, sk) = createKeypairFromSeed seed
-    return (PublicKey pk, SecretKey sk)
+keyGen = deterministicKeyGen <$> getRandomBytes 32
 
 -- | Create key pair deterministically from 32 bytes.
 deterministicKeyGen :: BS.ByteString -> (PublicKey, SecretKey)
 deterministicKeyGen seed =
-    bimap PublicKey SecretKey (createKeypairFromSeed seed)
+    bimap PublicKey SecretKey createKeypairFromSeed
+  where
+    createKeypairFromSeed =
+        let prv = CC.generate seed emptyPass
+        in  (CC.toXPub prv, prv)
+
+keyGenNew :: MonadRandom m => m (PublicKey, SecretKey)
+keyGenNew = deterministicKeyGenNew <$> getRandomBytes 16
+
+-- | Create key pair deterministically from at least 16 bytes.
+deterministicKeyGenNew :: BS.ByteString -> (PublicKey, SecretKey)
+deterministicKeyGenNew seed =
+    bimap PublicKey SecretKey createKeypairFromSeed
+  where
+    createKeypairFromSeed =
+        let prv = CC.generateNew seed emptyPass emptyPass
+        in  (CC.toXPub prv, prv)
 
 ----------------------------------------------------------------------------
 -- Signatures

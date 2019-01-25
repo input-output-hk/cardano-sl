@@ -37,7 +37,7 @@ import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret,
 import           Pos.Crypto.Signing (EncryptedSecretKey (..), PassPhrase,
                      ProxyCert, ProxySecretKey, ProxySignature, PublicKey,
                      SecretKey, SignTag (..), Signature, Signed,
-                     createProxyCert, createPsk, keyGen, mkSigned,
+                     createProxyCert, createPsk, keyGen, keyGenNew, mkSigned,
                      noPassEncrypt, proxySign, sign, signEncoded, toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey,
                      RedeemSignature, redeemKeyGen, redeemSign)
@@ -96,15 +96,19 @@ keys :: [(PublicKey, SecretKey)]
 keys = deterministic "keys" $
     replicateM keysToGenerate keyGen
 
+keysNew :: [(PublicKey, SecretKey)]
+keysNew = deterministic "keys" $
+    replicateM keysToGenerate keyGenNew
+
 instance Arbitrary PublicKey where
-    arbitrary = fst <$> elements keys
+    arbitrary = fst <$> oneof [elements keys, elements keysNew]
 instance Arbitrary SecretKey where
-    arbitrary = snd <$> elements keys
+    arbitrary = snd <$> oneof [elements keys, elements keysNew]
 
 instance Nonrepeating PublicKey where
-    nonrepeating n = map fst <$> sublistN n keys
+    nonrepeating n = map fst <$> sublistN n (keys <> keysNew)
 instance Nonrepeating SecretKey where
-    nonrepeating n = map snd <$> sublistN n keys
+    nonrepeating n = map snd <$> sublistN n (keys <> keysNew)
 
 -- Repeat the same for ADA redemption keys
 redemptionKeys :: [(RedeemPublicKey, RedeemSecretKey)]

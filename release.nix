@@ -164,10 +164,31 @@ let
   #  x86_64-pc-mingw32-$pkg
   #
   mapped-nix-tools'
-    = lib.recursiveUpdate
+    = (lib.recursiveUpdate
         (mapped-nix-tools)
         (lib.mapAttrs (_: (lib.mapAttrs (_: (lib.mapAttrs' (n: v: lib.nameValuePair (lib.systems.examples.mingwW64.config + "-" + n) v)))))
-          mapped-nix-tools-cross);
+          mapped-nix-tools-cross))
+      // {
+        daedalus-mingw32-pkg = pkgs.runCommand "daedalus-mingw32-pkg" {} ''
+          mkdir -p daedalus $out
+
+          cd daedalus
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet.x86_64-linux}/bin/cardano-node.exe .
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-launcher.exe .
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-x509-certificates.exe .
+          cp ${./log-configs/daedalus.yaml} log-config-prod.yaml
+          cp ${./lib/configuration.yaml} configuration.yaml
+          cp ${./lib}/*genesis*.json .
+          echo ${cardano.rev} > commit-id
+          ${pkgs.zip}/bin/zip -9 $out/CardanoSL.zip *
+
+          # add CardanoSL.zip to the hydra-build-products to make
+          # hydra provide a link to it.
+          mkdir -p $out/nix-support
+          echo "file binary-dist \"$out/CardanoSL.zip\"" \
+              > $out/nix-support/hydra-build-products
+        '';
+      };
 
   mapped' = mapTestOn platforms';
   makeConnectScripts = cluster: let

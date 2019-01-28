@@ -55,6 +55,7 @@ bracketPassiveWallet =
         , createAddress        = \_     -> liftedGen
         , getAddresses         = \_     -> liftedGen
         , validateAddress      = \_     -> liftedGen
+        , importAddresses      = \_ _ _ -> liftedGen
 
         , getTransactions      = \_ _ _ _ _ _ -> liftedGen
         , getTxFromMeta        = \_ -> liftedGen

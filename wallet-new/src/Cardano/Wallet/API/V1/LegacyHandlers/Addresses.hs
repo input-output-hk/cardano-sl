@@ -46,6 +46,7 @@ handlers
 handlers nm = listAddresses nm
        :<|> newAddress nm
        :<|> getAddress nm
+       :<|> importAddresses nm
 
 -- | This is quite slow. What happens when we have 50k addresses?
 -- TODO(ks): One idea I have is to persist the length of the
@@ -133,3 +134,11 @@ getAddress nm addrText = do
             accMod <- V0.txMempoolToModifier ws mps . keyToWalletDecrCredentials nm =<< V0.findKey nm accId
             let caddr = V0.getWAddress ws accMod adiWAddressMeta
             single <$> migrate caddr
+
+importAddresses
+    :: NetworkMagic
+    -> WalletId
+    -> AccountIndex
+    -> [V1 Address]
+    -> m (WalletResponse (BatchImportResult (V1 Address)))
+importAddresses _ _ _ _ = error "Not Implemented."

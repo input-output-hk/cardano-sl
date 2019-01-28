@@ -398,7 +398,7 @@ curl -X POST https://localhost:8090/api/v1/wallets \
   --cacert ./scripts/tls-files/ca.crt \
   -d '{
   "operation": "create",
-  "backupPhrase": [$deMnemonicExample],
+  "backupPhrase": $deMnemonicExample,
   "assuranceLevel": "normal",
   "name": "MyFirstWallet",
   "spendingPassword": "5416b2988745725998907addf4613c9b0764f04959030e1b81c603b920a115d0"

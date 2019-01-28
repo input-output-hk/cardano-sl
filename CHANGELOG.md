@@ -1,12 +1,17 @@
 # CHANGELOG
 
+## Next
+
+### Fixes
+
+- Limit the rate of dns queries to avoid reaching the limit of open files, try resolve dns in ntp client every 30s rather than only once ([CDEC-659](https://iohk.myjetbrains.com/youtrack/issue/CDEC-659) [#4008](https://github.com/input-output-hk/cardano-sl/pull/4008))
+
 ## Cardano SL 2.0.1
 
 ### Fixes
 
 - Relocate fee sanity check and make it relative to each transaction (rather than absolute) ([CO-446](https://iohk.myjetbrains.com/youtrack/issue/CO-446) [#3993](https://github.com/input-output-hk/cardano-sl/pull/3993)
-- Correction to block retrieval concurrency and exception handling, so that it will recover in case of certain network failure conditions. ([CDEC-658](https://iohk.myjetbrains.com/youtrack/issue/CDEC-658) [#3994](https://github.com/input-output-hk/cardano-sl/pull/3994))
-- Limit the rate of dns queries to avoid reaching the limit of open files, try resolve dns in ntp client every 30s rather than only once ([CDEC-659](https://iohk.myjetbrains.com/youtrack/issue/CDEC-658) [#4008](https://github.com/input-output-hk/cardano-sl/pull/4008))
+- Correction to block retrieval concurrency and exception handling, so that it will recover in case of certain network failure conditions. ([CDEC-658](https://iohk.myjetbrains.com/youtrack/issue/CDEC-658) [#3998](https://github.com/input-output-hk/cardano-sl/pull/3998))
 
 ## Cardano SL 2.0.0
 

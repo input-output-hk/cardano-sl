@@ -28,7 +28,8 @@ module Pos.Launcher.Configuration
 import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
-                     genericToJSON, withObject, (.!=), (.:), (.:?))
+                     genericToJSON, object, withObject, (.!=), (.:), (.:?),
+                     (.=))
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
@@ -115,7 +116,19 @@ instance FromJSON Configuration where
         pure $ Configuration {..}
 
 instance ToJSON Configuration where
-     toJSON = genericToJSON defaultOptions
+    toJSON conf =
+        object [ "genesis"              .= ccGenesis conf
+               , "ntp"                  .= ccNtp conf
+               , "update"               .= ccUpdate conf
+               , "ssc"                  .= ccSsc conf
+               , "dlg"                  .= ccDlg conf
+               , "txp"                  .= ccTxp conf
+               , "block"                .= ccBlock conf
+               , "node"                 .= ccNode conf
+               , "wallet"               .= ccWallet conf
+               , "requiresNetworkMagic" .= ccReqNetMagic conf
+               , "txValidationRules"    .= ccTxValRules conf
+               ]
 
 data WalletConfiguration = WalletConfiguration
     { ccThrottle :: !(Maybe ThrottleSettings)

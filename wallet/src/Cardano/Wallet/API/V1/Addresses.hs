@@ -8,7 +8,6 @@ import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
-
 type API = Tags '["Addresses"] :>
       (    "addresses" :> WalletRequestParams
                        :> Summary "Returns a list of the addresses."
@@ -19,4 +18,8 @@ type API = Tags '["Addresses"] :>
       :<|> "addresses" :> Capture "address" Text
                        :> Summary "Returns interesting information about an address, if available and valid."
                        :> Get '[ValidJSON] (APIResponse WalletAddress)
+      :<|> "wallets" :> CaptureWalletId :> "accounts" :> CaptureAccountId :> "addresses"
+        :> Summary "Batch import existing addresses"
+        :> ReqBody '[ValidJSON] [V1 Address]
+        :> Post '[ValidJSON] (APIResponse (BatchImportResult (V1 Address)))
       )

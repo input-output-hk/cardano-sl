@@ -20,8 +20,8 @@ import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 
-import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
-                     criticalCQBootstrap, fixedTimeCQSec, gbHeader,
+import           Pos.Chain.Block (BlockHeader (..), HasBlockConfiguration,
+                     criticalCQ, criticalCQBootstrap, fixedTimeCQSec, gbHeader,
                      lsiFlatSlotId, networkDiameter, nonCriticalCQ,
                      nonCriticalCQBootstrap, scCQFixedMonitorState,
                      scCQOverallMonitorState, scCQkMonitorState,
@@ -34,11 +34,11 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configSlotSecurityParam)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
-import           Pos.Core (BlockCount, ChainDifficulty, FlatSlotId, SlotCount,
-                     SlotId (..), Timestamp (Timestamp), addressHash,
-                     difficultyL, epochOrSlotToSlot, flattenSlotId,
-                     getEpochOrSlot, getOurPublicKey, getSlotIndex,
-                     kEpochSlots, localSlotIndexFromEnum,
+import           Pos.Core (BlockCount, ChainDifficulty, EpochIndex (..),
+                     FlatSlotId, SlotCount, SlotId (..), Timestamp (Timestamp),
+                     addressHash, difficultyL, epochIndexL, epochOrSlotToSlot,
+                     flattenSlotId, getEpochOrSlot, getOurPublicKey,
+                     getSlotIndex, kEpochSlots, localSlotIndexFromEnum,
                      localSlotIndexMinBound, slotIdF, slotIdSucc,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
@@ -50,12 +50,12 @@ import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import           Pos.DB.Block (calcChainQualityFixedTime, calcChainQualityM,
                      calcOverallChainQuality, createGenesisBlockAndApply,
-                     createMainBlockAndApply, slogGetLastSlots)
+                     createMainBlockAndApply, lrcSingleShot, slogGetLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
 import           Pos.DB.Lrc.OBFT (getSlotLeaderObft)
-import           Pos.DB.Update (getAdoptedBVData, getConsensusEra)
+import           Pos.DB.Update (getAdoptedBV, getAdoptedBVData, getConsensusEra)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader))
@@ -150,13 +150,39 @@ blockCreator
 blockCreator genesisConfig txpConfig slotId diffusion = do
     era <- getConsensusEra
     logInfo $ sformat ("blockCreator: Consensus era is " % shown) era
+
+    bv <- getAdoptedBV
+    bvd <- getAdoptedBVData
+    logInfo $ sformat ("blockCreator: Adopted BV is " % shown) bv
+    logInfo $ sformat ("blockCreator: Adopted BVD is " % shown) bvd
+
     logInfo $ sformat ("blockCreator: slotId is " % shown) slotId
     case era of
         Original -> blockCreatorOriginal genesisConfig
                                          txpConfig
                                          slotId
                                          diffusion
-        OBFT _   -> blockCreatorObft genesisConfig txpConfig slotId diffusion
+        OBFT _   -> do
+            tipHeader <- DB.getTipHeader
+            whenEpochBoundaryObft (siEpoch slotId) tipHeader (\ei -> do
+                logDebug $ "blockCreator OBFT: running lrcSingleShot"
+                lrcSingleShot genesisConfig ei)
+            blockCreatorObft genesisConfig txpConfig slotId diffusion
+  where
+    whenEpochBoundaryObft ::
+        ( Applicative m
+        )
+        => EpochIndex
+        -> BlockHeader
+        -> (EpochIndex -> m ())
+        -> m ()
+    whenEpochBoundaryObft currentEpoch tipHeader actn = do
+        case tipHeader of
+            BlockHeaderGenesis _ -> pass
+            BlockHeaderMain mb ->
+                if mb ^. epochIndexL /= currentEpoch - 1
+                    then pass
+                    else actn currentEpoch
 
 blockCreatorObft
     :: ( BlockWorkMode ctx m

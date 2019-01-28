@@ -257,7 +257,7 @@ verifyBlocksPrefix era blocks txValRules =
         (ebb ^. headerHashG)
         era
         Nothing
-        -- @intricate: Hardcoded `Original` (seems to make sense here)
+        -- FIXME: Hardcoded `Original`
         (OriginalLeaders (ebb ^. gbBody . gbLeaders))
         (OldestFirst []) -- ^ TODO pass these?
         (Right <$> emb)

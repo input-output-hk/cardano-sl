@@ -68,7 +68,8 @@ import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
 import           Pos.Infra.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Infra.Diffusion.Types (Diffusion (..),
-                     DiffusionHealth (..), DiffusionLayer (..))
+                     DiffusionHealth (..), DiffusionLayer (..),
+                     StreamBlocks (..))
 import           Pos.Infra.Network.Types (Bucket (..), NetworkConfig (..),
                      NodeType, SubscriptionWorker (..), initQueue,
                      topologyHealthStatus, topologyRunKademlia,
@@ -358,7 +359,7 @@ diffusionLayerFullExposeInternals fdconf
                         NodeId
                      -> HeaderHash
                      -> [HeaderHash]
-                     -> ([Block] -> IO t)
+                     -> StreamBlocks Block IO t
                      -> IO (Maybe t)
         streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
 

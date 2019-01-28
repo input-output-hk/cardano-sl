@@ -18,7 +18,6 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , largestFirst
     -- * Estimating fees
   , estimateCardanoFee
-  , checkCardanoFeeSanity
   , boundAddrAttrSize
   , boundTxAttrSize
     -- * Estimating transaction limits
@@ -44,7 +43,7 @@ import           Pos.Chain.Txp as Core (TxIn, TxOutAux, Utxo, toaOut,
 import           Pos.Core as Core (AddrAttributes, Address, Coin (..),
                      TxSizeLinear, addCoin, calculateTxSizeLinear, checkCoin,
                      divCoin, isRedeemAddress, maxCoinVal, mkCoin, subCoin,
-                     txSizeLinearMinValue, unsafeMulCoin, unsafeSubCoin)
+                     unsafeSubCoin)
 
 import           Pos.Core.Attributes (Attributes)
 import           Pos.Crypto (Signature)
@@ -147,8 +146,6 @@ data InputGrouping =
 data CoinSelectionOptions = CoinSelectionOptions {
       csoEstimateFee       :: Int -> NonEmpty Core.Coin -> Core.Coin
     -- ^ A function to estimate the fees.
-    , csoFeesSanityCheck   :: Core.Coin -> Bool
-    -- ^ A function we can use to check if fees are not too big or too small.
     , csoInputGrouping     :: InputGrouping
     -- ^ A preference regarding input grouping.
     , csoExpenseRegulation :: ExpenseRegulation
@@ -162,10 +159,9 @@ data CoinSelectionOptions = CoinSelectionOptions {
 -- | Creates new 'CoinSelectionOptions' using 'NoGrouping' as default
 -- 'InputGrouping' and 'SenderPaysFee' as default 'ExpenseRegulation'.
 newOptions :: (Int -> NonEmpty Core.Coin -> Core.Coin)
-           -> (Core.Coin -> Bool) -> CoinSelectionOptions
-newOptions estimateFee check = CoinSelectionOptions {
+           -> CoinSelectionOptions
+newOptions estimateFee = CoinSelectionOptions {
       csoEstimateFee       = estimateFee
-    , csoFeesSanityCheck   = check
     , csoInputGrouping     = IgnoreGrouping
     , csoExpenseRegulation = SenderPaysFee
     , csoDustThreshold     = Core.mkCoin 0
@@ -395,15 +391,6 @@ estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
     = ceiling $ calculateTxSizeLinear linearFeePolicy
               $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
-
-checkCardanoFeeSanity :: TxSizeLinear -> Coin -> Bool
-checkCardanoFeeSanity linearFeePolicy fees =
-    let
-        maxCoeff :: Int = 2
-        minFees = Core.mkCoin $ floor $ txSizeLinearMinValue linearFeePolicy
-    in
-        (fees >= minFees) && (fees <= Core.unsafeMulCoin minFees maxCoeff)
-
 
 -- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.

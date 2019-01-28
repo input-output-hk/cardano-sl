@@ -7,6 +7,8 @@ module Pos.Infra.Diffusion.Types
     , Diffusion (..)
     , hoistDiffusion
     , dummyDiffusionLayer
+    , StreamBlocks (..)
+    , hoistStreamBlocks
     , DiffusionHealth (..)
     ) where
 
@@ -29,6 +31,24 @@ import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 
+-- | How to handle a stream of blocks.
+data StreamBlocks block m t = StreamBlocks
+  { streamBlocksMore :: NonEmpty block -> m (StreamBlocks block m t)
+    -- ^ The server gives a batch of blocks.
+  , streamBlocksDone :: m t
+    -- ^ The server has no more blocks.
+  }
+
+hoistStreamBlocks
+  :: ( Functor n )
+  => (forall x . m x -> n x)
+  -> StreamBlocks block m t
+  -> StreamBlocks block n t
+hoistStreamBlocks nat streamBlocks = streamBlocks
+  { streamBlocksMore = \blks ->
+      fmap (hoistStreamBlocks nat) (nat (streamBlocksMore streamBlocks blks))
+  , streamBlocksDone = nat (streamBlocksDone streamBlocks)
+  }
 
 data DiffusionHealth = DiffusionHealth {
     dhStreamWriteQueue :: !Gauge -- Number of blocks stored in the block stream write queue
@@ -49,7 +69,7 @@ data Diffusion m = Diffusion
                             NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> ([Block] -> m t)
+                         -> StreamBlocks Block m t
                          -> m (Maybe t)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
@@ -108,7 +128,7 @@ hoistDiffusion
     -> Diffusion n
 hoistDiffusion nat rnat orig = Diffusion
     { getBlocks = \nid bh hs -> nat $ getBlocks orig nid bh hs
-    , streamBlocks = \nid hh hhs k -> nat $ streamBlocks orig nid hh hhs (rnat . k)
+    , streamBlocks = \nid hh hhs k -> nat $ streamBlocks orig nid hh hhs (hoistStreamBlocks rnat k)
     , requestTip = nat $ (fmap . fmap) nat (requestTip orig)
     , announceBlockHeader = nat . announceBlockHeader orig
     , sendTx = nat . sendTx orig

@@ -9,8 +9,9 @@ import           Universum
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 
-import           Test.Pos.Chain.Update.Gen (genBlockVersionData,
-                     genSoftforkRule)
+import           Test.Pos.Chain.Update.Gen (genApplicationName,
+                     genBlockVersionData, genSoftforkRule, genSoftwareVersion,
+                     genSystemTag)
 import           Test.Pos.Util.Golden (eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
                      roundTripsAesonBuildable)
@@ -29,6 +30,30 @@ roundTripBlockVersionData =
 
 roundTripSoftforkRule :: Property
 roundTripSoftforkRule = eachOf 1000 genSoftforkRule roundTripsAesonBuildable
+
+--------------------------------------------------------------------------------
+-- ApplicationName
+--------------------------------------------------------------------------------
+
+roundTripApplicationName :: Property
+roundTripApplicationName =
+    eachOf 1000 genApplicationName roundTripsAesonBuildable
+
+--------------------------------------------------------------------------------
+-- SoftwareVersion
+--------------------------------------------------------------------------------
+
+roundTripSoftwareVersion :: Property
+roundTripSoftwareVersion =
+    eachOf 1000 genSoftwareVersion roundTripsAesonBuildable
+
+--------------------------------------------------------------------------------
+-- SystemTag
+--------------------------------------------------------------------------------
+
+roundTripSystemTag :: Property
+roundTripSystemTag =
+    eachOf 1000 genSystemTag roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- Main Testing Function

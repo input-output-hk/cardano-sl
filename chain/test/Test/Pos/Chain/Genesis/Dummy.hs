@@ -22,6 +22,7 @@ module Test.Pos.Chain.Genesis.Dummy
        , dummyGenesisDataStartTime
        , dummyGenesisHash
        , dummyTxValRulesConfig
+       , dummyTxValRules
        ) where
 
 import           Universum
@@ -35,7 +36,8 @@ import           Pos.Chain.Genesis (Config (..), FakeAvvmOptions (..),
                      genesisProtocolConstantsFromProtocolConstants,
                      gsSecretKeys, gsSecretKeysPoor, gsSecretKeysRich,
                      mkConfig, noGenesisDelegation)
-import           Pos.Chain.Txp (TxValidationRulesConfig (..))
+import           Pos.Chain.Txp (TxValidationRules (..),
+                     TxValidationRulesConfig (..), mkLiveTxValidationRules)
 import           Pos.Chain.Update (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Core (BlockCount, Coeff (..), EpochIndex (..),
                      ProtocolConstants (..), SharedSeed (..), SlotCount,
@@ -146,6 +148,13 @@ dummyGenesisDataStartTime = configGenesisData . dummyConfigStartTime
 
 dummyGenesisHash :: GenesisHash
 dummyGenesisHash = configGenesisHash dummyConfig
+
+-- | A TxValidationRules which has not gone into effect yet
+dummyTxValRules :: TxValidationRules
+dummyTxValRules = mkLiveTxValidationRules currentEpoch dummyTxValRulesConfig
+  where
+    currentEpoch = EpochIndex 0
+
 
 -- In order to limit the `Attributes` size in a Tx, `TxValidationRules` was
 -- created in https://github.com/input-output-hk/cardano-sl/pull/3878. The

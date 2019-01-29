@@ -48,7 +48,7 @@ dev: &dev
             txSizeLinear:
               a: 155381 # absolute minimal fees per transaction
               b: 43.946 # additional minimal fees per byte of transaction size
-          unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
+          unlockStakeEpoch: 9999999999999999999
         protocolConstants: &dev_core_genesis_spec_protocolConstants
           k: 2
           protocolMagic: 55550001
@@ -15152,6 +15152,99 @@ devnet_macos64:
     systemTag: macos64
 
 devnet_linux64:
+  <<: *devnet
+  update:
+    <<: *devnet_update
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: linux
+
+##############################################################################
+##                                                                          ##
+##   OBFT Temporary Testnet config                                          ##
+##                                                                          ##
+##############################################################################
+
+obft_testnet: &devnet
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec:
+        <<: *mainnet_base_spec
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          slotDuration:      20000 # set to desired value
+          maxHeaderSize:      2000
+          maxProposalSize:   70000 # 70KB
+          maxTxSize:         65536 # 64KiB
+        protocolConstants:
+          <<: *mainnet_base_protocolConstants
+          protocolMagic: 170987650
+          k: 2160 # set to desired value
+        avvmDistr: *mainnet_avvmDistr
+        initializer:
+          testBalance:
+            poors:        200 # should be enough for developers
+            richmen:      7   # this is the number of core nodes,
+                              # set to desired value
+            richmenShare: 0.96
+            totalBalance: 13887504355000000
+            # We need to use HD addresses, because Daedalus can import
+            # only them and some developers may want to test Daedalus.
+            useHDAddresses: True
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 15000000
+          avvmBalanceFactor: 1
+          useHeavyDlg: True
+          seed: 0
+    requiresNetworkMagic: RequiresNoMagic
+
+  update: &devnet_update
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: none
+
+  node:
+    <<: *mainnet_base_node
+    networkDiameter: 18 # should be slightly less than slot duration
+    recoveryHeadersMessage: 200 # should be greater than k
+
+obft_testnet_win64:
+  <<: *devnet
+  update:
+    <<: *devnet_update
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: win64
+
+obft_testnet_macos64:
+  <<: *devnet
+  update:
+    <<: *devnet_update
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: macos64
+
+obft_testnet_linux64:
   <<: *devnet
   update:
     <<: *devnet_update

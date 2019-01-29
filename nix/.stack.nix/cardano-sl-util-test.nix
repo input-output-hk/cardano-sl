@@ -52,6 +52,7 @@
           (hsPkgs.time-units)
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
+          (hsPkgs.yaml)
         ];
         build-tools = [
           (hsPkgs.buildPackages.cpphs)

@@ -5,7 +5,7 @@ module Test.Pos.Util.Tripping where
 import qualified Prelude
 import           Universum
 
-import           Data.Aeson (FromJSON, ToJSON, decode, encode)
+import           Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
 import           Data.Text.Internal.Builder (fromText, toLazyText)
 import           Formatting.Buildable (Buildable (..))
 import           Hedgehog (Group, MonadTest, discoverPrefix, success, tripping)
@@ -23,12 +23,12 @@ discoverRoundTrip = discoverPrefix "roundTrip"
 
 roundTripsAesonShow
     :: (Eq a, MonadTest m, ToJSON a, FromJSON a, Show a) => a -> m ()
-roundTripsAesonShow a = tripping a encode decode
+roundTripsAesonShow a = tripping a encode eitherDecode
 
 -- | Round trip any `a` with both `ToJSON` and `FromJSON` instances
 roundTripsAesonBuildable
     :: (Eq a, MonadTest m, ToJSON a, FromJSON a, Buildable a) => a -> m ()
-roundTripsAesonBuildable a = trippingBuildable a encode decode
+roundTripsAesonBuildable a = trippingBuildable a encode eitherDecode
 
 -- We want @SchemaError@s to show up different (register failure)
 instance Eq SchemaError where
@@ -91,6 +91,10 @@ trippingBuildable x enc dec =
 
 instance Buildable a => Buildable (Either Text a) where
     build (Left t)  = fromText t
+    build (Right a) = build a
+
+instance Buildable a => Buildable (Either String a) where
+    build (Left t)  = fromString t
     build (Right a) = build a
 
 instance Buildable () where

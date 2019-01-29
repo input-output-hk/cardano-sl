@@ -185,6 +185,7 @@ benchmark cardano-sl-verification-bench
   build-depends:        base
                       , cardano-sl
                       , cardano-sl-chain
+                      , cardano-sl-chain-test
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db

@@ -7,8 +7,7 @@ module Pos.Chain.Update.ApplicationName
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
-import           Data.Aeson (FromJSON (..))
-import           Data.Aeson.TH (defaultOptions, deriveToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Char (isAscii)
 import           Data.List ((!!))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
@@ -26,9 +25,10 @@ instance Bi ApplicationName where
     decode = ApplicationName <$> decode
 
 instance FromJSON ApplicationName where
-    -- FIXME does the defaultOptions derived JSON encode directly as text? Or
-    -- as an object with a single key?
     parseJSON v = ApplicationName <$> parseJSON v
+
+instance ToJSON ApplicationName where
+    toJSON = toJSON . getApplicationName
 
 -- | Smart constructor of 'ApplicationName'.
 checkApplicationName :: MonadError Text m => ApplicationName -> m ()
@@ -50,7 +50,5 @@ instance Arbitrary ApplicationName where
       where
         selectAlpha n = alphabet !! (n `mod` length alphabet)
         alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-deriveToJSON defaultOptions ''ApplicationName
 
 deriveSafeCopySimple 0 'base ''ApplicationName

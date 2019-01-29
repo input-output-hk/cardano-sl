@@ -50,6 +50,7 @@ import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, BlockTestMode,
                      TestParams (..), initBlockTestContext, runBlockTestMode)
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
+import           Test.Pos.Chain.Genesis.Dummy (dummyTxValRules)
 
 -- | Criterion configuration
 config :: Criterion.Config
@@ -222,7 +223,7 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
         nf isVerSuccess $ verifyHeader pm params header
 
     benchBlockVerification ~(block, params) =
-        nf isVerSuccess $ verifyBlock genesisConfig params block
+        nf isVerSuccess $ verifyBlock genesisConfig dummyTxValRules params block
 
 
 runBenchmark :: IO ()

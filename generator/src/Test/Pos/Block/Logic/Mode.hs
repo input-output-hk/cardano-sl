@@ -116,7 +116,7 @@ import           Pos.WorkMode (EmptyMempoolExt)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation,
                      sudoLiftIO)
 import           Test.Pos.Chain.Genesis.Arbitrary ()
-import           Test.Pos.Chain.Genesis.Dummy (dummyTxValRules)
+import           Test.Pos.Chain.Genesis.Dummy (dummyTxValRulesConfig)
 import           Test.Pos.Configuration (defaultTestBlockVersionData,
                      defaultTestGenesisSpec)
 import           Test.Pos.Core.Arbitrary ()
@@ -176,7 +176,7 @@ genGenesisInitializer = do
 -- uses it to satisfy 'HasConfiguration'.
 withTestParams :: TestParams -> (Genesis.Config -> r) -> r
 withTestParams TestParams {..} f =
-    f $ mkConfig _tpStartTime genesisSpec dummyTxValRules
+    f $ mkConfig _tpStartTime genesisSpec dummyTxValRulesConfig
   where
     genesisSpec = defaultTestGenesisSpec
         { gsInitializer       = _tpGenesisInitializer

@@ -8,10 +8,12 @@ import qualified Hedgehog as H
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
-                     exampleAddress2, exampleAddress3, exampleAddress4)
+                     exampleAddress2, exampleAddress3, exampleAddress4,
+                     feedEpochSlots)
 import           Test.Pos.Core.Gen (genAddress, genByte, genCoin,
-                     genCoinPortion, genEpochIndex, genFlatSlotId,
-                     genInvReqDataFlowLog, genSharedSeed, genTxFeePolicy)
+                     genCoinPortion, genEpochIndex, genEpochOrSlot,
+                     genFlatSlotId, genInvReqDataFlowLog, genSharedSeed,
+                     genTxFeePolicy)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
@@ -122,6 +124,13 @@ roundTripTxFeePolicy = eachOf 1000 genTxFeePolicy roundTripsAesonBuildable
 
 roundTripEpochIndex :: Property
 roundTripEpochIndex = eachOf 1000 genEpochIndex roundTripsAesonBuildable
+
+--------------------------------------------------------------------------------
+-- EpochOrSlot
+--------------------------------------------------------------------------------
+
+roundTripEpochOrSlot :: Property
+roundTripEpochOrSlot = eachOf 1000 (feedEpochSlots genEpochOrSlot) roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- InvReqDataFlowLog

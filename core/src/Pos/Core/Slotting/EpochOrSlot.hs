@@ -24,14 +24,15 @@ module Pos.Core.Slotting.EpochOrSlot
        , epochOrSlot
        , epochOrSlotG
        , epochOrSlotToSlot
+       , epochOrSlotToEpochIndex
        ) where
 
 import           Universum
 
 import           Control.Lens (Getter, lens, to)
 import           Control.Monad.Except (MonadError)
-import           Data.Aeson (FromJSON, ToJSON, parseJSON, toJSON, withObject,
-                     (.:))
+import           Data.Aeson (FromJSON, ToJSON, Value (..), object, parseJSON,
+                     toJSON, withObject, (.:), (.=))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Formatting.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
@@ -78,12 +79,19 @@ instance Bi EpochOrSlot where
     decode = EpochOrSlot <$> decode @(Either EpochIndex SlotId)
 
 instance FromJSON EpochOrSlot where
-    parseJSON = withObject "EpochOrSlot" $ \v -> EpochOrSlot . Left . EpochIndex
-                   <$> v .: "attribResrictEpoch"
+    parseJSON = withObject "EpochOrSlot" $ \o ->
+        EpochOrSlot <$>
+            ( (Left <$> (parseJSON =<< o .: "epochIndex"))
+          <|> (Right <$> (parseJSON =<< o .: "slotId"))
+            )
 
 instance ToJSON EpochOrSlot where
-    toJSON (EpochOrSlot (Left eIndex)) = toJSON eIndex
-    toJSON (EpochOrSlot (Right sId))   = toJSON sId
+    toJSON =
+        epochOrSlot (tagObject "epochIndex")
+                    (tagObject "slotId")
+
+tagObject :: ToJSON a => Text -> a -> Value
+tagObject tag x = object [ tag .= toJSON x ]
 
 instance Monad m => Canonical.ToJSON m EpochOrSlot where
     toJSON (EpochOrSlot (Left eIndex)) =
@@ -229,6 +237,11 @@ epochOrSlot f g = either f g . unEpochOrSlot
 -- returned.
 epochOrSlotToSlot :: EpochOrSlot -> SlotId
 epochOrSlotToSlot = epochOrSlot (flip SlotId localSlotIndexMinBound) identity
+
+-- | Convert 'EpochOrSlot' to the corresponding epoch. This throws away
+-- slot information.
+epochOrSlotToEpochIndex :: EpochOrSlot -> EpochIndex
+epochOrSlotToEpochIndex = epochOrSlot identity siEpoch
 
 -- -----------------------------------------------------------------------------
 -- TH derived instances at the end of the file.

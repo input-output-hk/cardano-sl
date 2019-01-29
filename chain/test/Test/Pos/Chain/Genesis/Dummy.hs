@@ -21,6 +21,7 @@ module Test.Pos.Chain.Genesis.Dummy
        , dummyGenesisData
        , dummyGenesisDataStartTime
        , dummyGenesisHash
+       , dummyTxValRulesConfig
        , dummyTxValRules
        ) where
 
@@ -35,11 +36,12 @@ import           Pos.Chain.Genesis (Config (..), FakeAvvmOptions (..),
                      genesisProtocolConstantsFromProtocolConstants,
                      gsSecretKeys, gsSecretKeysPoor, gsSecretKeysRich,
                      mkConfig, noGenesisDelegation)
-import           Pos.Chain.Txp (TxValidationRules (..))
+import           Pos.Chain.Txp (TxValidationRules (..),
+                     TxValidationRulesConfig (..), mkLiveTxValidationRules)
 import           Pos.Chain.Update (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Core (BlockCount, Coeff (..), EpochIndex (..),
-                     EpochOrSlot (..), ProtocolConstants (..), SharedSeed (..),
-                     SlotCount, Timestamp, TxFeePolicy (..), TxSizeLinear (..),
+                     ProtocolConstants (..), SharedSeed (..), SlotCount,
+                     Timestamp, TxFeePolicy (..), TxSizeLinear (..),
                      VssMaxTTL (..), VssMinTTL (..), kEpochSlots,
                      kSlotSecurityParam, pcBlkSecurityParam,
                      unsafeCoinPortionFromDouble)
@@ -51,7 +53,7 @@ dummyConfig :: Config
 dummyConfig = dummyConfigStartTime 0
 
 dummyConfigStartTime :: Timestamp -> Config
-dummyConfigStartTime ts = mkConfig ts dummyGenesisSpec dummyTxValRules
+dummyConfigStartTime ts = mkConfig ts dummyGenesisSpec dummyTxValRulesConfig
 
 dummyProtocolConstants :: ProtocolConstants
 dummyProtocolConstants = ProtocolConstants
@@ -147,22 +149,24 @@ dummyGenesisDataStartTime = configGenesisData . dummyConfigStartTime
 dummyGenesisHash :: GenesisHash
 dummyGenesisHash = configGenesisHash dummyConfig
 
+-- | A TxValidationRules which has not gone into effect yet
+dummyTxValRules :: TxValidationRules
+dummyTxValRules = mkLiveTxValidationRules currentEpoch dummyTxValRulesConfig
+  where
+    currentEpoch = EpochIndex 0
+
+
 -- In order to limit the `Attributes` size in a Tx, `TxValidationRules` was
 -- created in https://github.com/input-output-hk/cardano-sl/pull/3878. The
--- value is checked in `checkTx`. This dummy value will not result in failure
--- because the `currentEpoch` is before the `cutOffEpoch` and the validation
--- rules are only evaluated when the `currentEpoch` has passed the `cutOffEpoch`.
-dummyTxValRules :: TxValidationRules
-dummyTxValRules = TxValidationRules
-                      cutOffEpoch
-                      currentEpoch
-                      addAttribSizeRes
-                      txAttribSizeRes
+-- value is checked in `checkTx`.
+dummyTxValRulesConfig :: TxValidationRulesConfig
+dummyTxValRulesConfig = TxValidationRulesConfig
+                            cutOffEpoch
+                            addAttribSizeRes
+                            txAttribSizeRes
   where
     -- The epoch from which the validation rules in `checkTx` are enforced.
-    cutOffEpoch = (EpochOrSlot . Left $ EpochIndex 1)
-    -- The current epoch that the node sees.
-    currentEpoch = (EpochOrSlot . Left $ EpochIndex 0)
+    cutOffEpoch = (EpochIndex 1)
     -- The size limit of `Addr Attributes`.
     addAttribSizeRes = 128
     -- The size limit of `TxAttributes`.

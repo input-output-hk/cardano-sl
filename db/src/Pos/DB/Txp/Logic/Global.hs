@@ -29,15 +29,16 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Genesis (GenesisWStakeholders)
 import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
                      GlobalToilM, GlobalToilState (..), StakesView (..),
-                     ToilVerFailure, TxAux, TxUndo, TxValidationRules,
-                     TxValidationRules (..), TxpConfiguration (..), TxpUndo,
-                     Utxo, UtxoM, UtxoModifier, applyToil, defGlobalToilState,
-                     flattenTxPayload, gtsUtxoModifier, rollbackToil,
-                     runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
+                     ToilVerFailure, TxAux, TxUndo, TxValidationRules (..),
+                     TxValidationRulesConfig (..), TxpConfiguration (..),
+                     TxpUndo, Utxo, UtxoM, UtxoModifier, applyToil,
+                     defGlobalToilState, flattenTxPayload, gtsUtxoModifier,
+                     mkLiveTxValidationRules, rollbackToil, runGlobalToilMBase,
+                     runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
-import           Pos.Core.Slotting (getEpochOrSlot)
+import           Pos.Core.Slotting (epochOrSlotToEpochIndex, getEpochOrSlot)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..), getTipHeader)
 import           Pos.DB.Class (gsAdoptedBVData)
@@ -85,24 +86,19 @@ verifyBlocks ::
     -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
 verifyBlocks pm genesisConfig txpConfig verifyAllIsKnown newChain = runExceptT $ do
     bvd <- gsAdoptedBVData
-    let txValRules = configTxValRules $ genesisConfig
     let verifyPure :: TxValidationRules -> [TxAux] -> UtxoM (Either ToilVerFailure TxpUndo)
-        verifyPure txValRules' = runExceptT
-            . verifyToil pm txValRules' bvd (tcAssetLockedSrcAddrs txpConfig) epoch verifyAllIsKnown
+        verifyPure txValRules = runExceptT
+            . verifyToil pm txValRules bvd (tcAssetLockedSrcAddrs txpConfig) epoch verifyAllIsKnown
         foldStep
-            :: TxValidationRules
+            :: TxValidationRulesConfig
             -> (UtxoModifier, [TxpUndo])
             -> TxpBlock
             -> ExceptT ToilVerFailure m (UtxoModifier, [TxpUndo])
-        foldStep txValRules' (modifier, undos) (convertPayload -> txAuxes) = do
-            currentEos <- getEpochOrSlot <$> lift getTipHeader
+        foldStep tvrc (modifier, undos) (convertPayload -> txAuxes) = do
+            currentEpoch <- epochOrSlotToEpochIndex . getEpochOrSlot <$> lift getTipHeader
             baseUtxo <- utxoToLookup <$> buildUtxo modifier txAuxes
-            let currentTxValRules = (TxValidationRules
-                                        (tvrAddrAttrCutoff txValRules')
-                                        currentEos
-                                        (tvrAddrAttrSize txValRules')
-                                        (tvrTxAttrSize txValRules'))
-            case runUtxoM modifier baseUtxo (verifyPure currentTxValRules txAuxes) of
+            let txValRules = mkLiveTxValidationRules currentEpoch tvrc
+            case runUtxoM modifier baseUtxo (verifyPure txValRules txAuxes) of
                 (Left err, _) -> throwError err
                 (Right txpUndo, newModifier) ->
                     return (newModifier, txpUndo : undos)
@@ -112,7 +108,8 @@ verifyBlocks pm genesisConfig txpConfig verifyAllIsKnown newChain = runExceptT $
         -- will prepend something to the result.
         convertRes :: (UtxoModifier, [TxpUndo]) -> OldestFirst NE TxpUndo
         convertRes = OldestFirst . NE.fromList . reverse . snd
-    convertRes <$> foldM (foldStep txValRules) mempty newChain
+    let txValRulesConfig = configTxValRules $ genesisConfig
+    convertRes <$> foldM (foldStep txValRulesConfig) mempty newChain
   where
     epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     convertPayload :: TxpBlock -> [TxAux]

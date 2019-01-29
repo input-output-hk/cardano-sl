@@ -51,6 +51,7 @@ library
                      , time-units
                      , universum
                      , unordered-containers
+                     , yaml
 
   default-language:    Haskell2010
 

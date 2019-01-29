@@ -18,6 +18,8 @@ module Pos.Chain.Txp.Tx
        , _TxOut
 
        , TxValidationRules (..)
+       , TxValidationRulesConfig (..)
+       , mkLiveTxValidationRules
        ) where
 
 import           Universum
@@ -50,7 +52,7 @@ import           Pos.Core.Attributes (Attributes, areAttributesKnown,
                      unknownAttributesLength)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF,
                      coinToInteger, decodeTextAddress, integerToCoin)
-import           Pos.Core.Slotting (EpochOrSlot)
+import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Util.LogSafe (SecureLog (..))
 import           Pos.Crypto (Hash, decodeAbstractHash, hash, hashHexF,
                      shortHashF)
@@ -160,27 +162,45 @@ checkTx txValRules it =
 -- this struct introduces limits configurable via the
 -- `configuration.yaml` file which are activated at
 -- the `tvrAddrAttrCutoff` epoch.
+
 data TxValidationRules = TxValidationRules
-    { tvrAddrAttrCutoff :: !EpochOrSlot
-    , tvrCurrentEpoch   :: !EpochOrSlot
+    { tvrAddrAttrCutoff :: !EpochIndex
+    , tvrCurrentEpoch   :: !EpochIndex
     , tvrAddrAttrSize   :: !Natural
     , tvrTxAttrSize     :: !Natural
     } deriving (Eq, Generic, Show)
 
-instance FromJSON TxValidationRules where
-    parseJSON = withObject "txValidationRules" $ \v -> TxValidationRules
+-- This second datatype goes into the `Configuration` config and is
+-- read from disk (and thus doesn't know what the current epoch is).
+-- The above `TxValidationRules` is has the current epoch inserted
+-- and is passed down the validation call graph.
+data TxValidationRulesConfig = TxValidationRulesConfig
+    { tvrcAddrAttrCutoff :: !EpochIndex
+    , tvrcAddrAttrSize   :: !Natural
+    , tvrcTxAttrSize     :: !Natural
+    } deriving (Eq, Generic, Show)
+
+instance FromJSON TxValidationRulesConfig where
+    parseJSON = withObject "txValidationRules" $ \v -> TxValidationRulesConfig
         <$> v .: "attribResrictEpoch"
-        <*> v .: "currEpoch"
         <*> v .: "addrAttribSize"
         <*> v .: "txAttribSize"
 
-instance ToJSON TxValidationRules where
-    toJSON (TxValidationRules aaCutoff currEpoch aaSize taSize) =
+instance ToJSON TxValidationRulesConfig where
+    toJSON (TxValidationRulesConfig aaCutoff aaSize taSize) =
         object [ "attribResrictEpoch" .= aaCutoff
-               , "currEpoch" .= currEpoch
                , "addrAttribSize" .= aaSize
                , "txAttribSize" .= taSize
                ]
+
+mkLiveTxValidationRules :: EpochIndex -> TxValidationRulesConfig -> TxValidationRules
+mkLiveTxValidationRules currentEpoch tvrc =
+    TxValidationRules { tvrAddrAttrCutoff = tvrcAddrAttrCutoff tvrc
+                      , tvrCurrentEpoch = currentEpoch
+                      , tvrAddrAttrSize = tvrcAddrAttrSize tvrc
+                      , tvrTxAttrSize = tvrcTxAttrSize tvrc
+                      }
+
 --------------------------------------------------------------------------------
 -- TxId
 --------------------------------------------------------------------------------

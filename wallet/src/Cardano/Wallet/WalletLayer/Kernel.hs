@@ -44,6 +44,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Active as Active
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
 import qualified Cardano.Wallet.WalletLayer.Kernel.Info as Info
 import qualified Cardano.Wallet.WalletLayer.Kernel.Internal as Internal
+import qualified Cardano.Wallet.WalletLayer.Kernel.Settings as Settings
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
@@ -141,7 +142,7 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
         , validateAddress      = \txt           -> ro $ Addresses.validateAddress txt
         , getTransactions      = Transactions.getTransactions w
         , getTxFromMeta        = Transactions.toTransaction w
-        , getNodeSettings      = error "TODO (we need cherry pick of https://github.com/input-output-hk/cardano-wallet/pull/196/files)"
+        , getNodeSettings      = Settings.getNodeSettings w
         }
       where
         -- Read-only operations

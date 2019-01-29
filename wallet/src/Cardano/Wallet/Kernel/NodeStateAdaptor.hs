@@ -4,9 +4,6 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE RankNTypes                 #-}
 
--- needed for SecurityParameter
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 module Cardano.Wallet.Kernel.NodeStateAdaptor (
     WithNodeState     -- opaque
   , NodeStateAdaptor  -- opaque
@@ -94,7 +91,6 @@ import qualified Pos.Infra.Shutdown.Logic as Shutdown
 import qualified Pos.Infra.Slotting.Impl.Simple as S
 import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Node.API (SecurityParameter (..))
 import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
                      lensOf', withCompileInfo)
 import qualified Pos.Util as Util
@@ -106,6 +102,8 @@ import           Test.Pos.Configuration (withDefConfiguration,
 {-------------------------------------------------------------------------------
   Additional types
 -------------------------------------------------------------------------------}
+
+newtype SecurityParameter = SecurityParameter Int
 
 deriveSafeCopy 1 'base ''SecurityParameter
 

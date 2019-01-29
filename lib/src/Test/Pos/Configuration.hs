@@ -44,7 +44,7 @@ import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util.Config (embedYamlConfigCT)
 
-import           Test.Pos.Chain.Genesis.Dummy (dummyTxValRules)
+import           Test.Pos.Chain.Genesis.Dummy (dummyTxValRulesConfig)
 
 -- | This configuration is embedded into binary and is used by default
 -- in tests.
@@ -92,7 +92,7 @@ withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
 withDefConfiguration :: (Genesis.Config -> r) -> r
-withDefConfiguration f = f $ mkConfig 0 defaultTestGenesisSpec dummyTxValRules
+withDefConfiguration f = f $ mkConfig 0 defaultTestGenesisSpec dummyTxValRulesConfig
 
 withStaticConfigurations :: (HasStaticConfigurations => TxpConfiguration -> NtpConfiguration -> r) -> r
 withStaticConfigurations patak =
@@ -126,7 +126,7 @@ withProvidedMagicConfig
 withProvidedMagicConfig pm f = withStaticConfigurations (f overriddenGenesisConfig)
   where
     overriddenGenesisConfig :: Genesis.Config
-    overriddenGenesisConfig = mkConfig 0 overriddenGenesisSpec dummyTxValRules
+    overriddenGenesisConfig = mkConfig 0 overriddenGenesisSpec dummyTxValRulesConfig
     --
     overriddenGenesisSpec :: GenesisSpec
     overriddenGenesisSpec = updateGS defaultTestGenesisSpec

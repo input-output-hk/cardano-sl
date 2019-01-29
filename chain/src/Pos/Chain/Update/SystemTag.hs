@@ -12,9 +12,7 @@ module Pos.Chain.Update.SystemTag
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
-import           Data.Aeson (FromJSON (..))
-import           Data.Aeson.Options (defaultOptions)
-import           Data.Aeson.TH (deriveToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Char (isAscii)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
@@ -34,7 +32,8 @@ instance NFData SystemTag
 instance FromJSON SystemTag where
     parseJSON v = SystemTag <$> parseJSON v
 
-deriveToJSON defaultOptions ''SystemTag
+instance ToJSON SystemTag where
+    toJSON = toJSON . getSystemTag
 
 instance Bi SystemTag where
     encode = encode . getSystemTag

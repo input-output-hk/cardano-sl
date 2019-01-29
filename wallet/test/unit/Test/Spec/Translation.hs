@@ -17,8 +17,7 @@ import           Test.QuickCheck (withMaxSuccess)
 import qualified Pos.Chain.Block as Cardano
 import           Pos.Chain.Txp (TxValidationRules (..))
 import qualified Pos.Chain.Txp as Cardano
-import           Pos.Core (Coeff (..), EpochIndex (..), EpochOrSlot (..),
-                     TxSizeLinear (..))
+import           Pos.Core (Coeff (..), EpochIndex (..), TxSizeLinear (..))
 
 import           Data.Validated
 import           Test.Infrastructure.Generator
@@ -326,9 +325,9 @@ intAndVerifyChain pm pc = runTranslateT pm $ do
                           addAttribSizeRes
                           txAttribSizeRes
     -- The epoch from which the validation rules in `checkTx` are enforced.
-    cutOffEpoch = (EpochOrSlot . Left $ EpochIndex 1)
+    cutOffEpoch = EpochIndex 1
     -- The current epoch that the node sees.
-    currentEpoch = (EpochOrSlot . Left $ EpochIndex 0)
+    currentEpoch = EpochIndex 0
     -- The size limit of `Addr Attributes`.
     addAttribSizeRes = 128
     -- The size limit of `TxAttributes`.

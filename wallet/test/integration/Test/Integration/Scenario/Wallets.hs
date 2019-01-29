@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Test.Integration.Scenario.Wallets
     ( spec
     ) where

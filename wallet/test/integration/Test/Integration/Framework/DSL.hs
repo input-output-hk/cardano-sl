@@ -1,3 +1,4 @@
+{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RankNTypes            #-}
 
@@ -133,6 +134,8 @@ import           Pos.Crypto (ShouldCheckPassphrase (..),
 import           Test.Integration.Framework.Request (HasHttpClient, request,
                      request_, successfulRequest, unsafeRequest, ($-))
 import           Test.Integration.Framework.Scenario (Scenario)
+
+
 --
 -- SCENARIO
 --
@@ -179,7 +182,7 @@ xscenario = xit
 --          pendingWith "This test fails due to bug #213"
 --          test
 pendingWith
-    :: (MonadIO m, MonadFail m)
+    :: (MonadIO m)
     => String
     -> m ()
 pendingWith = liftIO . H.pendingWith
@@ -263,9 +266,9 @@ defaultDistribution
     -> s
     -> NonEmpty PaymentDistribution
 defaultDistribution c s = pure $
-    PaymentDistribution (WalAddress $ head $ s ^. typed) (WalletCoin $ mkCoin c)
+    PaymentDistribution (V1 $ head $ s ^. typed) (V1 $ mkCoin c)
 
-defaultGroupingPolicy :: Maybe WalletInputSelectionPolicy
+defaultGroupingPolicy :: Maybe (V1 InputSelectionPolicy)
 defaultGroupingPolicy = Nothing
 
 defaultPage :: Maybe Page
@@ -315,20 +318,20 @@ infixr 5 </>
 base </> next = mconcat [base, "/", toQueryParam next]
 
 address
-    :: HasType WalAddress s
-    => Lens' s WalAddress
+    :: HasType (V1 Address) s
+    => Lens' s (V1 Address)
 address = typed
 
 amount
-    :: HasType WalletCoin s
+    :: HasType (V1 Coin) s
     => Lens' s Word64
 amount =
     lens _get _set
   where
-    _get :: HasType WalletCoin s => s -> Word64
-    _get = unsafeGetCoin . unWalletCoin . view typed
-    _set :: HasType WalletCoin s => (s, Word64) -> s
-    _set (s, v) = set typed (WalletCoin $ mkCoin v) s
+    _get :: HasType (V1 Coin) s => s -> Word64
+    _get = unsafeGetCoin . unV1 . view typed
+    _set :: HasType (V1 Coin) s => (s, Word64) -> s
+    _set (s, v) = set typed (V1 $ mkCoin v) s
 
 assuranceLevel :: HasType AssuranceLevel s => Lens' s AssuranceLevel
 assuranceLevel = typed
@@ -380,13 +383,13 @@ walletId = typed
 walletName :: HasType Text s => Lens' s Text
 walletName = typed
 
-spendingPasswordLastUpdate :: Lens' Wallet WalletTimestamp
+spendingPasswordLastUpdate :: Lens' Wallet (V1 Timestamp)
 spendingPasswordLastUpdate = field @"walSpendingPasswordLastUpdate"
+
 
 --
 -- EXPECTATIONS
 --
-
 
 -- | Expects data list returned by the API to be of certain length
 expectListSizeEqual
@@ -469,7 +472,7 @@ expectError = \case
 
 -- | Expect a successful response, without any further assumptions
 expectSuccess
-    :: (MonadIO m, MonadFail m, Show a)
+    :: (MonadIO m, MonadFail m)
     => Either ClientError a
     -> m ()
 expectSuccess = \case
@@ -697,14 +700,13 @@ mkPassword (RawPassword txt)
         & T.encodeUtf8
         & hash @ByteString @Blake2b_256
         & ByteArray.convert
-        & WalletPassPhrase
-
+        & V1
 
 mkAddress
     :: (MonadIO m, MonadFail m)
     => BackupPhrase
     -> Word32
-    -> m WalAddress
+    -> m (V1 Address)
 mkAddress (BackupPhrase mnemonic) ix = do
     let (_, esk) = safeDeterministicKeyGen
             (mnemonicToSeed mnemonic)
@@ -725,7 +727,7 @@ mkAddress (BackupPhrase mnemonic) ix = do
                 \ random address. This can only happened if you\
                 \ provided a derivation index that is out-of-bound!"
         Just addr ->
-            return (WalAddress addr)
+            return (V1 addr)
 
 
 -- | Execute the given setup action with using the next faucet wallet. It fails
@@ -773,7 +775,7 @@ setupWallet args phrase = do
 
     unless (null $ args ^. initialCoins) $ withNextFaucet $ \faucet -> do
         let paymentSource = PaymentSource (walId faucet) minBound
-        let paymentDist (addr, coin) = pure $ PaymentDistribution (addrId addr) (WalletCoin coin)
+        let paymentDist (addr, coin) = pure $ PaymentDistribution (addrId addr) (V1 $ mkCoin coin)
 
         forM_ (args ^. initialCoins) $ \coin -> do
             -- NOTE
@@ -787,7 +789,7 @@ setupWallet args phrase = do
 
             txn <- request $ Client.postTransaction $- Payment
                 paymentSource
-                (paymentDist (addr, mkCoin coin))
+                (paymentDist (addr, coin))
                 Nothing
                 Nothing
 
@@ -805,7 +807,7 @@ setupDestination
 setupDestination = \case
     RandomDestination -> do
         bp <- liftIO (generate arbitrary)
-        unWalAddress <$> mkAddress bp 1
+        unV1 <$> mkAddress bp 1
     LockedDestination ->
         fail "Asset-locked destination aren't yet implemented. This\
             \ requires slightly more work than it seems and will be\

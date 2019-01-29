@@ -24,14 +24,8 @@ import           Pos.Web (TlsParams (..))
 -- plus the wallet backend specific options.
 data WalletStartupOptions = WalletStartupOptions {
       wsoNodeArgs            :: !CommonNodeArgs
-    , wsoWalletBackendParams :: !ChooseWalletBackend
+    , wsoWalletBackendParams :: !WalletBackendParams
     } deriving Show
-
--- | TODO: Once we get rid of the legacy wallet, remove this.
-data ChooseWalletBackend =
-    WalletLegacy !WalletBackendParams
-  | WalletNew    !NewWalletBackendParams
-  deriving Show
 
 -- | DB-specific options.
 data WalletDBOptions = WalletDBOptions {
@@ -66,18 +60,13 @@ data WalletBackendParams = WalletBackendParams
     , forceFullMigration  :: !Bool
     } deriving Show
 
--- | Start up parameters for the new wallet backend
---
--- TODO: This just wraps the legacy parameters at the moment.
-data NewWalletBackendParams = NewWalletBackendParams WalletBackendParams
-    deriving (Show)
 
-getWalletDbOptions :: NewWalletBackendParams -> WalletDBOptions
-getWalletDbOptions (NewWalletBackendParams WalletBackendParams{..}) =
+getWalletDbOptions :: WalletBackendParams -> WalletDBOptions
+getWalletDbOptions WalletBackendParams{..} =
     walletDbOptions
 
-getFullMigrationFlag :: NewWalletBackendParams -> Bool
-getFullMigrationFlag (NewWalletBackendParams WalletBackendParams{..}) =
+getFullMigrationFlag :: WalletBackendParams -> Bool
+getFullMigrationFlag WalletBackendParams{..} =
     forceFullMigration
 
 -- | A richer type to specify in which mode we are running this node.
@@ -109,31 +98,7 @@ getWalletNodeOptions = execParser programInfo
 -- | The main @Parser@ for the @WalletStartupOptions@
 walletStartupOptionsParser :: Parser WalletStartupOptions
 walletStartupOptionsParser = WalletStartupOptions <$> CLI.commonNodeArgsParser
-                                                  <*> chooseWalletBackendParser
-
--- | Choose between the two backends
---
--- TODO: This implementation of the parser is not very elegant. I'd prefer
--- something along the lines of
---
--- > chooseWalletBackendParser :: Parser ChooseWalletBackend
--- > chooseWalletBackendParser = asum [
--- >       WalletNew    <$> newWalletBackendParamsParser
--- >     , WalletLegacy <$> walletBackendParamsParser
--- >     ]
---
--- but for some reason this isn't working, perhaps because optparse-applicative
--- isn't backtracking enough? Dunno.
-chooseWalletBackendParser :: Parser ChooseWalletBackend
-chooseWalletBackendParser = choose
-    <$> walletBackendParamsParser
-    <*> (switch $ mconcat [
-            long "legacy-wallet"
-          , help "Use the legacy wallet implementation (NOT RECOMMENDED)"
-          ])
-  where
-    choose opts True  = WalletLegacy $ opts
-    choose opts False = WalletNew    $ NewWalletBackendParams opts
+                                                  <*> walletBackendParamsParser
 
 -- | The @Parser@ for the @WalletBackendParams@.
 walletBackendParamsParser :: Parser WalletBackendParams

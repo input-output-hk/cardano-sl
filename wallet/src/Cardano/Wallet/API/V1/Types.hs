@@ -38,6 +38,7 @@ module Cardano.Wallet.API.V1.Types (
   , exampleWalletId
   , WalletOperation (..)
   , SpendingPassword
+  , mkSpendingPassword
   -- * Addresses
   , AddressOwnership (..)
   , AddressValidity (..)
@@ -98,6 +99,10 @@ module Cardano.Wallet.API.V1.Types (
   , CaptureAccountId
   -- * Core re-exports
   , Core.Address
+  , Core.InputSelectionPolicy(..)
+  , Core.Coin
+  , Core.Timestamp(..)
+  , Core.mkCoin
   -- * Wallet Errors
   , WalletError(..)
   , ErrNotEnoughMoney(..)
@@ -197,6 +202,9 @@ optsADTCamelCase = defaultOptions
 --
 -- Versioning
 --
+
+mkSpendingPassword :: Text -> Either Text SpendingPassword
+mkSpendingPassword = fmap V1 . mkPassPhrase
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =

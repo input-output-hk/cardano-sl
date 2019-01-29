@@ -7,8 +7,8 @@ import           Pos.Launcher (launchNode)
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Cardano.Wallet.Action (actionWithWallet)
-import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
-                     WalletStartupOptions (..), getWalletNodeOptions)
+import           Cardano.Wallet.Server.CLI (WalletStartupOptions (..),
+                     getWalletNodeOptions)
 
 
 -- | The main entrypoint for the Wallet.
@@ -20,9 +20,4 @@ main = withCompileInfo $ do
 
     putText "Wallet is starting..."
 
-    launchNode nArgs cArgs lArgs $ case wArgs of
-        WalletLegacy _ ->
-            error "Legacy wallet is now disabled. This option will be removed soon."
-
-        WalletNew p ->
-            actionWithWallet p
+    launchNode nArgs cArgs lArgs (actionWithWallet wArgs)

@@ -19,8 +19,8 @@ import           Pos.GState.GState (prepareGStateDB)
 
 -- | Initialize DBs if necessary.
 initNodeDBs
-    :: forall ctx m
-     . (MonadReader ctx m, MonadDB m)
+    :: forall m
+     . (MonadIO  m, MonadDB m)
     => Genesis.Config
     -> m ()
 initNodeDBs genesisConfig = do

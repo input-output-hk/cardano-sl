@@ -24,8 +24,8 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 
 import           Pos.Chain.Block (BlockHeader, HasBlockConfiguration,
-                     HasSlogGState, HeaderHash, fixedTimeCQ, headerHash,
-                     prevBlockL)
+                     HasSlogGState, HeaderHash, LastSlotInfo (..), fixedTimeCQ,
+                     headerHash, prevBlockL)
 import           Pos.Core (BlockCount, FlatSlotId, SlotCount, Timestamp (..),
                      difficultyL, flattenSlotId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -35,7 +35,7 @@ import           Pos.Core.Slotting (MonadSlots (..), getCurrentSlotFlat,
 import           Pos.DB.Block.GState.BlockExtra (isBlockInMainChain)
 import           Pos.DB.Block.Slog.Context (slogGetLastSlots)
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.DB.Class (MonadBlockDBRead)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead)
 import           Pos.Util (_neHead)
 import           Pos.Util.Wlog (WithLogger)
 
@@ -100,9 +100,9 @@ calcChainQuality blockCount deepSlot newSlot
 -- 'blkSecurityParam' blocks.
 calcChainQualityM
     :: ( MonadReader ctx m
+       , MonadDBRead m
        , HasSlogGState ctx
        , MonadIO m
-       , MonadThrow m
        , WithLogger m
        , Fractional res
        )
@@ -123,7 +123,7 @@ calcChainQualityM k newSlot = do
                 return
                     (calcChainQuality
                          (fromIntegral len)
-                         (NE.head slotsNE)
+                         (lsiFlatSlotId $ NE.head slotsNE)
                          newSlot)
 
 -- | Calculate overall chain quality, i. e. number of main blocks
@@ -172,7 +172,7 @@ calcChainQualityFixedTime epochSlots = do
     (,) <$> slotFromTimestamp epochSlots olderTime <*> getCurrentSlotFlat epochSlots >>= \case
         (Just (flattenSlotId epochSlots -> olderSlotId), Just currentSlotId) ->
             calcChainQualityFixedTimeDo olderSlotId currentSlotId <$>
-            slogGetLastSlots
+                (lsiFlatSlotId <<$>> slogGetLastSlots)
         _ -> return Nothing
   where
     -- 'lastSlots' contains slots of last 'k' blocks.

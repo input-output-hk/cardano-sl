@@ -43,6 +43,7 @@ module Pos.Util.Klog.Compatibility
          , injectTrace
          , emptyConf
          , setupFromRepresentation
+         , getTrace
          ) where
 
 import           Control.Concurrent (modifyMVar_)

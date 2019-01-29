@@ -17007,9 +17007,9 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , acid-state
 , aeson
-, aeson-diff
 , aeson-options
 , aeson-pretty
+, aeson-qq
 , async
 , base
 , base58-bytestring
@@ -17025,6 +17025,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-chain
 , cardano-sl-chain-test
 , cardano-sl-client
+, cardano-sl-cluster
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
@@ -17050,10 +17051,12 @@ license = stdenv.lib.licenses.mit;
 , filepath
 , foldl
 , formatting
+, generic-lens
 , generics-sop
 , hedgehog
 , hspec
 , hspec-core
+, hspec-expectations-lifted
 , http-api-data
 , http-client
 , http-types
@@ -17066,7 +17069,6 @@ license = stdenv.lib.licenses.mit;
 , neat-interpolation
 , normaldistribution
 , optparse-applicative
-, pretty-show
 , QuickCheck
 , quickcheck-instances
 , random
@@ -17079,7 +17081,6 @@ license = stdenv.lib.licenses.mit;
 , servant
 , servant-client
 , servant-client-core
-, servant-quickcheck
 , servant-server
 , servant-swagger
 , servant-swagger-ui
@@ -17096,6 +17097,7 @@ license = stdenv.lib.licenses.mit;
 , swagger2
 , tabl
 , tar
+, template-haskell
 , text
 , time
 , time-units
@@ -17110,7 +17112,6 @@ license = stdenv.lib.licenses.mit;
 , wai-middleware-throttle
 , warp
 , x509
-, x509-store
 , zlib
 }:
 mkDerivation {
@@ -17221,43 +17222,19 @@ zlib
 ];
 executableHaskellDepends = [
 aeson
-aeson-diff
-aeson-pretty
-async
 base
 bytestring
 cardano-sl
 cardano-sl-chain
-cardano-sl-core
-cardano-sl-crypto
-cardano-sl-mnemonic
-cardano-sl-node
 cardano-sl-util
-containers
-exceptions
-formatting
-hspec
-http-client
-http-types
-lens
-memory
-mtl
 optparse-applicative
-pretty-show
-QuickCheck
-serokell-util
-servant
-servant-client
-servant-quickcheck
-servant-server
 swagger2
-text
 universum
-x509-store
 ];
 testHaskellDepends = [
 acid-state
 aeson
+aeson-qq
 async
 base
 bytestring
@@ -17267,6 +17244,7 @@ cardano-sl-binary
 cardano-sl-chain
 cardano-sl-chain-test
 cardano-sl-client
+cardano-sl-cluster
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
@@ -17282,14 +17260,22 @@ containers
 cryptonite
 data-default
 directory
+filepath
 formatting
+generic-lens
 hedgehog
 hspec
 hspec-core
+hspec-expectations-lifted
+http-api-data
+http-client
+http-types
 insert-ordered-containers
 lens
+memory
 mtl
 normaldistribution
+optparse-applicative
 QuickCheck
 quickcheck-instances
 random
@@ -17297,11 +17283,14 @@ safe-exceptions
 safecopy
 serokell-util
 servant
+servant-client
+servant-client-core
 servant-server
 servant-swagger
 string-conv
 swagger2
 tabl
+template-haskell
 text
 time
 time-units

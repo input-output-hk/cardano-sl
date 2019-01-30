@@ -220,6 +220,7 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       ln -sv ${fixedNixpkgs} $out
     '';
   in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
+  regen-script = import ./pkgs/regen.nix {};
   # the result of running every cardano test-suite on 64bit linux
   all-cardano-tests.x86_64-linux = makeCardanoTestRuns "x86_64-linux";
   # hydra will create a special aggregate job, that relies on all of these sub-jobs passing

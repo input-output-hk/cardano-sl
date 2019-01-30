@@ -1,14 +1,19 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Cardano.Wallet.Kernel.Addresses (
       createAddress
     , newHdAddress
+    , importAddresses
     -- * Errors
     , CreateAddressError(..)
+    , ImportAddressError(..)
     ) where
 
 import qualified Prelude
 import           Universum
 
 import           Control.Lens (to)
+import           Control.Monad.Except (throwError)
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting as F
 import qualified Formatting.Buildable
@@ -24,8 +29,8 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAddress (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId,
                      HdAccountIx (..), HdAddress, HdAddressId (..),
-                     HdAddressIx (..), hdAccountIdIx, hdAccountIdParent,
-                     hdAddressIdIx)
+                     HdAddressIx (..), HdRootId (..), IsOurs (..),
+                     hdAccountIdIx, hdAccountIdParent, hdAddressIdIx)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdAddressError (..), initHdAddress)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
@@ -176,3 +181,63 @@ newHdAddress nm esk spendingPassword accId hdAddressId =
     in case mbAddr of
          Nothing              -> Nothing
          Just (newAddress, _) -> Just $ initHdAddress hdAddressId newAddress
+
+
+data ImportAddressError
+    = ImportAddressKeystoreNotFound HdAccountId
+    -- ^ When trying to create the 'Address', the parent 'Account' was not there.
+    deriving Eq
+
+instance Arbitrary ImportAddressError where
+    arbitrary = oneof
+        [ ImportAddressKeystoreNotFound <$> arbitrary
+        ]
+
+instance Buildable ImportAddressError where
+    build = \case
+        ImportAddressKeystoreNotFound uAccount ->
+            bprint ("ImportAddressError" % F.build) uAccount
+
+instance Show ImportAddressError where
+    show = formatToString build
+
+
+-- | Import already existing addresses into the DB. A typical use-case for that
+-- is backend migration, where users (e.g. exchanges) want to import unused
+-- addresses they've generated in the past (and likely communicated to their
+-- users). Because Addresses in the old scheme are generated randomly, there's
+-- no guarantee that addresses would be generated in the same order on a new
+-- node (they better not actually!).
+importAddresses
+    :: HdAccountId
+    -- ^ An abstract notion of an 'Account' identifier
+    -> [Address]
+    -> PassiveWallet
+    -> IO (Either ImportAddressError [Either Address ()])
+importAddresses accId addrs pw = runExceptT $ do
+    let rootId = accId ^. hdAccountIdParent
+    esk <- lookupSecretKey rootId
+    lift $ forM addrs (flip importOneAddress [(rootId, esk)])
+  where
+    lookupSecretKey
+        :: HdRootId
+        -> ExceptT ImportAddressError IO EncryptedSecretKey
+    lookupSecretKey rootId = do
+        let nm = makeNetworkMagic (pw ^. walletProtocolMagic)
+        let keystore = pw ^. walletKeystore
+        lift (Keystore.lookup nm (WalletIdHdRnd rootId) keystore) >>= \case
+            Nothing  -> throwError (ImportAddressKeystoreNotFound accId)
+            Just esk -> return esk
+
+    importOneAddress
+        :: Address
+        -> [(HdRootId, EncryptedSecretKey)]
+        -> IO (Either Address ())
+    importOneAddress addr = evalStateT $ do
+        let updateLifted = fmap Just .  lift . update (pw ^. wallets)
+        res <- state (isOurs addr) >>= \case
+            Nothing     -> return Nothing
+            Just hdAddr -> updateLifted $ CreateHdAddress hdAddr
+        return $ case res of
+            Just (Right _) -> Right ()
+            _              -> Left addr

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Cardano SL 2.0.2
+
+### Features
+
+- Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4041](https://github.com/input-output-hk/cardano-sl/pull/4041))
+
 ## Cardano SL 2.0.1
 
 ### Fixes

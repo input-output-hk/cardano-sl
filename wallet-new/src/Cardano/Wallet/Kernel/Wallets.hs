@@ -42,7 +42,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
-                     decryptHdLvl2DerivationPath, keyToWalletDecrCredentials)
+                     keyToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      walletProtocolMagic, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -282,7 +282,7 @@ defaultHdAddressWith :: HDPassphrase
                      -> Address
                      -> Maybe HdAddress
 defaultHdAddressWith hdPass rootId cardanoAddress = do
-    (hdAccountIx, hdAddressIx) <- decryptHdLvl2DerivationPath hdPass cardanoAddress
+    (hdAccountIx, hdAddressIx) <- HD.decryptHdLvl2DerivationPath hdPass cardanoAddress
     let hdAccountId = HdAccountId rootId hdAccountIx
         hdAddressId = HdAddressId hdAccountId hdAddressIx
     pure $ HD.HdAddress hdAddressId (InDb cardanoAddress)

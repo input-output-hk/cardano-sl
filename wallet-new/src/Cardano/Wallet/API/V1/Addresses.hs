@@ -19,4 +19,8 @@ type API = Tags '["Addresses"] :>
       :<|> "addresses" :> Capture "address" Text
                        :> Summary "Returns interesting information about an address, if available and valid."
                        :> Get '[ValidJSON] (WalletResponse WalletAddress)
+      :<|> "wallets" :> CaptureWalletId :> "accounts" :> CaptureAccountId :> "addresses"
+        :> Summary "Batch import existing addresses"
+        :> ReqBody '[ValidJSON] [V1 Address]
+        :> Post '[ValidJSON] (WalletResponse (BatchImportResult (V1 Address)))
       )

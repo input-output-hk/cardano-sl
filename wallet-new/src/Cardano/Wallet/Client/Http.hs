@@ -97,6 +97,8 @@ mkHttpClient baseUrl manager = WalletClient
         = run . postAddressR
     , getAddress
         = run . getAddressR
+    , importAddresses
+        = \x y -> run . importAddressesR x y
     -- wallets endpoints
     , postWallet
         = run . postWalletR
@@ -192,6 +194,7 @@ mkHttpClient baseUrl manager = WalletClient
     getAddressIndexR
         :<|> postAddressR
         :<|> getAddressR
+        :<|> importAddressesR
         = addressesAPI
 
     postWalletR

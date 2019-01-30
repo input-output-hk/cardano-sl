@@ -15,6 +15,7 @@ module Cardano.Wallet.WalletLayer
     , RedeemAdaError(..)
     , CreateAddressError(..)
     , ValidateAddressError(..)
+    , ImportAddressError(..)
     , CreateAccountError(..)
     , GetAccountError(..)
     , GetAccountsError(..)
@@ -47,12 +48,12 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
-                     AccountIndex, AccountUpdate, Address, ForceNtpCheck,
-                     NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, SignedTransaction,
-                     SpendingPassword, Transaction, UnsignedTransaction,
-                     V1 (..), Wallet, WalletAddress, WalletId, WalletImport,
-                     WalletUpdate)
+                     AccountIndex, AccountUpdate, Address, BatchImportResult,
+                     ForceNtpCheck, NewAccount, NewAddress, NewWallet,
+                     NodeInfo, NodeSettings, PasswordUpdate, Payment,
+                     Redemption, SignedTransaction, SpendingPassword,
+                     Transaction, UnsignedTransaction, V1 (..), Wallet,
+                     WalletAddress, WalletId, WalletImport, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -230,6 +231,31 @@ instance Exception ValidateAddressError
 instance Buildable ValidateAddressError where
     build (ValidateAddressDecodingFailed rawText) =
         bprint ("ValidateAddressDecodingFailed " % build) rawText
+
+data ImportAddressError =
+      ImportAddressError Kernel.ImportAddressError
+    | ImportAddressAddressDecodingFailed Text
+    -- ^ Decoding the input 'Text' as an 'Address' failed.
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show ImportAddressError where
+    show = formatToString build
+
+instance Exception ImportAddressError
+
+instance Arbitrary ImportAddressError where
+    arbitrary = oneof [ ImportAddressError <$> arbitrary
+                      , pure (ImportAddressAddressDecodingFailed "Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxx")
+                      ]
+
+instance Buildable ImportAddressError where
+    build (ImportAddressError kernelError) =
+        bprint ("ImportAddressError " % build) kernelError
+    build (ImportAddressAddressDecodingFailed txt) =
+        bprint ("ImportAddressAddressDecodingFailed " % build) txt
+
+
 
 ------------------------------------------------------------
 -- Errors when dealing with Accounts
@@ -431,6 +457,10 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , getAddresses         :: RequestParams -> m (SliceOf WalletAddress)
     , validateAddress      :: Text
                            -> m (Either ValidateAddressError WalletAddress)
+    , importAddresses      :: WalletId
+                           -> AccountIndex
+                           -> [V1 Address]
+                           -> m (Either ImportAddressError (BatchImportResult (V1 Address)))
 
     -- transactions
     , getTransactions      :: Maybe WalletId

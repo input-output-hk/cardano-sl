@@ -1,5 +1,6 @@
 module Test.Pos.Chain.Delegation.Gen
-       ( genDlgPayload
+       ( genDlgConfiguration
+       , genDlgPayload
        , genHeavyDlgIndex
        , genLightDlgIndices
        , genProxySKBlockInfo
@@ -13,15 +14,17 @@ import           Hedgehog (Gen)
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import           Pos.Chain.Delegation (DlgPayload (..), DlgUndo (..),
-                     HeavyDlgIndex (..), LightDlgIndices (..),
+import           Pos.Chain.Delegation (DlgConfiguration (..), DlgPayload (..),
+                     DlgUndo (..), HeavyDlgIndex (..), LightDlgIndices (..),
                      ProxySKBlockInfo, ProxySKHeavy)
 import           Pos.Crypto (ProtocolMagic, safeCreatePsk)
-
 import           Test.Pos.Core.Gen (genEpochIndex, genStakeholderId)
 import           Test.Pos.Crypto.Gen (genPublicKey, genSafeSigner)
 import           Test.Pos.Util.Gen (genHashSet)
 
+
+genDlgConfiguration :: Gen DlgConfiguration
+genDlgConfiguration = DlgConfiguration <$> (pure 500) <*> (pure 30)
 
 genDlgPayload :: ProtocolMagic -> Gen DlgPayload
 genDlgPayload pm =

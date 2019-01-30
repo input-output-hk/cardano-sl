@@ -1,5 +1,6 @@
 module Test.Pos.Chain.Update.Gen
-       ( genApplicationName
+       ( genUpdateConfiguration
+       , genApplicationName
        , genBlockVersion
        , genBlockVersionData
        , genBlockVersionDataByTxFP
@@ -38,10 +39,11 @@ import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
                      ProposalState (..), SoftforkRule (..),
                      SoftwareVersion (..), SystemTag (..), USUndo (..),
                      UndecidedProposalState (..), UpAttributes, UpId,
-                     UpdateData (..), UpdatePayload (..), UpdateProof,
-                     UpdateProposal (..), UpdateProposalToSign (..),
-                     UpdateProposals, UpdateVote (..), UpsExtra (..), VoteId,
-                     VoteState (..), maybeToPrev, mkUpdateVote)
+                     UpdateConfiguration (..), UpdateData (..),
+                     UpdatePayload (..), UpdateProof, UpdateProposal (..),
+                     UpdateProposalToSign (..), UpdateProposals,
+                     UpdateVote (..), UpsExtra (..), VoteId, VoteState (..),
+                     maybeToPrev, mkUpdateVote)
 import           Pos.Core (SlotCount, TxFeePolicy)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (ProtocolMagic)
@@ -55,6 +57,9 @@ import           Test.Pos.Crypto.Gen (genAbstractHash, genPublicKey,
                      genSecretKey, genSignature)
 import           Test.Pos.Util.Gen (genHashMap, genHashSet)
 
+
+genUpdateConfiguration :: Gen UpdateConfiguration
+genUpdateConfiguration = UpdateConfiguration <$> genApplicationName <*> genBlockVersion <*> (pure 1) <*> genSystemTag
 
 genApplicationName :: Gen ApplicationName
 genApplicationName =

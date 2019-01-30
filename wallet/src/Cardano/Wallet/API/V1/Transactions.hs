@@ -10,7 +10,7 @@ import qualified Pos.Core as Core
 
 import           Servant
 
-type API = Tags '["Transactions"] :>
+type API = Tag "Transactions" 'NoTagDescription :>
     (    "transactions" :> Summary "Generates a new transaction from the source to one or multiple target addresses."
                         :> ReqBody '[ValidJSON] Payment
                         :> Post '[ValidJSON] (APIResponse Transaction)

@@ -8,10 +8,10 @@ import           Pos.Chain.Update (SoftwareVersion)
 import           Servant
 
 import           Cardano.Wallet.API.Response (APIResponse, ValidJSON)
-import           Cardano.Wallet.API.Types (Tags)
+import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport)
 
-type API = Tags '["Internal"] :>
+type API = Tag "Internal" 'NoTagDescription :>
     (    "next-update"
         :> Summary "Version of the next update (404 if none)"
         :> Get '[ValidJSON] (APIResponse (V1 SoftwareVersion))

@@ -12,7 +12,7 @@ import qualified Pos.Core as Core
 
 
 type API
-    = Tags '["Accounts"] :>
+    = Tag "Accounts" 'NoTagDescription :>
     (    "wallets" :> CaptureWalletId :> "accounts"
           :> CaptureAccountId
           :> Summary "Deletes an Account."

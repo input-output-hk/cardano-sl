@@ -69,7 +69,8 @@ module Pos.Util.Servant
     , applicationJson
     , applyLoggingToHandler
     , ValidJSON
-    , Tags
+    , Tag
+    , TagDescription(..)
     , mapRouter
     , APIResponse(..)
     , single
@@ -93,8 +94,14 @@ import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.List (lookup)
 import           Data.Reflection (Reifies (..), reflect)
-import qualified Data.Set as Set
-import           Data.Swagger as S hiding (Example, Header, example, info)
+import           Data.Swagger (NamedSchema (..), ParamAnySchema (..),
+                     ParamLocation (..), SwaggerType (..), ToSchema (..),
+                     allowEmptyValue, applyTagsFor, declareSchemaRef,
+                     defaultSchemaOptions, default_, description,
+                     genericDeclareNamedSchema, in_, name, operationsOf,
+                     paramSchema, properties, required, schema, toParamSchema,
+                     type_)
+import qualified Data.Swagger as S
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Typeable (typeOf, typeRep)
@@ -128,7 +135,6 @@ import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
 import           Pos.Util.Example (Example (..))
 import           Pos.Util.Jsend (HasDiagnostic (..), ResponseStatus (..),
                      jsendErrorGenericParseJSON, jsendErrorGenericToJSON)
-import           Pos.Util.KnownSymbols
 import           Pos.Util.Pagination
 import           Pos.Util.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
@@ -894,31 +900,54 @@ instance HasDiagnostic JSONValidationError where
 
 -- | An empty type which can be used to inject Swagger tags at the type level,
 -- directly in the Servant API.
-data Tags (tags :: [Symbol])
+data Tag (tagName :: Symbol) (tagDescription :: TagDescription)
 
--- | Instance of `HasServer` which erases the `Tags` from its routing,
+data TagDescription
+    = NoTagDescription
+    | TagDescription Symbol
+
+-- | Instance of `HasServer` which erases the `Tag` from its routing,
 -- as the latter is needed only for Swagger.
-instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context where
-    type ServerT (Tags tags :> subApi) m = ServerT subApi m
+instance (HasServer subApi context) => HasServer (Tag name desc :> subApi) context where
+    type ServerT (Tag name desc :> subApi) m = ServerT subApi m
     route _ = route (Proxy @subApi)
     hoistServerWithContext _ = hoistServerWithContext (Proxy @subApi)
 
-instance (HasClient m subApi) => HasClient m (Tags tags :> subApi) where
-    type Client m (Tags tags :> subApi) = Client m subApi
+instance (HasClient m subApi) => HasClient m (Tag name desc :> subApi) where
+    type Client m (Tag name desc :> subApi) = Client m subApi
     clientWithRoute pm _ = clientWithRoute pm (Proxy @subApi)
     hoistClientMonad pm _ f cl =
       hoistClientMonad pm (Proxy @subApi) f cl
 
 -- | Similar to 'instance HasServer', just skips 'Tags'.
 instance HasLoggingServer config subApi context =>
-    HasLoggingServer config (Tags tags :> subApi) context where
-    routeWithLog = mapRouter @(Tags tags :> LoggingApiRec config subApi) route identity
+    HasLoggingServer config (Tag name desc :> subApi) context where
+    routeWithLog = mapRouter @(Tag name desc :> LoggingApiRec config subApi) route identity
 
-instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subApi) where
+
+instance
+       (KnownSymbol name, KnownSymbol desc, HasSwagger subApi)
+    => HasSwagger (Tag name ('TagDescription desc) :> subApi) where
     toSwagger _ =
-        let newTags    = map toText (symbolVals (Proxy @tags))
-            swgr       = toSwagger (Proxy @subApi)
-        in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
+        let
+            subApi  = toSwagger (Proxy @subApi)
+            tag = S.Tag
+                (toText $ symbolVal $ Proxy @name)
+                (Just $ toText $ symbolVal $ Proxy @desc)
+                Nothing
+        in
+            subApi & applyTagsFor (operationsOf subApi) [tag]
+
+instance (KnownSymbol name, HasSwagger subApi) => HasSwagger (Tag name 'NoTagDescription :> subApi) where
+    toSwagger _ =
+        let
+            subApi  = toSwagger (Proxy @subApi)
+            tag = S.Tag
+                (toText $ symbolVal $ Proxy @name)
+                Nothing
+                Nothing
+        in
+            subApi & applyTagsFor (operationsOf subApi) [tag]
 
 -- | `mapRouter` is helper function used in order to transform one `HasServer`
 -- instance to another. It can be used to introduce custom request params type.

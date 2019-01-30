@@ -16,7 +16,7 @@ import           Test.Hspec
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request (FilterBy, SortBy)
-import           Cardano.Wallet.API.Types (Tags, WithDefaultApiArg)
+import           Cardano.Wallet.API.Types (Tag, WithDefaultApiArg)
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.API.V1.Parameters (WalletRequestParams,
@@ -63,7 +63,7 @@ instance HasGenRequest sub => HasGenRequest (SortBy syms res :> sub) where
 instance HasGenRequest sub => HasGenRequest (FilterBy syms res :> sub) where
     genRequest _ = genRequest (Proxy @sub)
 
-instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
+instance HasGenRequest sub => HasGenRequest (Tag tag desc :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)
 
 instance HasGenRequest (sub :: *) => HasGenRequest (WalletRequestParams :> sub) where

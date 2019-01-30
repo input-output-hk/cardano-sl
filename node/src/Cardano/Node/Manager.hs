@@ -22,7 +22,8 @@ import           Data.X509.Extra (validateDefaultWithIP)
 import           Data.X509.File (readSignedObject)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, ManagerSettings,
-                     defaultManagerSettings, newManager)
+                     defaultManagerSettings, managerResponseTimeout,
+                     newManager, responseTimeoutMicro)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
 import           Network.TLS (ClientHooks (..), ClientParams (..),
                      Credentials (..), HostName, PrivKey, Shared (..),
@@ -43,7 +44,9 @@ mkHttpsManagerSettings
     -> (CertificateChain, PrivKey)   -- ^ (Client certificate, Client key)
     -> ManagerSettings
 mkHttpsManagerSettings serverId caChain credentials =
-    mkManagerSettings tlsSettings sockSettings
+    (mkManagerSettings tlsSettings sockSettings)
+        { managerResponseTimeout = responseTimeoutSeconds 60
+        }
   where
     sockSettings = Nothing
     tlsSettings  = TLSSettings clientParams
@@ -70,3 +73,5 @@ mkHttpsManagerSettings serverId caChain credentials =
     clientSupported = def
         { supportedCiphers = ciphersuite_default
         }
+
+    responseTimeoutSeconds a = responseTimeoutMicro (a * 1000 * 1000)

@@ -45,16 +45,16 @@ import           Data.Version (showVersion)
 import           NeatInterpolation (text)
 import           Options.Applicative (Parser, auto, execParser, footerDoc,
                      fullDesc, header, help, helper, info, infoOption, long,
-                     metavar, option, progDesc, showDefault, strOption, switch,
-                     value)
+                     metavar, option, progDesc, strOption, switch, value)
 import           Pos.Util (postfixLFields)
+
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 
 import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser,
                      optionalJSONPath, templateParser)
-import           Pos.Core.NetworkAddress (NetworkAddress, addrParser, localhost)
+import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
 import           Pos.Infra.HealthCheck.Route53 (route53HealthCheckOption)
 import           Pos.Infra.InjectFail (FInjectsSpec, parseFInjectsSpec)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts, networkConfigOption)
@@ -185,7 +185,7 @@ nodeArgsParser = NodeArgs <$> behaviorParser
             metavar "FILE" <>
             help "Path to the behavior config"
 
-data NodeWithApiArgs = NodeWithApiArgs CommonNodeArgs NodeArgs NodeApiArgs
+data NodeWithApiArgs = NodeWithApiArgs CommonNodeArgs NodeArgs (Maybe NodeApiArgs)
 
 nodeWithApiArgsParser :: Parser NodeWithApiArgs
 nodeWithApiArgsParser =
@@ -194,22 +194,19 @@ nodeWithApiArgsParser =
         <*> nodeArgsParser
         <*> nodeApiArgsParser
 
-nodeApiArgsParser :: Parser NodeApiArgs
-nodeApiArgsParser =
-    NodeApiArgs
-        <$> addressParser "node-api-address" (localhost, 8080)
-        <*> tlsParamsParser
-        <*> debugModeParser
-        <*> addressParser "node-doc-address" (localhost, 8180)
+nodeApiArgsParser :: Parser (Maybe NodeApiArgs)
+nodeApiArgsParser = optional $ NodeApiArgs
+    <$> addressParser "node-api-address"
+    <*> tlsParamsParser
+    <*> debugModeParser
+    <*> addressParser "node-doc-address"
   where
-    addressParser flagName defValue =
+    addressParser :: String -> Parser NetworkAddress
+    addressParser flagName =
         option (fromParsec addrParser) $
             long flagName
          <> metavar "IP:PORT"
-         <> help helpMsg
-         <> showDefault
-         <> value defValue
-    helpMsg = "IP and port for backend node API."
+         <> help "IP and port for backend node API."
     debugModeParser :: Parser Bool
     debugModeParser =
         switch (long "wallet-debug" <>
@@ -239,7 +236,6 @@ tlsParamsParser = constructTlsParams <$> certPathParser
                                 "tlscert"
                                 "FILEPATH"
                                 "Path to file with TLS certificate"
-                                <> value "scripts/tls-files/server.crt"
                                )
 
     keyPathParser :: Parser FilePath
@@ -247,7 +243,6 @@ tlsParamsParser = constructTlsParams <$> certPathParser
                                "tlskey"
                                "FILEPATH"
                                "Path to file with TLS key"
-                               <> value "scripts/tls-files/server.key"
                               )
 
     caPathParser :: Parser FilePath
@@ -255,7 +250,6 @@ tlsParamsParser = constructTlsParams <$> certPathParser
                               "tlsca"
                               "FILEPATH"
                               "Path to file with TLS certificate authority"
-                              <> value "scripts/tls-files/ca.crt"
                              )
 
     noClientAuthParser :: Parser Bool

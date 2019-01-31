@@ -324,6 +324,8 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     3. Reverting @lastBlkSlots@
 --     4. Removing forward links
 --     5. Removing @inMainChain@ flags
+{-# ANN slogRollbackBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
+
 slogRollbackBlocks ::
        MonadSlogApply ctx m
     => Genesis.Config

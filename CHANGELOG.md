@@ -11,6 +11,7 @@
 ### Features
 
 - Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
+- Add `script-runner` tool to automate cluster-level testing ([DEVOPS-1131](https://iohk.myjetbrains.com/youtrack/v2/issue/devops-1131): [#3916](https://github.com/input-output-hk/cardano-sl/pull/3916) [#4057](https://github.com/input-output-hk/cardano-sl/pull/4057))
 
 
 ## Cardano SL 2.0.1

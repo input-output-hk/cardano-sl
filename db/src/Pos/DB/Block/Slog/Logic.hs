@@ -268,12 +268,10 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
     let newestBlock = NE.last $ getOldestFirst blunds
         newestDifficulty = newestBlock ^. difficultyL
     let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
-    lastSlots <- slogGetLastSlots
-    -- Yes, doing this here duplicates the 'SomeBatchOp (blockExtraBatch lastSlots)'
-    -- operation below, but if we don't have both, either the generator tests or
-    -- syncing mainnet fails.
 
+    lastSlots <- slogGetLastSlots
     slogPutLastSlots $ newLastSlots lastSlots
+
     putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
         SomeBatchOp [GS.PutMaxSeenDifficulty newestDifficulty
                         | newestDifficulty > x]
@@ -281,7 +279,7 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
         [ putTip
         , putDifficulty
         , bListenerBatch
-        , SomeBatchOp (blockExtraBatch lastSlots)
+        , SomeBatchOp blockExtraBatch
         ]
   where
     blocks = fmap fst blunds
@@ -297,11 +295,6 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
     newLastSlots :: LastBlkSlots -> LastBlkSlots
     newLastSlots = OldestFirst . updateLastSlots . getOldestFirst
 
-    knownSlotsBatch :: LastBlkSlots -> [GS.BlockExtraOp]
-    knownSlotsBatch lastSlots
-        | null newSlots = []
-        | otherwise = [GS.SetLastSlots $ newLastSlots lastSlots]
-
     -- Slots are in 'OldestFirst' order. So we put new slots to the
     -- end and drop old slots from the beginning.
     updateLastSlots :: [LastSlotInfo] -> [LastSlotInfo]
@@ -311,9 +304,9 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
     leaveAtMostN :: Int -> [a] -> [a]
     leaveAtMostN n lst = drop (length lst - n) lst
 
-    blockExtraBatch :: LastBlkSlots -> [GS.BlockExtraOp]
-    blockExtraBatch lastSlots =
-        mconcat [knownSlotsBatch lastSlots, forwardLinksBatch, inMainBatch]
+    blockExtraBatch :: [GS.BlockExtraOp]
+    blockExtraBatch =
+        mconcat [forwardLinksBatch, inMainBatch]
 
 
 newtype BypassSecurityCheck = BypassSecurityCheck Bool
@@ -331,6 +324,8 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     3. Reverting @lastBlkSlots@
 --     4. Removing forward links
 --     5. Removing @inMainChain@ flags
+{-# ANN slogRollbackBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
+
 slogRollbackBlocks ::
        MonadSlogApply ctx m
     => Genesis.Config
@@ -368,14 +363,13 @@ slogRollbackBlocks genesisConfig (BypassSecurityCheck bypassSecurity) (ShouldCal
     let putTip =
             SomeBatchOp $ GS.PutTip $
             (NE.last $ getNewestFirst blunds) ^. prevBlockL
+
     lastSlots <- slogGetLastSlots
-    -- Yes, doing this here duplicates the 'SomeBatchOp (blockExtraBatch lastSlots)'
-    -- operation below, but if we don't have both, either the generator tests or
-    -- syncing mainnet fails.
     slogPutLastSlots $ newLastSlots lastSlots
+
     return $
-        SomeBatchOp
-            [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
+        SomeBatchOp $
+            [putTip, bListenerBatch, SomeBatchOp blockExtraBatch]
   where
     blocks = fmap fst blunds
     inMainBatch =
@@ -407,9 +401,8 @@ slogRollbackBlocks genesisConfig (BypassSecurityCheck bypassSecurity) (ShouldCal
         dropEnd (length $ filter isRight $ toList blocks) $
             lastSlots ++ lastSlotsToAppend
 
-    blockExtraBatch :: LastBlkSlots -> [GS.BlockExtraOp]
-    blockExtraBatch lastSlots =
-        GS.SetLastSlots (newLastSlots lastSlots) :
+    blockExtraBatch :: [GS.BlockExtraOp]
+    blockExtraBatch =
         mconcat [forwardLinksBatch, inMainBatch]
 
 dropEnd :: Int -> [a] -> [a]

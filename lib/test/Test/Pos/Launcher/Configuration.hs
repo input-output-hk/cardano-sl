@@ -6,13 +6,13 @@ import           Universum
 
 import           Test.Pos.Core.ExampleHelpers (feedPM)
 import           Test.Pos.Launcher.Gen (genConfiguration)
-import           Test.Pos.Util.Golden (eachOf)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonYamlShow)
 
 
 roundTripConfiguration :: Property
 roundTripConfiguration =
-    eachOf 1000 (feedPM genConfiguration) roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 (feedPM genConfiguration)
 
 tests :: IO Bool
 tests = H.checkParallel $$discoverRoundTrip

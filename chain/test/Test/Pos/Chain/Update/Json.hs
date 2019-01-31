@@ -13,8 +13,8 @@ import           Test.Pos.Chain.Update.Gen (genApplicationName,
                      genBlockVersionData, genSoftforkRule, genSoftwareVersion,
                      genSystemTag, genUpdateConfiguration)
 import           Test.Pos.Util.Golden (eachOf)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow,
-                     roundTripsAesonYamlBuildable)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonYamlBuildable, roundTripsAesonYamlShow)
 
 
 --------------------------------------------------------------------------------
@@ -62,7 +62,7 @@ roundTripSystemTag =
 
 roundTripUpdateConfiguration :: Property
 roundTripUpdateConfiguration =
-    eachOf 1000 genUpdateConfiguration roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genUpdateConfiguration
 
 --------------------------------------------------------------------------------
 -- Main Testing Function

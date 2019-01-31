@@ -22,9 +22,10 @@ import           Test.Pos.Chain.Txp.Gen (genTxValidationRulesConfig,
                      genTxpConfiguration)
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
                      exampleAddress2, exampleAddress3, exampleAddress4)
-import           Test.Pos.Util.Golden (discoverGolden, eachOf,
-                     goldenTestJSONPretty, goldenTestYaml, goldenValueEquiv)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
+import           Test.Pos.Util.Golden (discoverGolden, goldenTestJSONPretty,
+                     goldenTestYaml, goldenValueEquiv)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonYamlShow)
 
 -------------------------------------------------------------------------------
 -- TxpConfiguration
@@ -47,7 +48,7 @@ golden_TxpConfiguration2 =
 
 roundTripTxpConfiguration :: Property
 roundTripTxpConfiguration =
-    eachOf 200 genTxpConfiguration roundTripsAesonShow
+    roundTripsAesonYamlShow 200 genTxpConfiguration
 
 golden_prettyEquivalence_TxpConfiguration0 :: Property
 golden_prettyEquivalence_TxpConfiguration0 = withFrozenCallStack $ do
@@ -101,7 +102,7 @@ golden_TxpValidationRulesConfigYaml =
 
 roundTripTxValidationRulesConfig :: Property
 roundTripTxValidationRulesConfig =
-    eachOf 200 genTxValidationRulesConfig roundTripsAesonShow
+    roundTripsAesonYamlShow 200 genTxValidationRulesConfig
 
 -------------------------------------------------------------------------------
 -- Example datatypes

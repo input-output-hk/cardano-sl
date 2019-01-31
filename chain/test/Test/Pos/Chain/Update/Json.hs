@@ -14,7 +14,7 @@ import           Test.Pos.Chain.Update.Gen (genApplicationName,
                      genSystemTag)
 import           Test.Pos.Util.Golden (eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
-                     roundTripsAesonBuildable)
+                     roundTripsAesonYamlBuildable)
 
 --------------------------------------------------------------------------------
 -- BlockVersionData
@@ -22,14 +22,14 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip,
 
 roundTripBlockVersionData :: Property
 roundTripBlockVersionData =
-    eachOf 1000 genBlockVersionData roundTripsAesonBuildable
+    eachOf 1000 genBlockVersionData roundTripsAesonYamlBuildable
 
 --------------------------------------------------------------------------------
 -- SoftforkRule
 --------------------------------------------------------------------------------
 
 roundTripSoftforkRule :: Property
-roundTripSoftforkRule = eachOf 1000 genSoftforkRule roundTripsAesonBuildable
+roundTripSoftforkRule = eachOf 1000 genSoftforkRule roundTripsAesonYamlBuildable
 
 --------------------------------------------------------------------------------
 -- ApplicationName
@@ -37,7 +37,7 @@ roundTripSoftforkRule = eachOf 1000 genSoftforkRule roundTripsAesonBuildable
 
 roundTripApplicationName :: Property
 roundTripApplicationName =
-    eachOf 1000 genApplicationName roundTripsAesonBuildable
+    eachOf 1000 genApplicationName roundTripsAesonYamlBuildable
 
 --------------------------------------------------------------------------------
 -- SoftwareVersion
@@ -45,7 +45,7 @@ roundTripApplicationName =
 
 roundTripSoftwareVersion :: Property
 roundTripSoftwareVersion =
-    eachOf 1000 genSoftwareVersion roundTripsAesonBuildable
+    eachOf 1000 genSoftwareVersion roundTripsAesonYamlBuildable
 
 --------------------------------------------------------------------------------
 -- SystemTag
@@ -53,7 +53,7 @@ roundTripSoftwareVersion =
 
 roundTripSystemTag :: Property
 roundTripSystemTag =
-    eachOf 1000 genSystemTag roundTripsAesonBuildable
+    eachOf 1000 genSystemTag roundTripsAesonYamlBuildable
 
 --------------------------------------------------------------------------------
 -- Main Testing Function

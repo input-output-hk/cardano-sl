@@ -85,5 +85,5 @@ roundTripsBiShow x =
 -- | Round trip (via ByteString) any instance of the 'Bi' class
 -- that also has a 'Buildable' instance.
 roundTripsBiBuildable :: (Bi a, Eq a, MonadTest m, Buildable a) => a -> m ()
-roundTripsBiBuildable a = trippingBuildable a serialize decodeFull
+roundTripsBiBuildable a = trippingBuildable a serialize decodeFull "Binary"
 

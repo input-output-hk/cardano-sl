@@ -1,1 +1,1 @@
-{"invReqAccepted":{"reqStart":1,"reqReceived":2,"reqSent":3,"reqClosed":4}}
+{"invReqAccepted":{"reqSent":3,"reqStart":1,"reqClosed":4,"reqReceived":2}}

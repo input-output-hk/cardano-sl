@@ -28,8 +28,8 @@ import           Test.Pos.Core.ExampleHelpers (feedPM, feedPMWithRequiresMagic)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
                      goldenFileCanonicalEquiv, goldenTestCanonicalJSONDec,
                      goldenTestJSONDec, goldenTestJSONPretty, goldenValueEquiv)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow,
-                     roundTripsCanonicalJSONShow)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonYamlShow, roundTripsCanonicalJSONShow)
 
 --------------------------------------------------------------------------------
 -- StaticConfig
@@ -65,7 +65,7 @@ golden_StaticConfig_GCSrc =
 
 roundTripStaticConfig :: Property
 roundTripStaticConfig =
-    eachOf 100 (feedPM genStaticConfig) roundTripsAesonShow
+    roundTripsAesonYamlShow 100 (feedPM genStaticConfig)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -183,7 +183,7 @@ golden_prettyEquivalence_canonical_GenesisData_2 =
 
 roundTripGenesisAvvmBalances :: Property
 roundTripGenesisAvvmBalances =
-     eachOf 100 genGenesisAvvmBalances roundTripsAesonShow
+     roundTripsAesonYamlShow 100 genGenesisAvvmBalances
 
 --------------------------------------------------------------------------------
 -- GenesisDelegation
@@ -191,7 +191,7 @@ roundTripGenesisAvvmBalances =
 
 roundTripGenesisDelegation :: Property
 roundTripGenesisDelegation =
-    eachOf 100 (feedPM genGenesisDelegation) roundTripsAesonShow
+    roundTripsAesonYamlShow 100 (feedPM genGenesisDelegation)
 
 --------------------------------------------------------------------------------
 -- GenesisProtocolConstants
@@ -218,7 +218,7 @@ golden_GenesisProtocolConstants2Dec =
 
 roundTripGenesisProtocolConstants :: Property
 roundTripGenesisProtocolConstants =
-    eachOf 1000 (feedPM genGenesisProtocolConstants) roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 (feedPM genGenesisProtocolConstants)
 
 golden_prettyEquivalence_GenesisProtocolConstants0 :: Property
 golden_prettyEquivalence_GenesisProtocolConstants0 = withFrozenCallStack $ do
@@ -270,7 +270,7 @@ golden_prettyEquivalence_GenesisProtocolConstants2 = withFrozenCallStack $ do
 
 roundTripGenesisInitializer :: Property
 roundTripGenesisInitializer =
-    eachOf 1000 genGenesisInitializer roundTripsAesonShow
+    roundTripsAesonYamlShow 1000 genGenesisInitializer
 
 tests :: IO Bool
 tests = (&&) <$> H.checkSequential $$discoverGolden

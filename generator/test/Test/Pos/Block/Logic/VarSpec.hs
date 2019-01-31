@@ -11,18 +11,21 @@ import           Universum hiding ((<>))
 
 import           Control.Monad.Random.Strict (MonadRandom (..), RandomGen,
                      evalRandT, uniform)
-import           Data.List (span)
+import qualified Data.List as List
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Ratio as Ratio
 import           Data.Semigroup ((<>))
+import           Formatting (sformat, (%))
+import           Serokell.Util (listJson)
+
 import           Test.Hspec (Spec, beforeAll_, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick, pre)
 import           Test.QuickCheck.Random (QCGen)
 
-import           Pos.Chain.Block (Blund, headerHash)
+import           Pos.Chain.Block (Blund, HeaderHash, headerHash)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBootStakeholders, configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -33,6 +36,10 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.DB.Block (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.DB.Pure (dbPureDump)
+
+import           Pos.Generator.BlockEvent (BlockEvent' (..),
+                     BlockEventApply' (..), BlockEventRollback' (..),
+                     BlockScenario' (..))
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),
                      BlockEventGenT, BlockRollbackFailure (..),
                      BlockRollbackResult (..), BlockScenario, Path, byChance,
@@ -127,7 +134,7 @@ verifyValidBlocks genesisConfig txpConfig = do
             -- impossible because of precondition (see 'pre' above)
             [] -> error "verifyValidBlocks: impossible"
             (block0:otherBlocks) ->
-                let (otherBlocks', _) = span isRight otherBlocks
+                let (otherBlocks', _) = List.span isRight otherBlocks
                 in block0 :| otherBlocks'
 
     verRes <- lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix
@@ -312,15 +319,50 @@ blockPropertyScenarioGen
     -> TxpConfiguration
     -> BlockEventGenT QCGen BlockTestMode ()
     -> BlockProperty BlockScenario
-blockPropertyScenarioGen genesisConfig txpConfig m = do
-    allSecrets <- getAllSecrets
-    let genStakeholders = configBootStakeholders genesisConfig
-    g <- pick $ MkGen $ \qc _ -> qc
-    lift $ flip evalRandT g $ runBlockEventGenT genesisConfig
+blockPropertyScenarioGen genesisConfig txpConfig m =
+    generate =<< getAllSecrets
+  where
+    generate secrets = do
+        let genStakeholders = configBootStakeholders genesisConfig
+        g <- pick $ MkGen $ \qc _ -> qc
+        bs <- lift $ flip evalRandT g $ runBlockEventGenT genesisConfig
                                                 txpConfig
-                                                allSecrets
+                                                secrets
                                                 genStakeholders
                                                 m
+        if not (uniqueBlockApply bs)
+            then generate secrets
+            else pure bs
+
+
+-- | Return 'True' if the applied blocks (taking into account rollbacks) results
+-- in a unique set of block hashes. The generator tests will fail if the
+-- generated blocks (accounting for rollback) are not unique.
+uniqueBlockApply :: BlockScenario -> Bool
+uniqueBlockApply (BlockScenario bs) =
+    let ys = foldScenario [] bs in
+    ys == ordNub ys
+  where
+    foldScenario :: [HeaderHash] -> [BlockEvent' Blund] -> [HeaderHash]
+    foldScenario !acc [] = List.sort acc
+    foldScenario !acc (x:xs) =
+        case x of
+            BlkEvApply ea ->
+                foldScenario ((map headerHash . toList $ toNewestFirst (_beaInput ea)) ++ acc) xs
+            BlkEvRollback re ->
+                foldScenario (rollback (map headerHash . toList $ getNewestFirst (_berInput re)) acc) xs
+            BlkEvSnap _ ->
+                foldScenario acc xs
+
+    rollback :: [HeaderHash] -> [HeaderHash] -> [HeaderHash]
+    rollback _ [] = []
+    rollback [] acc = acc
+    rollback (r:rs) (x:xs) =
+        if (r == x)
+            then rollback rs xs
+            else error $ sformat
+                    ("uniqueBlockApply: rollback failed " % listJson % " " % listJson)
+                        (r:rs) (x:xs)
 
 prettyScenario :: BlockScenario -> Text
 prettyScenario scenario = pretty (fmap (headerHash . fst) scenario)

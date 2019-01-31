@@ -155,8 +155,10 @@ library
                      , aeson
                      , aeson-options
                      , array
+                     , base16-bytestring
                      , bytestring
                      , Cabal
+                     , cardano-crypto
                      , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-core

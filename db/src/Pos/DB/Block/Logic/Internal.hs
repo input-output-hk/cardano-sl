@@ -54,6 +54,7 @@ import           Pos.Core.Slotting (epochOrSlotToEpochIndex, getEpochOrSlot)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener)
 import           Pos.DB.Block.GState.SanityCheck (sanityCheckDB)
+import           Pos.DB.Block.Slog.Context (slogRollbackLastSlots)
 import           Pos.DB.Block.Slog.Logic (BypassSecurityCheck (..),
                      MonadSlogApply, MonadSlogBase, ShouldCallBListener,
                      slogApplyBlocks, slogRollbackBlocks)
@@ -224,8 +225,7 @@ rollbackBlocksUnsafe
     -> NewestFirst NE Blund
     -> m ()
 rollbackBlocksUnsafe genesisConfig bsc scb toRollback = do
-    slogRoll <- slogRollbackBlocks (makeNetworkMagic $ configProtocolMagic genesisConfig)
-                                   (configProtocolConstants genesisConfig)
+    slogRoll <- slogRollbackBlocks genesisConfig
                                    bsc
                                    scb
                                    toRollback
@@ -244,6 +244,7 @@ rollbackBlocksUnsafe genesisConfig bsc scb toRollback = do
         , sscBatch
         , slogRoll
         ]
+    slogRollbackLastSlots genesisConfig
     -- After blocks are rolled back it makes sense to recreate the
     -- delegation mempool.
     -- We don't normalize other mempools, because they are normalized

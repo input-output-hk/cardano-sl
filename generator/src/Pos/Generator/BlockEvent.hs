@@ -306,7 +306,8 @@ instance Buildable blund => Buildable (BlockEvent' blund) where
 
 type BlockEvent = BlockEvent' Blund
 
-newtype BlockScenario' blund = BlockScenario [BlockEvent' blund]
+newtype BlockScenario' blund =
+    BlockScenario { unBlockScenario :: [BlockEvent' blund] }
     deriving (Show, Functor, Foldable)
 
 instance Buildable blund => Buildable (BlockScenario' blund) where
@@ -333,7 +334,7 @@ newtype Chance = Chance {getChance :: Rational}
 byChance :: (Monad m, RandomGen g) => Chance -> RandT g m Bool
 byChance (Chance c) = weighted [(False, 1 - c), (True, c)]
 
-newtype CheckCount = CheckCount Word
+newtype CheckCount = CheckCount { unCheckCount :: Word }
     deriving (Eq, Ord, Show, Num)
 
 -- The tip after the block event. 'Nothing' when the event doesn't affect the tip.

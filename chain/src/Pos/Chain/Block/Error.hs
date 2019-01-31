@@ -17,7 +17,7 @@ import           Formatting.Buildable (Buildable (..))
 import           GHC.Generics (Generic)
 
 import           Pos.Chain.Block.Header (HeaderHash)
-import           Pos.Crypto (shortHashF)
+import           Pos.Crypto (mediumHashF)
 
 
 -- | This function can be used to create a message when tip mismatch
@@ -27,7 +27,7 @@ tipMismatchMsg :: Text -> HeaderHash -> HeaderHash -> Builder
 tipMismatchMsg action storedTip attemptedTip =
     bprint
         ("Can't "%stext%" block because of tip mismatch (stored is "
-         %shortHashF%", attempted is "%shortHashF%")")
+         %mediumHashF%", attempted is "%mediumHashF%")")
         action storedTip attemptedTip
 
 data RollbackException = RollbackTipMismatch HeaderHash HeaderHash

@@ -17,6 +17,7 @@ runCommand "cardano-daedalus-bridge-${version}" {
   cp --no-preserve=mode -R ${cardano-sl-config}/lib config
   cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
   cp ${cardano-sl-tools}/bin/cardano-launcher bin
+  cp ${cardano-sl-tools}/bin/wallet-extractor bin
   cp ${cardano-sl-tools}/bin/cardano-x509-certificates bin
   cp ${cardano-wallet}/bin/cardano-node bin
 

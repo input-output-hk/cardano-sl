@@ -17,16 +17,37 @@ module Pos.Client.CLI.NodeOptions
        , getSimpleNodeOptions
        , getNodeApiOptions
        , usageExample
+
+       , dbPath_L
+       , rebuildDB_L
+       , cnaAssetLockPath_L
+       , devGenesisSecretI_L
+       , publicKeyfilePath_L
+       , keyfilePath_L
+       , networkConfigOpts_L
+       , jlPath_L
+       , commonArgs_L
+       , updateLatestPath_L
+       , updateWithPackage_L
+       , route53Params_L
+       , enableMetrics_L
+       , ekgParams_L
+       , statsdParams_L
+       , cnaDumpGenesisDataPath_L
+       , cnaDumpConfiguration_L
+       , cnaFInjectsSpec_L
        ) where
 
 import           Universum
 
+import           Control.Lens (makeLensesWith)
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
 import           Options.Applicative (Parser, auto, execParser, footerDoc,
                      fullDesc, header, help, helper, info, infoOption, long,
                      metavar, option, progDesc, showDefault, strOption, switch,
                      value)
+import           Pos.Util (postfixLFields)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
@@ -66,6 +87,8 @@ data CommonNodeArgs = CommonNodeArgs
     , cnaDumpConfiguration   :: !Bool
     , cnaFInjectsSpec        :: !FInjectsSpec
     } deriving Show
+
+makeLensesWith postfixLFields ''CommonNodeArgs
 
 commonNodeArgsParser :: Parser CommonNodeArgs
 commonNodeArgsParser = do

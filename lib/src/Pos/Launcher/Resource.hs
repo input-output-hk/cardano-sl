@@ -309,7 +309,7 @@ allocateNodeContext genesisConfig ancd txpSettings ekgStore = do
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
     logDebug "Created block retrieval queue, recovery and progress headers"
-    ncShutdownFlag <- newTVarIO False
+    ncShutdownFlag <- newTVarIO Nothing
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
     logDebug "Created last known header and shutdown flag variables"

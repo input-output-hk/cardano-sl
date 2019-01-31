@@ -19,7 +19,7 @@ import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.Char as C
 import qualified Data.Map.Strict as Map
-import           Data.Swagger hiding (Example, example)
+import           Data.Swagger hiding (Example, Tag, example)
 import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
@@ -46,7 +46,8 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      deriveSafeBuildable)
 import           Pos.Util.Example
 import           Pos.Util.Servant (APIResponse, CustomQueryFlag, Flaggable (..),
-                     HasCustomQueryFlagDescription (..), Tags, ValidJSON)
+                     HasCustomQueryFlagDescription (..), Tag,
+                     TagDescription (..), ValidJSON)
 import           Pos.Util.UnitsOfMeasure
 import           Serokell.Util.Text
 
@@ -665,13 +666,13 @@ instance BuildableSafeGen NodeSettings where
 
 
 type SettingsAPI =
-    Tags '["Settings"]
+    Tag "Settings" 'NoTagDescription
         :> "node-settings"
         :> Summary "Retrieves the static settings for this node."
         :> Get '[ValidJSON] (APIResponse NodeSettings)
 
 type InfoAPI =
-        Tags '["Info"]
+        Tag "Info" 'NoTagDescription
             :> "node-info"
             :> Summary "Retrieves the dynamic information for this node."
             :> CustomQueryFlag "force_ntp_check" ForceNtpCheck

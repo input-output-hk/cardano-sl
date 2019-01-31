@@ -73,6 +73,9 @@ scripts/haskell/dependencies.hi
 scripts/haskell/dependencies.o
 scripts/haskell/dependencies
 
+# script-runner state
+script-runner/states/
+
 # Cache for pkgs/generate.sh
 /pkgs/.cabal/
 /pkgs/.stack/

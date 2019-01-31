@@ -8,10 +8,16 @@ import           Pos.Chain.Update (SoftwareVersion)
 import           Servant
 
 import           Cardano.Wallet.API.Response (APIResponse, ValidJSON)
-import           Cardano.Wallet.API.Types (Tags)
+import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport)
 
-type API = Tags '["Internal"] :>
+type API = Tag "Internal" ('TagDescription
+    "This section contains endpoints so-called 'Internal'. They are only\
+    \ expected to be used by advanced users of the API (e.g. Daedalus) with\
+    \ which there's a privileged communication channel. Backward-compatibility\
+    \ or existence of these endpoints between versions is not guaranteed and\
+    \ won't be enforced. Use at your own risks.")
+    :>
     (    "next-update"
         :> Summary "Version of the next update (404 if none)"
         :> Get '[ValidJSON] (APIResponse (V1 SoftwareVersion))

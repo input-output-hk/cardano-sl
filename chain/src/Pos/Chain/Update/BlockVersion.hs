@@ -9,9 +9,7 @@ import           Universum
 
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Formatting (bprint, shown)
 import qualified Formatting.Buildable as Buildable
-import qualified Prelude
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Util.Some (Some, liftLensSome)
@@ -21,14 +19,10 @@ data BlockVersion = BlockVersion
     { bvMajor :: !Word16
     , bvMinor :: !Word16
     , bvAlt   :: !Word8
-    } deriving (Eq, Generic, Ord, Typeable)
-
-instance Show BlockVersion where
-    show BlockVersion {..} =
-        intercalate "." [show bvMajor, show bvMinor, show bvAlt]
+    } deriving (Eq, Generic, Ord, Typeable, Show)
 
 instance Buildable BlockVersion where
-    build = bprint shown
+    build BlockVersion{..} = fromString $ intercalate "." [show bvMajor, show bvMinor, show bvAlt]
 
 instance Hashable BlockVersion
 

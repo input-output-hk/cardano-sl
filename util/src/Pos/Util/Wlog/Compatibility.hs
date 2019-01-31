@@ -112,6 +112,10 @@ instance CanLog IO where
 
 type WithLogger m = (CanLog m, HasLoggerName m)
 
+{-# INLINE logInfo #-}
+{-# INLINE logNotice #-}
+{-# INLINE logWarning #-}
+{-# INLINE logError #-}
 logDebug, logInfo, logNotice, logWarning, logError
   :: WithLogger m
   => Text -> m ()
@@ -121,6 +125,7 @@ logNotice  = logMessage Notice
 logWarning = logMessage Warning
 logError   = logMessage Error
 
+{-# INLINE logMessage #-}
 logMessage :: WithLogger m => Severity -> Text -> m ()
 logMessage severity msg = do
     name <- askLoggerName

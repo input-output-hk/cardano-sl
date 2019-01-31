@@ -16293,6 +16293,121 @@ doHaddock = false;
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-script-runner" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, brick
+, bytestring
+, cardano-sl
+, cardano-sl-binary
+, cardano-sl-chain
+, cardano-sl-client
+, cardano-sl-core
+, cardano-sl-crypto
+, cardano-sl-db
+, cardano-sl-infra
+, cardano-sl-networking
+, cardano-sl-util
+, cborg
+, conduit
+, constraints
+, containers
+, data-default
+, dns
+, formatting
+, lens
+, lifted-async
+, mtl
+, optparse-applicative
+, process
+, resourcet
+, serokell-util
+, stdenv
+, stm
+, text
+, time
+, time-units
+, turtle
+, universum
+, unix
+, unordered-containers
+, vector
+, vty
+, yaml
+}:
+mkDerivation {
+
+pname = "cardano-sl-script-runner";
+version = "2.0.0";
+src = ./../script-runner;
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+base
+brick
+bytestring
+cardano-sl
+cardano-sl-chain
+cardano-sl-client
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-infra
+cardano-sl-networking
+cardano-sl-util
+conduit
+constraints
+containers
+data-default
+dns
+formatting
+lens
+lifted-async
+mtl
+optparse-applicative
+process
+resourcet
+serokell-util
+stm
+text
+time
+time-units
+turtle
+universum
+unix
+unordered-containers
+vector
+vty
+yaml
+];
+executableHaskellDepends = [
+base
+bytestring
+cardano-sl
+cardano-sl-binary
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-db
+cardano-sl-infra
+cardano-sl-util
+cborg
+constraints
+data-default
+formatting
+serokell-util
+text
+time-units
+turtle
+universum
+];
+doHaddock = false;
+description = "Cardano SL - Script Runner";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-tools" = callPackage
 ({
   mkDerivation

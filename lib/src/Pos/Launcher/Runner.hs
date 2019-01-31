@@ -40,7 +40,6 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)
 import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..),
                      hoistDiffusion)
-import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 import           Pos.Infra.Network.Types (NetworkConfig (..),
                      topologyRoute53HealthCheckEnabled)
 import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
@@ -161,7 +160,7 @@ runServer
     -> (Diffusion IO -> Logic IO)
     -> (Diffusion IO -> IO t)
     -> IO t
-runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown npFInjects $
+runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
     diffusionLayerFull fdconf
                        npNetworkConfig
                        (Just ekgNodeMetrics)
@@ -185,13 +184,13 @@ runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic ac
         , fdcTrace = wlogTrace "diffusion"
         , fdcStreamWindow = streamWindow
         }
-    exitOnShutdown fInjects action = do
-        _ <- race (waitForShutdown shdnContext) action
-        doFail <- testLogFInject fInjects FInjApplyUpdateWrongExitCode
-        exitWith $ ExitFailure $
-          if doFail
-          then 42 -- inject wrong exit code
-          else 20 -- special exit code to indicate an update
+    exitOnShutdown action = do
+        result <- race (waitForShutdown shdnContext) action
+        let
+          code = case result of
+            Left code' -> code'
+            Right _    -> ExitSuccess
+        exitWith code
     ekgStore = enmStore ekgNodeMetrics
     (hcHost, hcPort) = case npRoute53Params of
         Nothing         -> ("127.0.0.1", 3030)

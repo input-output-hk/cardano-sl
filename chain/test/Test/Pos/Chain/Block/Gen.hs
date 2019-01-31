@@ -1,5 +1,6 @@
 module Test.Pos.Chain.Block.Gen
-       ( genBlockBodyAttributes
+       ( genBlockConfiguration
+       , genBlockBodyAttributes
        , genBlockHeader
        , genBlockHeaderAttributes
        , genBlockSignature
@@ -23,10 +24,11 @@ import           Universum
 import           Data.Coerce (coerce)
 import           Hedgehog (Gen)
 import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
 
-import           Pos.Chain.Block (BlockBodyAttributes, BlockHeader (..),
-                     BlockHeaderAttributes, BlockSignature (..),
-                     GenesisBlockHeader, GenesisBody (..),
+import           Pos.Chain.Block (BlockBodyAttributes, BlockConfiguration (..),
+                     BlockHeader (..), BlockHeaderAttributes,
+                     BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
                      GenesisConsensusData (..), GenesisProof (..), HeaderHash,
                      MainBlockHeader, MainBody (..), MainConsensusData (..),
                      MainExtraBodyData (..), MainExtraHeaderData (..),
@@ -44,6 +46,18 @@ import           Test.Pos.Core.Gen (genChainDifficulty, genEpochIndex,
                      genFlatSlotId, genSlotId, genSlotLeaders, genTextHash)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genProxySignature,
                      genPublicKey, genSecretKey, genSignature)
+
+
+genBlockConfiguration :: Gen BlockConfiguration
+genBlockConfiguration = BlockConfiguration <$> Gen.int Range.constantBounded
+                                           <*> Gen.int Range.constantBounded
+                                           <*> Gen.int Range.constantBounded
+                                           <*> Gen.double (Range.constant 0 1)
+                                           <*> Gen.double (Range.constant 0 1)
+                                           <*> Gen.double (Range.constant 0 1)
+                                           <*> Gen.double (Range.constant 0 1)
+                                           <*> Gen.int Range.constantBounded
+                                           <*> (fromIntegral <$> Gen.int Range.constantBounded)
 
 genBlockBodyAttributes :: Gen BlockBodyAttributes
 genBlockBodyAttributes = pure $ mkAttributes ()

@@ -1,0 +1,5 @@
+wallet:
+  relays:
+    - - host: relays.cardano-testnet.iohkdev.io
+  valency: 1
+  fallbacks: 7

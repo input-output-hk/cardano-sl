@@ -9,7 +9,7 @@ import           Pos.Core as Core
 
 import           Servant
 
-type API = Tags '["Wallets"] :>
+type API = Tag "Wallets" 'NoTagDescription :>
     (    "wallets" :> Summary "Creates a new or restores an existing Wallet."
                    :> ReqBody '[ValidJSON] (New Wallet)
                    :> PostCreated '[ValidJSON] (APIResponse Wallet)

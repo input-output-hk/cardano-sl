@@ -5,12 +5,65 @@
 ### Fixes
 
 - Limit the rate of dns queries to avoid reaching the limit of open files, try resolve dns in ntp client every 30s rather than only once ([CDEC-659](https://iohk.myjetbrains.com/youtrack/issue/CDEC-659) [#4008](https://github.com/input-output-hk/cardano-sl/pull/4008))
+
 - Fix incoherent To/FromJSON instances in `core`, `chain`, `lib`. Alter `TxValidationRules` datatype. ([CBR-502](https://iohk.myjetbrains.com/youtrack/issue/CBR-502) [#4037](https://github.com/input-output-hk/cardano-sl/pull/4037))
 
 
 ### Features
 
 - Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
+
+- Node Monitoring API: nodes now serve their own settings and info via a web server via a `/api/v1/node-settings` and `/api/v1/node-info` (still proxied by the wallet backend) ([#110](https://github.com/input-output-hk/cardano-wallet/issues/110))
+  - Set up scaffolding for node API [#3788](https://github.com/input-output-hk/cardano-sl/pull/3788)
+  - Wire Up Node Api [#3851](https://github.com/input-output-hk/cardano-sl/pull/3851)
+  - Unify Node APIs [#3882](https://github.com/input-output-hk/cardano-sl/pull/3882)
+  - Node API Jsend errors [#3910](https://github.com/input-output-hk/cardano-sl/pull/3910)
+  - Node API Documentation Server [#3925](https://github.com/input-output-hk/cardano-sl/pull/3925)
+  - Implement IPC shutdown [#3939](https://github.com/input-output-hk/cardano-sl/pull/3939)
+  - Implement Update endpoints for the Node API [#3957](https://github.com/input-output-hk/cardano-sl/pull/3957)
+  - Parse required CLI params in cluster [#3987](https://github.com/input-output-hk/cardano-sl/pull/3987)
+  - Fix Arbitrary instance for APIResponse [#3989](https://github.com/input-output-hk/cardano-sl/pull/3989)
+  - Special case 404 errors with empty bodies [#3995](https://github.com/input-output-hk/cardano-sl/pull/3995)
+  - Disable node monitoring API by default [#4051](https://github.com/input-output-hk/cardano-sl/pull/4051)
+
+- Additional node settings exposed through the wallet backend API in `/api/v1/node-settings`. This is in order to align and be on-par with the new node monitoring API. [#4045](https://github.com/input-output-hk/cardano-sl/pull/4045)
+  Added settings:
+    - `slotId`: The current slot and epoch 
+    - `slotCount`: The number of slots per epoch
+    - `maxTxSize`: The largest allowed transaction size in bytes
+    - `feePolicy`: The fee policy, in flat Lovelace and variable Lovelace/byte
+    - `securityParameter`: The consensus security parameter (usually referred as `k` in the papers)
+
+
+### Improvements
+
+- Removal of V0 API & Legacy Data Layer ([CO-372](https://iohk.myjetbrains.com/youtrack/issue/CO-372))
+  - Remove V0 and `Legacy*` modules ([CO-394](https://iohk.myjetbrains.com/youtrack/issue/CO-372) [#3667](https://github.com/input-output-hk/cardano-sl/pull/3667))
+  - Move `wallet@Pos.Util.Mnemonic` to `wallet-new@Cardano.Wallet.Kernel.BIP39` ([CO-374](https://iohk.myjetbrains.com/youtrack/issue/CO-374) [#3663](https://github.com/input-output-hk/cardano-sl/pull/3663))
+  - Replace remaining uses of `Pos.Util.Mnemonic` ([CO-401](https://iohk.myjetbrains.com/youtrack/issue/CO-401) [#3663](https://github.com/input-output-hk/cardano-sl/pull/3663))
+  - Remove `wallet` dependency from `Cardano/Wallet/Server/Plugins.hs` ([CO-403](https://iohk.myjetbrains.com/youtrack/issue/CO-403) [#3686](https://github.com/input-output-hk/cardano-sl/pull/3686))
+  - Remove `wallet` dependency from `Cardano/Wallet/API/V1/Swagger/Example.hs` ([CO-404](https://iohk.myjetbrains.com/youtrack/issue/CO-404) [#3687](https://github.com/input-output-hk/cardano-sl/pull/3687))
+  - Remove `wallet` dependency from `Cardano/Wallet/API/V1/Types.hs` ([CO-405](https://iohk.myjetbrains.com/youtrack/issue/CO-405) [#3688](https://github.com/input-output-hk/cardano-sl/pull/3688))
+  - Remove `wallet` dependency from `Cardano/Wallet/API/V1/Swagger.hs` ([CO-406](https://iohk.myjetbrains.com/youtrack/issue/CO-406) [#3689](https://github.com/input-output-hk/cardano-sl/pull/3689))
+  - Remove `wallet` dependency from `wallet-new/src/Cardano/Wallet/Kernel/Pending.hs` & `wallet-new/src/Cardano/Wallet/Kernel/Decrypt.hs` ([CO-402](https://iohk.myjetbrains.com/youtrack/issue/CO-402) [#3683](https://github.com/input-output-hk/cardano-sl/pull/3683))
+  - Tweaks to `Cardano.Wallet.Kernel.Decrypt` ([CO-408](https://iohk.myjetbrains.com/youtrack/issue/CO-408) [#3699](https://github.com/input-output-hk/cardano-sl/pull/3699))
+  - Remove `wallet` dependency from `wallet-new/src/Cardano/Wallet/Kernel/Migration.hs` ([CO-407](https://iohk.myjetbrains.com/youtrack/issue/CO-407) [#3836](https://github.com/input-output-hk/cardano-sl/pull/3836))
+  - Remove `wallet-new/src/Cardano/Wallet/API/V1/Migration/Types.hs` ([CO-380](https://iohk.myjetbrains.com/youtrack/issue/CO-380) [#3700](https://github.com/input-output-hk/cardano-sl/pull/3700))
+  - Remove `wallet` dependency from `wallet-new/src/Cardano/Wallet/Orphans/*` ([CO-413](https://iohk.myjetbrains.com/youtrack/issue/CO-413) [#3707](https://github.com/input-output-hk/cardano-sl/pull/3707))
+  - Accommodate LegacyHandlers refactoring result and investigate possibility of removing `Core.Coin` instances ([CO-422](https://iohk.myjetbrains.com/youtrack/issue/CO-422) [#3809](https://github.com/input-output-hk/cardano-sl/pull/3809))
+  - Follow-up on CO-373 (Move Mnemonic module into Kernel/BIP39) ([CO-426](https://iohk.myjetbrains.com/youtrack/issue/CO-426) [#3738](https://github.com/input-output-hk/cardano-sl/pull/3738))
+  - Cleanup references to `cardano-sl-wallet` across `cardano-sl` ([CO-430](https://iohk.myjetbrains.com/youtrack/issue/CO-430) [#3750](https://github.com/input-output-hk/cardano-sl/pull/3750))
+  - Remove `bench` package from cardano-sl-wallet-new ([CO-442](https://iohk.myjetbrains.com/youtrack/issue/CO-442) [#3828](https://github.com/input-output-hk/cardano-sl/pull/3828))
+  - Remove `wallet` from cardano-sl codebase ([CO-443](https://iohk.myjetbrains.com/youtrack/issue/CO-443) [#3837](https://github.com/input-output-hk/cardano-sl/pull/3837))
+
+- Rewritten and redesigned integration tests framework ([CO-356](https://iohk.myjetbrains.com/youtrack/issue/CO-356) [#4047](https://github.com/input-output-hk/cardano-sl/pull/4047))
+
+
+### Documentation
+
+- Remove redundant [] in backupPhrase doc example ([#4038](https://github.com/input-output-hk/cardano-sl/pull/4038))
+
+- New "common use-case" entry the API doc about importing addresses ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
 
 
 ## Cardano SL 2.0.1

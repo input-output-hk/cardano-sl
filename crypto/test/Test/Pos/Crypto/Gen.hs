@@ -3,6 +3,7 @@ module Test.Pos.Crypto.Gen
         -- Protocol Magic Generator
           genProtocolMagic
         , genProtocolMagicId
+        , genRequiresNetworkMagic
 
         -- Sign Tag Generator
         , genSignTag

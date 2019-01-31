@@ -21,6 +21,23 @@ module Pos.Launcher.Configuration
 
        , dumpGenesisData
 
+       , ccGenesis_L
+       , ccNtp_L
+       , ccUpdate_L
+       , ccSsc_L
+       , ccDlg_L
+       , ccTxp_L
+       , ccBlock_L
+       , ccNode_L
+       , ccWallet_L
+       , ccReqNetMagic_L
+       , ccTxValRules_L
+
+       , cfoFilePath_L
+       , cfoKey_L
+       , cfoSystemStart_L
+       , cfoSeed_L
+
        -- Exposed mostly for testing.
        , readAssetLockedSrcAddrs
        ) where
@@ -45,6 +62,7 @@ import           System.FilePath (takeDirectory)
 
 import           Ntp.Client (NtpConfiguration)
 
+import           Control.Lens (makeLensesWith)
 import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData (..),
                      StaticConfig, canonicalGenesisJson,
                      mkConfigFromStaticConfig, prettyGenesisJson)
@@ -52,6 +70,7 @@ import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto (RequiresNetworkMagic (..))
+import           Pos.Util (postfixLFields)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Config (parseYamlConfig)
 import           Pos.Util.Wlog (WithLogger, logInfo)
@@ -185,6 +204,9 @@ data ConfigurationOptions = ConfigurationOptions
       -- this case it overrides one from configuration file.
     , cfoSeed        :: !(Maybe Integer)
     } deriving (Show)
+
+makeLensesWith postfixLFields ''Configuration
+makeLensesWith postfixLFields ''ConfigurationOptions
 
 instance FromJSON ConfigurationOptions where
     parseJSON = withObject "ConfigurationOptions" $ \o -> do

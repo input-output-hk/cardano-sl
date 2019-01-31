@@ -80,6 +80,7 @@ main = void $ do
             putTextFromStart $ "..." <> nodeId <> " OK!"
             when (nodeType /= NodeEdge) $ putText
                 $  "\n......address:       " <> toText (env ! "LISTEN")
+            -- todo, dont mapm over chars
             putTextLn
                 $  "\n......api address:   " <> toText (env ! "NODE_API_ADDRESS")
                 <> "\n......doc address:   " <> toText (env ! "NODE_DOC_ADDRESS")

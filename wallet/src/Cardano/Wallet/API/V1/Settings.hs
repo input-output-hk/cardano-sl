@@ -6,7 +6,7 @@ import           Cardano.Wallet.API.V1.Types
 
 import           Servant
 
-type API = Tags '["Settings"] :>
+type API = Tag "Settings" 'NoTagDescription :>
          ( "node-settings"  :> Summary "Retrieves the static settings for this node."
                             :> Get '[ValidJSON] (APIResponse NodeSettings)
          )

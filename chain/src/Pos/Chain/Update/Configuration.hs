@@ -15,22 +15,29 @@ module Pos.Chain.Update.Configuration
        , curSoftwareVersion
 
        , currentSystemTag
+
+       , ccApplicationName_L
+       , ccLastKnownBlockVersion_L
+       , ccApplicationVersion_L
+       , ccSystemTag_L
        ) where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON,
-                     withObject, (.:), (.:?))
-import           Data.Aeson.Options (defaultOptions)
+import           Control.Lens (makeLensesWith)
+import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
+                     (.:), (.:?), (.=))
 import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
 import           Distribution.System (buildArch, buildOS)
 
-import           Pos.Chain.Update.ApplicationName (ApplicationName)
+import           Pos.Chain.Update.ApplicationName
+                     (ApplicationName (ApplicationName))
 import           Pos.Chain.Update.BlockVersion (BlockVersion (..))
 import           Pos.Chain.Update.SoftwareVersion (SoftwareVersion (..))
 import           Pos.Chain.Update.SystemTag (SystemTag (..), archHelper,
                      osHelper)
+import           Pos.Util (postfixLFields)
 
 ----------------------------------------------------------------------------
 -- Config itself
@@ -57,8 +64,15 @@ data UpdateConfiguration = UpdateConfiguration
     }
     deriving (Eq, Generic, Show)
 
+makeLensesWith postfixLFields ''UpdateConfiguration
+
 instance ToJSON UpdateConfiguration where
-    toJSON = genericToJSON defaultOptions
+    toJSON (UpdateConfiguration (ApplicationName appname) lkbv appver (SystemTag systag)) = object [
+        "applicationName" .= appname
+      , "lastKnownBlockVersion" .= lkbv
+      , "applicationVersion" .= appver
+      , "systemTag" .= systag
+      ]
 
 instance FromJSON UpdateConfiguration where
     parseJSON = withObject "UpdateConfiguration" $ \o -> do

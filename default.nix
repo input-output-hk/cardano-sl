@@ -271,6 +271,7 @@ let
    // { inherit (self.cardanoPackages)
           cardano-sl
           cardano-sl-auxx
+          cardano-sl-script-runner
           cardano-sl-chain
           cardano-sl-cluster
           cardano-sl-core

@@ -1,5 +1,6 @@
 module Test.Pos.Chain.Ssc.Gen
-       ( genAttackTarget
+       ( genSscConfiguration
+       , genAttackTarget
        , genCommitment
        , genCommitmentsMap
        , genCommitmentSignature
@@ -30,17 +31,20 @@ import           Pos.Binary.Class (asBinary)
 import           Pos.Chain.Security (AttackTarget (..))
 import           Pos.Chain.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                      InnerSharesMap, Opening, OpeningsMap, SharesDistribution,
-                     SharesMap, SignedCommitment, SscPayload (..), SscProof,
-                     VssCertificate (..), VssCertificatesHash,
-                     VssCertificatesMap (..), mkCommitmentsMap, mkSscProof,
-                     mkVssCertificate, mkVssCertificatesMap,
-                     randCommitmentAndOpening)
+                     SharesMap, SignedCommitment, SscConfiguration (..),
+                     SscPayload (..), SscProof, VssCertificate (..),
+                     VssCertificatesHash, VssCertificatesMap (..),
+                     mkCommitmentsMap, mkSscProof, mkVssCertificate,
+                     mkVssCertificatesMap, randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, deterministic, hash)
 
 import           Test.Pos.Core.Gen (genEpochIndex, genStakeholderId, genWord16)
 import           Test.Pos.Crypto.Gen (genDecShare, genPublicKey, genSecretKey,
                      genSignature, genVssPublicKey)
 import           Test.Pos.Util.Gen (genHashMap)
+
+genSscConfiguration :: Gen SscConfiguration
+genSscConfiguration = SscConfiguration <$> (pure 10) <*> (pure 3) <*> (pure False)
 
 genCommitment :: Gen Commitment
 genCommitment = fst <$> genCommitmentOpening

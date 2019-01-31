@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# usage: ./stack-test test4.2
+
+# on Mac (and OS's with different `mktemp` versions)
+# usage: ALT_MKTEMP=1 ./stack-test test4.2
+
+set -e
+set -x
+
+pushd ..
+stack build cardano-sl-script-runner cardano-sl-node cardano-sl-tools
+export PATH=$(realpath $(stack path --local-install-root)/bin):$PATH
+popd
+
+export SCRIPT=$1
+
+CFG=$(realpath ../lib/configuration.yaml)
+LOGCFG=$(realpath ./log-config.yaml)
+TOPO=$(realpath ./topology-local.yaml)
+POLFILE=$(realpath ../scripts/policies/policy_script-runner.yaml)
+
+if [ -z "$ALT_MKTEMP" ]; then
+  T=$(mktemp -d -t . testrun-XXXXXX)
+else
+  T=$(mktemp -d -p . testrun-XXXXXX)
+fi
+
+cd $T
+mkdir poc-state
+
+testcases --configuration-file $CFG --log-console-off --db-path poc-state/db --keyfile secret.key --log-config $LOGCFG --logs-prefix poc-state/logs --topology $TOPO --no-brickui --policies $POLFILE
+
+egrep -r --color=always "Processing of proposal|We'll request data for key Tagged|Ignoring data|Proposal .* is confirmed" relay-stdout-0

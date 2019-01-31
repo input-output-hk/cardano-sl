@@ -46,6 +46,7 @@
         cardano-sl-generator = ./.stack.nix/cardano-sl-generator.nix;
         cardano-sl-client = ./.stack.nix/cardano-sl-client.nix;
         cardano-sl-auxx = ./.stack.nix/cardano-sl-auxx.nix;
+        cardano-sl-script-runner = ./.stack.nix/cardano-sl-script-runner.nix;
         cardano-sl-explorer = ./.stack.nix/cardano-sl-explorer.nix;
         cardano-sl-node = ./.stack.nix/cardano-sl-node.nix;
         cardano-sl-tools = ./.stack.nix/cardano-sl-tools.nix;

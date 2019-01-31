@@ -39,6 +39,7 @@ getBalanceFromUtxo :: MonadBalances m => GenesisData -> Address -> m Coin
 getBalanceFromUtxo genesisData addr =
     getTotalCoinsInUtxo <$> getOwnUtxo genesisData addr
 
+{-# INLINE getOwnUtxosGenesis #-}
 getOwnUtxosGenesis :: Applicative m => GenesisData -> [Address] -> m Utxo
 getOwnUtxosGenesis genesisData addrs =
     pure $ filterUtxoByAddrs addrs $ genesisUtxo genesisData

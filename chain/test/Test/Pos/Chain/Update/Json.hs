@@ -11,10 +11,11 @@ import qualified Hedgehog as H
 
 import           Test.Pos.Chain.Update.Gen (genApplicationName,
                      genBlockVersionData, genSoftforkRule, genSoftwareVersion,
-                     genSystemTag)
+                     genSystemTag, genUpdateConfiguration)
 import           Test.Pos.Util.Golden (eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
-                     roundTripsAesonYamlBuildable)
+                     roundTripsAesonYamlBuildable, roundTripsAesonYamlShow)
+
 
 --------------------------------------------------------------------------------
 -- BlockVersionData
@@ -54,6 +55,14 @@ roundTripSoftwareVersion =
 roundTripSystemTag :: Property
 roundTripSystemTag =
     eachOf 1000 genSystemTag roundTripsAesonYamlBuildable
+
+--------------------------------------------------------------------------------
+-- UpdateConfiguration
+--------------------------------------------------------------------------------
+
+roundTripUpdateConfiguration :: Property
+roundTripUpdateConfiguration =
+    roundTripsAesonYamlShow 1000 genUpdateConfiguration
 
 --------------------------------------------------------------------------------
 -- Main Testing Function

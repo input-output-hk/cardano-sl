@@ -9,7 +9,8 @@ module Cardano.Wallet.API.Types
     , DHeader
     , mapRouter
     , WithDefaultApiArg
-    , Tags
+    , Tag
+    , TagDescription(..)
     , WalletLoggingConfig
     ) where
 
@@ -20,7 +21,7 @@ import           Servant
 import qualified Servant.Server.Internal as SI
 
 import           Pos.Util.Servant (ApiLoggingConfig (..), DHeader, DQueryParam,
-                     Tags, WithDefaultApiArg)
+                     Tag, TagDescription (..), WithDefaultApiArg)
 
 -- | `mapRouter` is helper function used in order to transform one `HasServer`
 -- instance to another. It can be used to introduce custom request params type.

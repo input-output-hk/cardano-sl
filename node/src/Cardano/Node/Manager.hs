@@ -40,7 +40,7 @@ mkHttpManagerSettings =
 mkHttpsManagerSettings
     :: (HostName, Port)              -- ^ Target server hostname & port
     -> [SignedCertificate]           -- ^ CA certificate chain
-    -> (CertificateChain, PrivKey)   -- ^ (Client certificate, Client key)
+    -> Maybe (CertificateChain, PrivKey)   -- ^ (Client certificate, Client key)
     -> ManagerSettings
 mkHttpsManagerSettings serverId caChain credentials =
     mkManagerSettings tlsSettings sockSettings
@@ -58,13 +58,13 @@ mkHttpsManagerSettings serverId caChain credentials =
         , clientDebug                   = def
         }
     clientShared = Shared
-        { sharedCredentials     = Credentials [credentials]
+        { sharedCredentials     = Credentials $ maybeToList credentials
         , sharedCAStore         = makeCertificateStore caChain
         , sharedSessionManager  = noSessionManager
         , sharedValidationCache = def
         }
     clientHooks = def
-        { onCertificateRequest = const . return . Just $ credentials
+        { onCertificateRequest = const . return $ credentials
         , onServerCertificate  = validateDefaultWithIP
         }
     clientSupported = def

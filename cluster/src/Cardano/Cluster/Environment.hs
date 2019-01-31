@@ -385,7 +385,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     if isClientCertificate cert then do
                         let credentials = (CertificateChain [cert], PrivKeyRSA key)
                         let serverId = (B8.unpack host, B8.pack $ show port)
-                        Just <$> newManager (mkHttpsManagerSettings serverId [caCert] credentials)
+                        Just <$> newManager (mkHttpsManagerSettings serverId [caCert] (Just credentials))
                     else
                         return Nothing
                 return $ Prelude.head $ catMaybes clients

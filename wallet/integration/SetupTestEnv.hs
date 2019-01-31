@@ -18,7 +18,7 @@ setupClient CLIOptions {..} = do
     clientCredentials <- credentialLoadX509 tlsClientCertPath tlsPrivKeyPath >>= \case
         Right   a -> return a
         Left  err -> fail $ "Error decoding X509 certificates: " <> err
-    manager <- newManager $ mkHttpsManagerSettings serverId caChain clientCredentials
+    manager <- newManager $ mkHttpsManagerSettings serverId caChain (Just clientCredentials)
 
     let
         baseUrl = BaseUrl Https serverHost serverPort mempty

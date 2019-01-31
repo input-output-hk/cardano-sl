@@ -10,7 +10,23 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 
-module AutomatedTestRunner (Script, getGenesisConfig, loadNKeys, doUpdate, onStartup, on, runScript, ScriptRunnerOptions(..), endScript, srCommonNodeArgs, printbvd, ScriptParams(..)) where
+module AutomatedTestRunner
+       ( Script
+       , getGenesisConfig
+       , loadNKeys
+       , doUpdate
+       , onStartup
+       , on
+       , runScript
+       , ScriptRunnerOptions(..)
+       , endScript
+       , srCommonNodeArgs
+       , printbvd
+       , ScriptParams(..)
+       , getNodeCount
+       , forAllNodes
+       , forAllNodes_
+       ) where
 
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, wait)
@@ -40,8 +56,6 @@ import           Ntp.Client (NtpConfiguration)
 import           Paths_cardano_sl (version)
 import           Pos.Chain.Block (LastKnownHeaderTag)
 import           Pos.Chain.Genesis as Genesis
-                     (Config (configGeneratedSecrets, configProtocolMagic),
-                     configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (BlockVersion,
                      BlockVersionData (bvdMaxBlockSize, bvdMaxTxSize),
@@ -89,21 +103,24 @@ import           BrickUITypes (CustomEvent (CENodeInfo, CESlotStart, ProposalRep
                      Reply (QueryProposals, TriggerShutdown),
                      SlotStart (SlotStart))
 import           NodeControl (cleanupNodes, createNodes, genSystemStart, mkTopo)
-import           PocMode (AuxxContext (AuxxContext, _acEventChan, _acNodeHandles, _acRealModeContext, _acScriptOptions, _acStatePath, _acTopology),
+import           PocMode (AuxxContext (AuxxContext, _acEventChan, _acNodeHandles, _acRealModeContext, _acRuntimeParams, _acScriptOptions, _acStatePath, _acTopology),
                      CompiledScript (slotTriggers, startupActions),
-                     InputParams (InputParams, ipEventChan, ipReplyChan, ipScriptParams, ipStatePath),
-                     InputParams2 (InputParams2, ip2EventChan, ip2ReplyChan, ip2ScriptParams, ip2StatePath),
-                     PocMode, Script (runScriptMonad),
+                     InputParams (..), InputParamsLive (..), PocMode,
+                     Script (runScriptMonad),
                      ScriptBuilder (ScriptBuilder, sbEpochSlots, sbGenesisConfig, sbScript),
-                     ScriptParams (spRecentSystemStart, spScript, spStartCoreAndRelay, spTodo),
-                     ScriptT (runScriptT), SlotTrigger (SlotTrigger),
+                     ScriptParams (..), ScriptT (runScriptT),
+                     SlotTrigger (SlotTrigger), mkInputParamsLive,
                      realModeToAuxx, writeBrickChan)
 import           Types (ScriptRunnerOptions (ScriptRunnerOptions),
-                     ScriptRunnerUIMode (BrickUI, PrintUI), srCommonNodeArgs,
-                     srPeers, srUiMode)
+                     ScriptRunnerUIMode (BrickUI, PrintUI),
+                     ScriptRuntimeParams (..), srCommonNodeArgs, srPeers,
+                     srUiMode)
 
-exampleToScript :: SlotCount -> Config -> Script () -> CompiledScript
-exampleToScript epochSlots config example = sbScript $ snd $ runIdentity $ runStateT (runScriptT $ runScriptMonad example) (ScriptBuilder def epochSlots config)
+compileScript :: SlotCount -> Config -> ScriptRuntimeParams -> Script () -> CompiledScript
+compileScript epochSlots config srp script = sbScript $ snd $ runIdentity stateless
+  where
+    stateless  = runStateT readerless (ScriptBuilder def epochSlots config)
+    readerless = runReaderT (runScriptT $ runScriptMonad script) srp
 
 scriptRunnerOptionsParser :: Parser ScriptRunnerOptions
 scriptRunnerOptionsParser = do
@@ -166,47 +183,51 @@ runWithConfig opts inputParams genesisConfig _walletConfig txpConfig _ntpConfig 
     initNDBs :: ReaderT InitModeContext IO ()
     initNDBs = initNodeDBs genesisConfig
   let
-    inputParams' = InputParams2 (ipEventChan inputParams) (ipReplyChan inputParams) (ipScriptParams inputParams) (ipStatePath inputParams)
-  bracketNodeResources genesisConfig nodeParams sscParams txpGS initNDBs (nodeResourceAction opts genesisConfig txpConfig inputParams')
+    confYamlNumRichmen = Map.size . Genesis.getGenesisWStakeholders . Genesis.configBootStakeholders $ genesisConfig
+    runtimeParams = ScriptRuntimeParams (fromIntegral confYamlNumRichmen)
+    inputParamsLive = mkInputParamsLive runtimeParams inputParams
+  bracketNodeResources genesisConfig nodeParams sscParams txpGS initNDBs (nodeResourceAction opts genesisConfig txpConfig inputParamsLive)
 
-nodeResourceAction :: (HasCompileInfo, HasConfigurations) => ScriptRunnerOptions -> Config -> TxpConfiguration -> InputParams2 -> NodeResources () -> IO ()
-nodeResourceAction opts genesisConfig txpConfig inputParams nr = do
+nodeResourceAction :: (HasCompileInfo, HasConfigurations) => ScriptRunnerOptions -> Config -> TxpConfiguration -> InputParamsLive -> NodeResources () -> IO ()
+nodeResourceAction opts genesisConfig txpConfig ipl nr = do
   handles <- newTVarIO mempty
   let
-    -- cores run from 0-3, relays run from 0-0
-    topo = mkTopo 3 0
+    -- cores run from 0-n, relays run from 0-0
+    topo = mkTopo (srpCoreNodes (iplRuntimeParams ipl)) 0
   let
     toRealMode :: PocMode a -> RealMode EmptyMempoolExt a
     toRealMode auxxAction = do
       realModeContext <- ask
       lift $ runReaderT auxxAction $ AuxxContext
         { _acRealModeContext = realModeContext
-        , _acEventChan = ip2EventChan inputParams
+        , _acEventChan = iplEventChan ipl
         , _acNodeHandles = handles
         , _acScriptOptions = opts
         , _acTopology = topo
-        , _acStatePath = ip2StatePath inputParams
+        , _acStatePath = iplStatePath ipl
+        , _acRuntimeParams = iplRuntimeParams ipl
         }
     mkPlugins :: CompiledScript -> [ (Text, Diffusion PocMode -> PocMode ()) ]
-    mkPlugins script = workers script genesisConfig inputParams
+    mkPlugins script = workers script genesisConfig ipl
     mkPocMode :: Diffusion PocMode -> PocMode ()
     mkPocMode diffusion = do
-      if spStartCoreAndRelay $ ip2ScriptParams inputParams
-        then createNodes (spTodo $ ip2ScriptParams inputParams) opts
+      if spStartCoreAndRelay $ iplScriptParams ipl
+        then createNodes (iplRuntimeParams ipl) opts
         else pure ()
       let epochSlots = configEpochSlots genesisConfig
-      let finalscript = (exampleToScript epochSlots genesisConfig . spScript . ip2ScriptParams) inputParams
+      let scriptParams = iplScriptParams ipl
+      let finalscript = compileScript epochSlots genesisConfig (iplRuntimeParams ipl) (spScript scriptParams)
       runNode genesisConfig txpConfig nr (mkPlugins finalscript) diffusion
       cleanupNodes
     action :: Diffusion (RealMode ()) -> RealMode EmptyMempoolExt ()
     action diffusion = toRealMode (mkPocMode (hoistDiffusion realModeToAuxx toRealMode diffusion))
   runRealMode updateConfiguration genesisConfig txpConfig nr action
 
-workers :: HasConfigurations => CompiledScript -> Genesis.Config -> InputParams2 -> [ (Text, Diffusion PocMode -> PocMode ()) ]
-workers script genesisConfig InputParams2{ip2EventChan,ip2ReplyChan} =
-  [ ( "worker1", worker1 genesisConfig script ip2EventChan)
-  , ( "worker2", worker2 ip2EventChan)
-  , ( "brick reply worker", brickReplyWorker ip2ReplyChan)
+workers :: HasConfigurations => CompiledScript -> Genesis.Config -> InputParamsLive -> [ (Text, Diffusion PocMode -> PocMode ()) ]
+workers script genesisConfig InputParamsLive{iplEventChan,iplReplyChan} =
+  [ ( "worker1", worker1 genesisConfig script iplEventChan)
+  , ( "worker2", worker2 iplEventChan)
+  , ( "brick reply worker", brickReplyWorker iplReplyChan)
   ]
 
 brickReplyWorker :: HasConfigurations => BChan Reply -> Diffusion PocMode -> PocMode ()
@@ -306,6 +327,17 @@ runDummyUI = do
 
 getGenesisConfig :: Script Config
 getGenesisConfig = sbGenesisConfig <$> get
+
+getNodeCount :: MonadReader AuxxContext m => m Integer
+getNodeCount = srpCoreNodes . _acRuntimeParams <$> ask
+
+forAllNodes :: MonadReader AuxxContext m => (Integer -> m a) -> m [a]
+forAllNodes action = do
+    nodeCount <- getNodeCount
+    forM (range (0,nodeCount)) action
+
+forAllNodes_ :: MonadReader AuxxContext m => (Integer -> m a) -> m ()
+forAllNodes_ = void . forAllNodes
 
 data SlotCreationFailure = SlotCreationFailure { msg :: Text, slotsInEpoch :: SlotCount } deriving Show
 instance Exception SlotCreationFailure where

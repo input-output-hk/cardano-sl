@@ -28,7 +28,8 @@ module PocMode
        , Script(..)
        , ScriptT(runScriptT)
        , InputParams(..)
-       , InputParams2(..)
+       , InputParamsLive(..)
+       , mkInputParamsLive
        , ScriptParams(..)
 
        -- * Helpers
@@ -87,7 +88,8 @@ import           Pos.Util.Wlog (HasLoggerName (askLoggerName, modifyLoggerName))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext)
 
 import           BrickUITypes
-import           Types (NodeHandle, NodeType, ScriptRunnerOptions, Todo)
+import           Types (NodeHandle, NodeType, ScriptRunnerOptions,
+                     ScriptRuntimeParams)
 
 type PocMode = ReaderT AuxxContext IO
 
@@ -101,6 +103,7 @@ data AuxxContext = AuxxContext
     , _acScriptOptions   :: !(ScriptRunnerOptions)
     , _acTopology        :: !(Topology)
     , _acStatePath       :: !(Text)
+    , _acRuntimeParams   :: !(ScriptRuntimeParams)
     }
 
 makeLenses ''AuxxContext
@@ -123,7 +126,6 @@ data ScriptBuilder = ScriptBuilder
 
 data ScriptParams = ScriptParams
   { spScript            :: !(Script ())
-  , spTodo              :: Todo
   , spRecentSystemStart :: Bool
   , spStartCoreAndRelay :: Bool
   }
@@ -134,15 +136,26 @@ data InputParams = InputParams
   , ipScriptParams :: ScriptParams
   , ipStatePath    :: Text
   }
-data InputParams2 = InputParams2
-  { ip2EventChan    :: BChan CustomEvent
-  , ip2ReplyChan    :: BChan Reply
-  , ip2ScriptParams :: ScriptParams
-  , ip2StatePath    :: Text
+
+-- | InputParams "livened" by adding ScriptRuntimeParams (which are only known
+-- at runtime due to being read from the config file).
+data InputParamsLive = InputParamsLive
+  { iplEventChan     :: BChan CustomEvent
+  , iplReplyChan     :: BChan Reply
+  , iplScriptParams  :: ScriptParams
+  , iplStatePath     :: Text
+  , iplRuntimeParams :: ScriptRuntimeParams
   }
 
-newtype ScriptT m a = ScriptT { runScriptT :: StateT ScriptBuilder m a } deriving (Functor, Applicative, Monad, MonadState ScriptBuilder)
-newtype Script a = Script { runScriptMonad :: ScriptT (Identity) a } deriving (Applicative, Functor, Monad, MonadState ScriptBuilder)
+mkInputParamsLive :: ScriptRuntimeParams -> InputParams -> InputParamsLive
+mkInputParamsLive spl ip = InputParamsLive (ipEventChan ip) (ipReplyChan ip)
+                                           (ipScriptParams ip) (ipStatePath ip)
+                                           spl
+
+newtype ScriptT m a = ScriptT { runScriptT :: ReaderT ScriptRuntimeParams (StateT ScriptBuilder m) a }
+    deriving (Functor, Applicative, Monad, MonadState ScriptBuilder, MonadReader ScriptRuntimeParams)
+newtype Script a = Script { runScriptMonad :: ScriptT Identity a }
+    deriving (Applicative, Functor, Monad, MonadState ScriptBuilder, MonadReader ScriptRuntimeParams)
 
 writeBrickChan :: CustomEvent -> PocMode ()
 writeBrickChan event = do

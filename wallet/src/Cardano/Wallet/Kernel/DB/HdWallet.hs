@@ -23,6 +23,9 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdRoot(..)
   , HdAccount(..)
   , HdAddress(..)
+  -- * IsOurs
+  , IsOurs(..)
+  , decryptHdLvl2DerivationPath
     -- * HD Wallet state
   , HdAccountState(..)
   , HdAccountUpToDate(..)
@@ -114,6 +117,7 @@ import           Serokell.Util (listJson)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Crypto (HDPassphrase)
 import qualified Pos.Crypto as Core
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -121,7 +125,7 @@ import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
-import           Cardano.Wallet.Kernel.DB.Util.IxSet
+import           Cardano.Wallet.Kernel.DB.Util.IxSet hiding (foldl')
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet hiding (Indexable)
 import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
@@ -210,6 +214,9 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
 -- TODO: This may well disappear as part of [CBR-325].
 eskToHdRootId :: NetworkMagic -> Core.EncryptedSecretKey -> HdRootId
 eskToHdRootId nm = HdRootId . InDb . (Core.makePubKeyAddressBoot nm) . Core.encToPublic
+
+eskToHdPassphrase :: Core.EncryptedSecretKey -> HDPassphrase
+eskToHdPassphrase = Core.deriveHDPassphrase . Core.encToPublic
 
 pkToHdRootId :: NetworkMagic -> Core.PublicKey -> HdRootId
 pkToHdRootId nm = HdRootId . InDb . (Core.makePubKeyAddressBoot nm)
@@ -507,6 +514,37 @@ hdAccountRestorationState a = case a ^. hdAccountState of
       ( _hdIncompleteHistorical ^. currentCheckpoint . cpContext . lazy,
         _hdIncompleteCurrent    ^. oldestCheckpoint  . pcheckpointContext)
 
+{-------------------------------------------------------------------------------
+  Address relationship: isOurs?
+-------------------------------------------------------------------------------}
+
+class IsOurs s where
+    isOurs :: Core.Address -> s -> (Maybe HdAddress, s)
+
+{-------------------------------------------------------------------------------
+  isOurs for Hd Random wallets
+-------------------------------------------------------------------------------}
+
+-- | NOTE: We could modify the given state here to actually store decrypted
+-- addresses in a `Map` to trade a decryption against a map lookup for already
+-- decrypted addresses.
+instance IsOurs [(HdRootId, Core.EncryptedSecretKey)] where
+    isOurs addr s = (,s) $ foldl' (<|>) Nothing $ flip map s $ \(rootId, esk) -> do
+        (accountIx, addressIx) <- decryptHdLvl2DerivationPath (eskToHdPassphrase esk) addr
+        let accId = HdAccountId rootId accountIx
+        let addrId = HdAddressId accId addressIx
+        return $ HdAddress addrId (InDb addr)
+
+decryptHdLvl2DerivationPath
+    :: Core.HDPassphrase
+    -> Core.Address
+    -> Maybe (HdAccountIx, HdAddressIx)
+decryptHdLvl2DerivationPath hdPass addr = do
+    hdPayload <- Core.aaPkDerivationPath $ Core.addrAttributesUnwrapped addr
+    derPath <- Core.unpackHDAddressAttr hdPass hdPayload
+    case derPath of
+        [a,b] -> Just (HdAccountIx a, HdAddressIx b)
+        _     -> Nothing
 
 {-------------------------------------------------------------------------------
   Unknown identifiers

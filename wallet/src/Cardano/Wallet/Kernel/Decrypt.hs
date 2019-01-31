@@ -1,6 +1,5 @@
 module Cardano.Wallet.Kernel.Decrypt
     ( decryptAddress
-    , decryptHdLvl2DerivationPath
     , eskToWalletDecrCredentials
     , selectOwnAddresses
     , WalletDecrCredentials
@@ -11,8 +10,6 @@ import           Universum
 import           Formatting (build, sformat)
 
 import           Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountIx (..),
-                     HdAddressIx (..))
 import           Pos.Core (aaPkDerivationPath, addrAttributesUnwrapped,
                      makeRootPubKeyAddress)
 import           Pos.Core.NetworkMagic (NetworkMagic)
@@ -21,16 +18,6 @@ import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PublicKey,
 
 
 type WalletDecrCredentials = (HDPassphrase, V1.WalletId)
-
-decryptHdLvl2DerivationPath :: HDPassphrase
-                            -> Address
-                            -> Maybe (HdAccountIx, HdAddressIx)
-decryptHdLvl2DerivationPath hdPass addr = do
-    hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
-    derPath <- unpackHDAddressAttr hdPass hdPayload
-    case derPath of
-        [a,b] -> Just (HdAccountIx a, HdAddressIx b)
-        _     -> Nothing
 
 -- | There's a secret key for regular wallet or a public key for external wallet.
 eskToWalletDecrCredentials :: NetworkMagic -> EncryptedSecretKey -> WalletDecrCredentials

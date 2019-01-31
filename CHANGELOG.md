@@ -1,11 +1,17 @@
 # CHANGELOG
 
-## Next
+## Cardano SL 3.0.0 
 
 ### Fixes
 
 - Limit the rate of dns queries to avoid reaching the limit of open files, try resolve dns in ntp client every 30s rather than only once ([CDEC-659](https://iohk.myjetbrains.com/youtrack/issue/CDEC-659) [#4008](https://github.com/input-output-hk/cardano-sl/pull/4008))
 - Fix incoherent To/FromJSON instances in `core`, `chain`, `lib`. Alter `TxValidationRules` datatype. ([CBR-502](https://iohk.myjetbrains.com/youtrack/issue/CBR-502) [#4037](https://github.com/input-output-hk/cardano-sl/pull/4037))
+
+
+### Features
+
+- Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
+
 
 ## Cardano SL 2.0.1
 

@@ -20,6 +20,7 @@ handlers :: PassiveWalletLayer IO -> ServerT Addresses.API Handler
 handlers w =  listAddresses w
          :<|> newAddress w
          :<|> getAddress w
+         :<|> importAddresses w
 
 listAddresses :: PassiveWalletLayer IO
               -> RequestParams -> Handler (APIResponse [WalletAddress])
@@ -49,3 +50,16 @@ getAddress pwl addressRaw = do
     case res of
          Left err   -> throwM err
          Right addr -> return $ single addr
+
+
+importAddresses
+    :: PassiveWalletLayer IO
+    -> WalletId
+    -> AccountIndex
+    -> [V1 Address]
+    -> Handler (APIResponse (BatchImportResult (V1 Address)))
+importAddresses pwl walId accIx addrs = do
+    res <- liftIO $ WalletLayer.importAddresses pwl walId accIx addrs
+    case res of
+        Left err   -> throwM err
+        Right res' -> return $ single res'

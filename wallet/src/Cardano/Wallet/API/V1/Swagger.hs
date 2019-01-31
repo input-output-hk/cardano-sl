@@ -922,6 +922,7 @@ Getting Utxo statistics
 
 You can get Utxo statistics of a given wallet using
  [`GET /api/v1/wallets/{{walletId}}/statistics/utxos`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1statistics~1utxos%2Fget)
+
 ```
 curl -X GET \
   https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/statistics/utxos \
@@ -933,9 +934,53 @@ curl -X GET \
 ```json
 $readUtxoStatistics
 ```
-
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully
 leverage the API capabilities.
+
+
+Importing (Unused) Addresses From a Previous Node (or Version)
+--------------------------------------------------------------
+
+When restoring a wallet, only the information available on the blockchain can
+be retrieved. Some pieces of information aren't stored on
+the blockchain and are only defined as _Metadata_ of the wallet backend. This
+includes:
+
+- The wallet's name
+- The wallet's assurance level
+- The wallet's spending password
+- The wallet's unused addresses
+
+Unused addresses are not recorded on the blockchain and, in the case of random
+derivation, it is unlikely that the same addresses will be generated on two
+different node instances. However, some API users may wish to preserve unused
+addresses between different instances of the wallet backend.
+
+To enable this, the wallet backend provides an endpoint ([`POST /api/v1/wallets/{{walletId}}/accounts/{{accountId}/addresses`](#tag/Addresses%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1accounts~1{accountId}~1addresses%2Fpost))
+to import a list of addresses into a given account. Note that this endpoint is
+quite lenient when it comes to errors: it tries to import all provided addresses
+one by one, and ignores any that can't be imported for whatever reason. The
+server will respond with the total number of successes and, if any, a list of
+addresses that failed to be imported. Trying to import an address that is already
+present will behave as a no-op.
+
+For example:
+
+```
+curl -X POST \
+  https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/accounts/2147483648/addresses \
+  -H 'Accept: application/json;charset=utf-8' \
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
+  -d '[
+    "Ae2tdPwUPE...8V3AVTnqGZ",
+    "Ae2odDwvbA...b6V104CTV8"
+  ]'
+```
+
+> **IMPORTANT**: This feature is experimental and performance is
+> not guaranteed. Users are advised to import small batches only.
+
 |]
   where
     createAccount        = decodeUtf8 $ encodePretty $ genExample @(APIResponse Account)

@@ -91,6 +91,7 @@ library
                        Pos.Chain.Txp.Undo
 
                        Pos.Chain.Lrc.Fts
+                       Pos.Chain.Lrc.OBFT
                        Pos.Chain.Lrc.Types
                        Pos.Chain.Lrc.Error
                        Pos.Chain.Lrc.Core
@@ -255,6 +256,8 @@ test-suite chain-test
                        Test.Pos.Chain.Genesis.Gen
                        Test.Pos.Chain.Genesis.Json
                        Test.Pos.Chain.Lrc.FtsSpec
+                       Test.Pos.Chain.Lrc.ObftRoundRobinSpec
+                       Test.Pos.Chain.Lrc.StakeAndHolder
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Bi
                        Test.Pos.Chain.Ssc.CborSpec

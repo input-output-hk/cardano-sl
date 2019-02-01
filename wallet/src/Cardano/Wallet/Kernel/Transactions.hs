@@ -10,6 +10,7 @@ module Cardano.Wallet.Kernel.Transactions (
     , PaymentError(..)
     , EstimateFeesError(..)
     , RedeemAdaError(..)
+    , NumberOfMissingUtxos(..)
     , cardanoFee
     , mkStdTx
     , prepareUnsignedTxWithSources
@@ -85,6 +86,16 @@ import           UTxO.Util (shuffleNE)
   Generating payments and estimating fees
 -------------------------------------------------------------------------------}
 
+data NumberOfMissingUtxos = NumberOfMissingUtxos Int
+
+instance Buildable NumberOfMissingUtxos where
+    build (NumberOfMissingUtxos number) =
+        bprint ("NumberOfMissingUtxos " % build) number
+
+instance Arbitrary NumberOfMissingUtxos where
+    arbitrary = oneof [ NumberOfMissingUtxos <$> arbitrary
+                      ]
+
 data NewTransactionError =
     NewTransactionUnknownAccount UnknownHdAccount
   | NewTransactionUnknownAddress UnknownHdAddress
@@ -92,6 +103,7 @@ data NewTransactionError =
   | NewTransactionErrorCreateAddressFailed Kernel.CreateAddressError
   | NewTransactionErrorSignTxFailed SignTransactionError
   | NewTransactionInvalidTxIn
+  | NewTransactionNotEnoughUtxoFragmentation NumberOfMissingUtxos
 
 instance Buildable NewTransactionError where
     build (NewTransactionUnknownAccount err) =
@@ -106,6 +118,9 @@ instance Buildable NewTransactionError where
         bprint ("NewTransactionErrorSignTxFailed " % build) err
     build NewTransactionInvalidTxIn =
         bprint "NewTransactionInvalidTxIn"
+    build (NewTransactionNotEnoughUtxoFragmentation err) =
+        bprint ("NewTransactionNotEnoughUtxoFragmentation" % build) err
+
 
 instance Arbitrary NewTransactionError where
     arbitrary = oneof [
@@ -117,6 +132,7 @@ instance Arbitrary NewTransactionError where
       , NewTransactionErrorCreateAddressFailed <$> arbitrary
       , NewTransactionErrorSignTxFailed <$> arbitrary
       , pure NewTransactionInvalidTxIn
+      , NewTransactionNotEnoughUtxoFragmentation <$> arbitrary
       ]
 
 data PaymentError = PaymentNewTransactionError NewTransactionError
@@ -214,6 +230,9 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
     availableUtxo <- withExceptT NewTransactionUnknownAccount $ exceptT $
                        currentAvailableUtxo snapshot accountId
 
+    withExceptT NewTransactionNotEnoughUtxoFragmentation $ exceptT $
+        checkUtxoFragmentation payees availableUtxo
+
     -- STEP 1: Run coin selection.
     CoinSelFinalResult inputs outputs coins <-
       withExceptT NewTransactionErrorCoinSelectionFailed $ ExceptT $
@@ -246,6 +265,19 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
 
     toTxOut :: (Address, Coin) -> TxOutAux
     toTxOut (a, c) = TxOutAux (TxOut a c)
+
+    checkUtxoFragmentation
+        :: NonEmpty (Address, Coin)
+        -> Utxo
+        -> Either NumberOfMissingUtxos ()
+    checkUtxoFragmentation outputs inputs =
+        let numberOfUtxo = Map.size inputs
+            numberOfOutputs = NonEmpty.length outputs
+            diff = numberOfOutputs - numberOfUtxo
+        in if diff > 0 then
+            Left $ NumberOfMissingUtxos diff
+           else
+            Right ()
 
 -- | Creates a new unsigned transaction.
 --

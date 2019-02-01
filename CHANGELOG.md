@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Cardano SL 3.0.0 
+## Cardano SL 3.0.0
 
 ### Fixes
 
@@ -29,7 +29,7 @@
 
 - Additional node settings exposed through the wallet backend API in `/api/v1/node-settings`. This is in order to align and be on-par with the new node monitoring API. [#4045](https://github.com/input-output-hk/cardano-sl/pull/4045)
   Added settings:
-    - `slotId`: The current slot and epoch 
+    - `slotId`: The current slot and epoch
     - `slotCount`: The number of slots per epoch
     - `maxTxSize`: The largest allowed transaction size in bytes
     - `feePolicy`: The fee policy, in flat Lovelace and variable Lovelace/byte
@@ -268,6 +268,9 @@
 
 - Add a test which checks if the configuration can be correctly parsed
     - [CDEC-405](https://iohk.myjetbrains.com/youtrack/issue/CDEC-405) [#3175](https://github.com/input-output-hk/cardano-sl/pull/3175)
+
+- Add Utxo not enough fragmentation error handling and multi-output transaction tests
+    - [cardano-wallet#190](https://github.com/input-output-hk/cardano-wallet/issues/190) [#4058](https://github.com/input-output-hk/cardano-sl/pull/4058)
 
 ### Documentation
 

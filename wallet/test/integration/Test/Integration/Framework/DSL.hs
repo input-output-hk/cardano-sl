@@ -37,6 +37,7 @@ module Test.Integration.Framework.DSL
     , defaultAccountId
     , defaultAssuranceLevel
     , defaultDistribution
+    , customDistribution
     , defaultGroupingPolicy
     , defaultPage
     , defaultPerPage
@@ -72,6 +73,8 @@ module Test.Integration.Framework.DSL
     , ($-)
     , (</>)
     , (!!)
+    , addresses
+    , walAddresses
     , amount
     , assuranceLevel
     , backupPhrase
@@ -106,6 +109,7 @@ import           Data.Generics.Internal.VL.Lens (lens)
 import           Data.Generics.Product.Fields (field)
 import           Data.Generics.Product.Typed (HasType, typed)
 import           Data.List ((!!))
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -268,6 +272,21 @@ defaultDistribution
 defaultDistribution c s = pure $
     PaymentDistribution (V1 $ head $ s ^. typed) (V1 $ mkCoin c)
 
+customDistribution
+    :: NonEmpty (Account, Word64)
+    -> NonEmpty PaymentDistribution
+customDistribution payees =
+    let recepientWalAddresses =
+            NonEmpty.fromList
+            $ map (view walAddresses)
+            $ concatMap (view addresses . fst)
+            $ payees
+
+    in NonEmpty.zipWith
+       PaymentDistribution
+       recepientWalAddresses
+       (map ((\coin -> V1 $ mkCoin coin) . snd) payees)
+
 defaultGroupingPolicy :: Maybe (V1 InputSelectionPolicy)
 defaultGroupingPolicy = Nothing
 
@@ -386,6 +405,11 @@ walletName = typed
 spendingPasswordLastUpdate :: Lens' Wallet (V1 Timestamp)
 spendingPasswordLastUpdate = field @"walSpendingPasswordLastUpdate"
 
+addresses :: HasType [WalletAddress] s => Lens' s [WalletAddress]
+addresses = typed
+
+walAddresses :: HasType (V1 Address) s => Lens' s (V1 Address)
+walAddresses = typed
 
 --
 -- EXPECTATIONS

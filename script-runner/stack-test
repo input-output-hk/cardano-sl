@@ -2,14 +2,23 @@
 
 # usage: ./stack-test test4.2
 
-# on Mac (and OS's with different `mktemp` versions)
-# usage: ALT_MKTEMP=1 ./stack-test test4.2
+# on Mac
+# usage: DARWIN=1 ./stack-test test4.2
 
 set -e
 set -x
 
+
+if [ -z $DARWIN ]; then
+  # non-darwin
+  EXTRA_GHC_OPTIONS=""
+else
+  # darwin
+  EXTRA_GHC_OPTIONS="--ghc-options=-optl-Wl,-dead_strip_dylibs"
+fi
+
 pushd ..
-stack build cardano-sl-script-runner cardano-sl-node cardano-sl-tools
+stack build $EXTRA_GHC_OPTIONS cardano-sl-script-runner cardano-sl-node cardano-sl-tools
 export PATH=$(realpath $(stack path --local-install-root)/bin):$PATH
 popd
 
@@ -20,7 +29,7 @@ LOGCFG=$(realpath ./log-config.yaml)
 TOPO=$(realpath ./topology-local.yaml)
 POLFILE=$(realpath ../scripts/policies/policy_script-runner.yaml)
 
-if [ -z $ALT_MKTEMP ]; then
+if [ -z $DARWIN ]; then
   # non-darwin
   T=$(mktemp -d -p . testrun-XXXXXX)
 else

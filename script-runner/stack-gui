@@ -12,8 +12,17 @@
 set -e
 set -x
 
+
+if [ -z $DARWIN ]; then
+  # non-darwin
+  EXTRA_GHC_OPTIONS=""
+else
+  # darwin
+  EXTRA_GHC_OPTIONS="--ghc-options=-optl-Wl,-dead_strip_dylibs"
+fi
+
 pushd ..
-stack build cardano-sl-script-runner cardano-sl-node cardano-sl-tools
+stack build $EXTRA_GHC_OPTIONS cardano-sl-script-runner cardano-sl-node cardano-sl-tools
 export PATH=$(realpath $(stack path --local-install-root)/bin):$PATH
 popd
 

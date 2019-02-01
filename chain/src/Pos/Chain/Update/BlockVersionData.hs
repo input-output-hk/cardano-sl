@@ -6,6 +6,7 @@ module Pos.Chain.Update.BlockVersionData
        , ObftConsensusStrictness (..)
        , ConsensusEra (..)
        , consensusEraBVD
+       , obftEraFlagValue
        ) where
 
 import           Universum

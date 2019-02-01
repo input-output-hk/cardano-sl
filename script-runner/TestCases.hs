@@ -114,19 +114,28 @@ emptyScript = do
 
 main :: IO ()
 main = do
-  script <- getEnv "SCRIPT"
+  scriptArg <- getEnv "SCRIPT"
   let
-    getScript :: String -> Script ()
-    getScript "test4.1" = test4 1000000 SuccessFullUpdate
-    getScript "test4.2" = test4 10000000 FailedProposalUpdate
-    getScript "none"    = emptyScript
-    getScript invalid   = error $ "invalid script: " <> show invalid
+    scripts :: [(String, Script ())]
+    scripts = [ ("test4.1", test4 1000000 SuccessFullUpdate)
+              , ("test4.2", test4 10000000 FailedProposalUpdate)
+              , ("none"   , emptyScript)
+              ]
+
     getAutoMode :: String -> Bool
     getAutoMode "none" = False
     getAutoMode _      = True
 
+  script <- case find ((scriptArg==) . fst) scripts of
+               Nothing -> do
+                 putStrLn ("\ninvalid script: " <> show scriptArg
+                        <> "\navailable options are " <> show (map fst scripts)
+                        <> "\n" :: Text)
+                 exitFailure
+               Just (_name,sc) -> pure sc
+
   runScript $ ScriptParams
-    { spScript = getScript script
-    , spRecentSystemStart = getAutoMode script
-    , spStartCoreAndRelay = getAutoMode script
+    { spScript = script
+    , spRecentSystemStart = getAutoMode scriptArg
+    , spStartCoreAndRelay = getAutoMode scriptArg
     }

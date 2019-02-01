@@ -171,11 +171,13 @@ test4 targetblocksize expectedResult = do
         endScript $ ExitFailure 3
   on (3,10) $ \Dict _diffusion -> do
     bvd <- gsAdoptedBVData
-    case (bvdMaxBlockSize bvd == targetblocksize) of
-      True -> endScript ExitSuccess
-      _ -> do
-        liftIO $ hPutStrLn stderr "max block size not what was expected"
-        endScript $ ExitFailure 4
+    if bvdMaxBlockSize bvd == targetblocksize
+       then do
+         liftIO $ hPutStrLn stderr "test passed"
+         endScript ExitSuccess
+       else do
+         liftIO $ hPutStrLn stderr "max block size not what was expected"
+         endScript $ ExitFailure 4
   forM_ (range (0,20)) $ \epoch -> do
     on(epoch, 0) $ printbvd epoch 0
     on(epoch, 1) $ printbvd epoch 1

@@ -44,14 +44,15 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configEpochSlots)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (TxpConfiguration, mkLiveTxValidationRules)
-import           Pos.Chain.Update (PollModifier)
+import           Pos.Chain.Update (ConsensusEra (..), PollModifier)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (epochOrSlotToEpochIndex, getEpochOrSlot)
-import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
+import           Pos.DB (EmptyBatchOp, MonadDB, MonadDBRead, MonadGState,
+                     SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener)
 import           Pos.DB.Block.GState.SanityCheck (sanityCheckDB)
 import           Pos.DB.Block.Slog.Context (slogRollbackLastSlots)
@@ -67,8 +68,8 @@ import           Pos.DB.Ssc (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.DB.Txp.MemState (MonadTxpLocal (..))
 import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
                      TxpGlobalSettings (..))
-import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
-                     usNormalize, usRollbackBlocks)
+import           Pos.DB.Update (UpdateBlock, UpdateContext, getConsensusEra,
+                     usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Util (Some (..), spanSafe)
 import           Pos.Util.Util (HasLens', lensOf)
 
@@ -137,10 +138,13 @@ normalizeMempool genesisConfig txpConfig = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
+    era <- getConsensusEra
+    case era of
+        Original -> sscNormalize genesisConfig
+        OBFT _   -> pass -- We don't perform SSC operations during the OBFT era
     currentEpoch <- epochOrSlotToEpochIndex . getEpochOrSlot <$> getTipHeader
     let txValRulesConfig = configTxValRules $ genesisConfig
         txValRules = mkLiveTxValidationRules currentEpoch txValRulesConfig
-    sscNormalize genesisConfig
     txpNormalize genesisConfig txValRules txpConfig
     usNormalize (configBlockVersionData genesisConfig)
 
@@ -203,9 +207,15 @@ applyBlocksDbUnsafeDo genesisConfig scb blunds pModifier = do
     usBatch <- SomeBatchOp <$> usApplyBlocks genesisConfig (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
-    sscBatch <- SomeBatchOp <$>
-        -- TODO: pass not only 'Nothing'
-        sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
+    era <- getConsensusEra
+    sscBatch <- case era of
+        Original -> do
+            -- TODO: pass not only 'Nothing'
+            res <- sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
+            pure (SomeBatchOp res)
+        OBFT _ -> do
+            -- We don't perform SSC operations during the OBFT era
+            pure $ SomeBatchOp ([] :: [EmptyBatchOp])
     GS.writeBatchGState
         [ delegateBatch
         , usBatch

@@ -5,6 +5,7 @@
 
 module Pos.DB.BatchOp
        ( RocksBatchOp (..)
+       , EmptyBatchOp
        , SomeBatchOp (..)
        , SomePrettyBatchOp (..)
        , dbWriteBatch'

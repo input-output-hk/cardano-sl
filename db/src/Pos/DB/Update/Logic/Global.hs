@@ -19,7 +19,8 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
                      headerLeaderKeyL, headerSlotL)
-import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam)
 import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData, BlockVersionState,
                      ConfirmedProposalState, MonadPoll, NumSoftwareVersion,

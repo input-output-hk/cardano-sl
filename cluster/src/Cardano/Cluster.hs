@@ -46,6 +46,7 @@ import           Pos.Launcher (LoggingParams (..), actionWithCoreNode,
 import           Pos.Node.API (ForceNtpCheck (..), NodeInfo (..),
                      SyncPercentage, mkSyncPercentage)
 import           Pos.Util.CompileInfo (compileInfo, withCompileInfo)
+import           Pos.Util.Wlog (logInfo)
 
 
 -- | A type representing a running node. The process is captured within the
@@ -95,9 +96,16 @@ startNode (NodeName nodeIdT, _) env = do
     cArgs <- parseCommonNodeArgs
     aArgs <- parseApiArgs
     let lArgs = getLoggingArgs cArgs
+
+    let nodeServer = case aArgs of
+            Nothing ->
+                \_ _ _ _ _ _ -> logInfo "Monitoring API is disabled."
+            Just args ->
+                launchNodeServer args
+
     withCompileInfo $ launchNode nArgs cArgs lArgs $ \genC walC txpC ntpC nodC sscC resC -> do
         actionWithCoreNode
-            (launchNodeServer aArgs ntpC resC updateConfiguration compileInfo genC)
+            (nodeServer ntpC resC updateConfiguration compileInfo genC)
             genC walC txpC ntpC nodC sscC resC
   where
     parseApiArgs = do

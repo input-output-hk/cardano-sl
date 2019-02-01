@@ -20,15 +20,18 @@ LOGCFG=$(realpath ./log-config.yaml)
 TOPO=$(realpath ./topology-local.yaml)
 POLFILE=$(realpath ../scripts/policies/policy_script-runner.yaml)
 
-if [ -z "$ALT_MKTEMP" ]; then
-  T=$(mktemp -d -t . testrun-XXXXXX)
-else
+if [ -z $ALT_MKTEMP ]; then
+  # non-darwin
   T=$(mktemp -d -p . testrun-XXXXXX)
+else
+  # darwin
+  T=$(mktemp -d -t testrun)
 fi
 
+echo "Temp directory: $T"
 cd $T
 mkdir poc-state
 
 testcases --configuration-file $CFG --log-console-off --db-path poc-state/db --keyfile secret.key --log-config $LOGCFG --logs-prefix poc-state/logs --topology $TOPO --no-brickui --policies $POLFILE
 
-egrep -r --color=always "Processing of proposal|We'll request data for key Tagged|Ignoring data|Proposal .* is confirmed" relay-stdout-0
+egrep -r --color=always "Processing of proposal|We'll request data for key Tagged|Ignoring data|Proposal .* is confirmed" poc-state/relay-stdout-0

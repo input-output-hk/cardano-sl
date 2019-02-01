@@ -36,7 +36,7 @@ import           Pos.Util.Wlog (logInfo, logWarning)
 import           System.Posix.Signals
 import           System.Process
 import           Types
-import           Universum hiding (on, state, when)
+import           Universum
 
 data NodeInfo = NodeInfo
             { niIndex       :: Integer
@@ -189,8 +189,8 @@ mutateConfigurationYaml filepath key mutator = do
     yaml = Y.encode newmap
   pure yaml
 
-createNodes :: Todo -> ScriptRunnerOptions -> PocMode ()
-createNodes todo opts = do
+createNodes :: ScriptRuntimeParams -> ScriptRunnerOptions -> PocMode ()
+createNodes srp opts = do
   topo <- view acTopology
   stateDir <- view acStatePath
   let
@@ -200,7 +200,8 @@ createNodes todo opts = do
   liftIO $ do
     BSL.writeFile (T.unpack path) (A.encode topo)
     keygen (cfg ^. CLI.configurationOptions_L)  stateDir
-  forM_ (range (0,todoCoreNodes todo - 1)) $ \node -> startNode (NodeInfo node Core stateDir path cfg)
+  forM_ (range (0, srpCoreNodes srp - 1)) $
+    \node -> startNode (NodeInfo (fromIntegral node) Core stateDir path cfg)
   forM_ (range (0,0)) $ \node -> startNode (NodeInfo node Relay stateDir path cfg)
 
 cleanupNodes :: PocMode ()

@@ -35,7 +35,7 @@ import           NodeControl (NodeInfo (..), mutateConfigurationYaml, startNode,
                      stopNodeByName)
 import           OrphanedLenses ()
 import           PocMode
-import           Types (NodeType (..), Todo (Todo))
+import           Types (NodeType (..), ScriptRuntimeParams (..))
 
 import           Serokell.Data.Memory.Units (Byte)
 
@@ -66,7 +66,7 @@ test4 targetblocksize expectedResult = do
       doUpdate diffusion genesisConfig keyIndex blockVersion softwareVersion blockVersionModifier
   onStartup $ \Dict _diffusion -> do
     stateDir <- view acStatePath
-    loadNKeys stateDir 4
+    loadNKeys stateDir =<< getNodeCount
   on (1,2) proposal
   on (1,6) $ \Dict _diffusion -> do
     uc <- view (lensOf @UpdateConfiguration)
@@ -91,7 +91,7 @@ test4 targetblocksize expectedResult = do
         liftIO $ BS.writeFile (T.unpack $ stateDir <> "/configuration2.yaml") newConfiguration
         let
           cfg2 = cfg & CLI.configurationOptions_L . cfoFilePath_L .~ (T.unpack $ stateDir <> "/configuration2.yaml")
-        forM_ (range (0,3)) $ \node -> do
+        forAllNodes_ $ \node -> do
           stopNodeByName (Core, node)
           startNode $ NodeInfo node Core stateDir (stateDir <> "/topology.yaml") cfg2
       (_toomany, SuccessFullUpdate) -> do
@@ -120,12 +120,13 @@ main = do
     getScript "test4.1" = test4 1000000 SuccessFullUpdate
     getScript "test4.2" = test4 10000000 FailedProposalUpdate
     getScript "none"    = emptyScript
+    getScript invalid   = error $ "invalid script: " <> show invalid
     getAutoMode :: String -> Bool
     getAutoMode "none" = False
     getAutoMode _      = True
+
   runScript $ ScriptParams
-    { spTodo = (Todo 4)
-    , spScript = getScript script
+    { spScript = getScript script
     , spRecentSystemStart = getAutoMode script
     , spStartCoreAndRelay = getAutoMode script
     }

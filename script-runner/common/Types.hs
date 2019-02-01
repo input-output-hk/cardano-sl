@@ -1,7 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module Types (NodeHandle(..), NodeType(..), ScriptRunnerOptions(..), ScriptRunnerUIMode(..), srCommonNodeArgs, srPeers, srUiMode, Todo(..)) where
+module Types (NodeHandle(..), NodeType(..), ScriptRunnerOptions(..), ScriptRunnerUIMode(..), srCommonNodeArgs, srPeers, srUiMode, ScriptRuntimeParams(..)) where
 
 import           Control.Concurrent.Async.Lifted.Safe
 import           Control.Lens (makeLenses)
@@ -24,6 +24,6 @@ data ScriptRunnerOptions = ScriptRunnerOptions
 makeLenses ''ScriptRunnerOptions
 
 -- todo, extract this metadata out of the Configuration type
-data Todo = Todo {
-    todoCoreNodes :: Integer
+data ScriptRuntimeParams = ScriptRuntimeParams {
+    srpCoreNodes :: Integer
   } deriving Show

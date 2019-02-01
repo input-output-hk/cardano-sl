@@ -25,7 +25,7 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Migration (migrateLegacyDataLayer)
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
-import           Cardano.Wallet.Server.CLI (NewWalletBackendParams,
+import           Cardano.Wallet.Server.CLI (WalletBackendParams,
                      getFullMigrationFlag, getWalletDbOptions, walletDbPath,
                      walletRebuildDb)
 import           Cardano.Wallet.Server.Middlewares
@@ -39,7 +39,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet
     :: (HasConfigurations, HasCompileInfo)
-    => NewWalletBackendParams
+    => WalletBackendParams
     -> Genesis.Config
     -> WalletConfiguration
     -> TxpConfiguration

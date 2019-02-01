@@ -10,9 +10,6 @@
 #   - haskellPackages.ghc -- the compiler
 #   - cardanoPackages -- just cardano packages
 #
-#   - tests -- integration tests and linters suitable for running in a
-#              sandboxed build environment
-#
 #   - acceptanceTests -- tests which need network access to connect to
 #                        the actual relay nodes.
 #
@@ -171,20 +168,12 @@ let
       shellcheck = self.callPackage ./scripts/test/shellcheck.nix { inherit src; };
       hlint = self.callPackage ./scripts/test/hlint.nix { inherit src; };
       stylishHaskell = self.callPackage ./scripts/test/stylish.nix { inherit (self.haskellPackages) stylish-haskell; inherit src; };
-      walletIntegration = self.callPackage ./scripts/test/wallet/integration/build-test.nix { };
       swaggerSchemaValidation = self.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix {
         inherit (self.cardanoPackages) cardano-wallet;
       };
       yamlValidation = self.callPackage ./scripts/test/yamlValidation.nix {
         inherit (self) haskellPackages; inherit (localLib) runHaskell;
       };
-    };
-
-    walletIntegrationTests = self.callPackage ./scripts/test/wallet/integration {
-      inherit (self.cardanoPackages)
-        cardano-sl-tools
-        cardano-wallet;
-      inherit useStackBinaries;
     };
 
     # Currently the only acceptance tests here are to sync the wallet

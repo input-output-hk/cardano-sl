@@ -42,9 +42,8 @@ import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.Server as Server
-import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
-                     WalletBackendParams (..), getWalletDbOptions, isDebugMode,
-                     walletAcidInterval)
+import           Cardano.Wallet.Server.CLI (WalletBackendParams (..),
+                     getWalletDbOptions, isDebugMode, walletAcidInterval)
 import           Cardano.Wallet.Server.Middlewares (withMiddlewares)
 import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
@@ -68,11 +67,11 @@ type Plugin m = Diffusion m -> m ()
 
 -- | A @Plugin@ to start the wallet REST server
 apiServer
-    :: NewWalletBackendParams
+    :: WalletBackendParams
     -> (PassiveWalletLayer IO, PassiveWallet)
     -> [Middleware]
     -> Plugin Kernel.WalletMode
-apiServer (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares diffusion = do
+apiServer WalletBackendParams{..} (passiveLayer, passiveWallet) middlewares diffusion = do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
         WalletLayer.Kernel.bracketActiveWallet passiveLayer passiveWallet diffusion' $ \active _ -> do
@@ -108,7 +107,7 @@ apiServer (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiv
 
     getApplication :: ActiveWalletLayer IO -> Kernel.WalletMode Application
     getApplication active = do
-        logInfo "New wallet API has STARTED!"
+        logInfo "Wallet API has STARTED!"
         return
             $ withMiddlewares middlewares
             $ Servant.serve API.walletAPI
@@ -124,10 +123,10 @@ apiServer (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiv
 -- | A @Plugin@ to serve the wallet documentation
 docServer
     :: (HasConfigurations, HasCompileInfo)
-    => NewWalletBackendParams
+    => WalletBackendParams
     -> Maybe (Plugin Kernel.WalletMode)
-docServer (NewWalletBackendParams WalletBackendParams{walletDocAddress = Nothing}) = Nothing
-docServer (NewWalletBackendParams WalletBackendParams{walletDocAddress = Just (ip, port), walletRunMode, walletTLSParams}) = Just (const $ makeWalletServer)
+docServer (WalletBackendParams{walletDocAddress = Nothing}) = Nothing
+docServer (WalletBackendParams{walletDocAddress = Just (ip, port), walletRunMode, walletTLSParams}) = Just (const $ makeWalletServer)
   where
     makeWalletServer = serveDocImpl
         application
@@ -143,9 +142,9 @@ docServer (NewWalletBackendParams WalletBackendParams{walletDocAddress = Just (i
 
 -- | A @Plugin@ to serve the node monitoring API.
 monitoringServer :: HasConfigurations
-                 => NewWalletBackendParams
+                 => WalletBackendParams
                  -> [ (Text, Plugin Kernel.WalletMode) ]
-monitoringServer (NewWalletBackendParams WalletBackendParams{..}) =
+monitoringServer WalletBackendParams{..} =
     case enableMonitoringApi of
          True  -> [ ("monitoring worker", const worker) ]
          False -> []
@@ -159,7 +158,7 @@ monitoringServer (NewWalletBackendParams WalletBackendParams{..}) =
 
 -- | A @Plugin@ to periodically compact & snapshot the acid-state database.
 acidStateSnapshots :: AcidState db
-                   -> NewWalletBackendParams
+                   -> WalletBackendParams
                    -> DatabaseMode
                    -> Plugin Kernel.WalletMode
 acidStateSnapshots dbRef params dbMode = const worker

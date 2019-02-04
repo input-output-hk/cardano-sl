@@ -12,8 +12,25 @@
 set -e
 set -x
 
+
+unameOut="$(uname -s)"
+case "${unameOut}" in
+    Linux*)     machine=Linux;;
+    Darwin*)    machine=Darwin;;
+    CYGWIN*)    machine=Cygwin;;
+    MINGW*)     machine=MinGw;;
+    *)          machine="UNKNOWN:${unameOut}"
+esac
+echo "We are on a ${machine} machine"
+
+if [ "${machine}" == "Darwin" ]; then
+  EXTRA_GHC_OPTIONS="--ghc-options=-optl-Wl,-dead_strip_dylibs"
+else
+  EXTRA_GHC_OPTIONS=""
+fi
+
 pushd ..
-stack build cardano-sl-script-runner cardano-sl-node cardano-sl-tools
+stack build $EXTRA_GHC_OPTIONS cardano-sl-script-runner cardano-sl-node cardano-sl-tools
 export PATH=$(realpath $(stack path --local-install-root)/bin):$PATH
 popd
 

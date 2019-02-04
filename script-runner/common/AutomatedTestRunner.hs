@@ -42,7 +42,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.Time.Units (fromMicroseconds)
 import           Data.Version (showVersion)
-import           Formatting (Format, int, sformat, stext, (%))
+import           Formatting (Format, build, int, sformat, stext, (%))
 import           Options.Applicative (Parser, execParser, footerDoc, fullDesc,
                      header, help, helper, info, infoOption, long, progDesc,
                      switch)
@@ -57,8 +57,7 @@ import           Paths_cardano_sl (version)
 import           Pos.Chain.Block (LastKnownHeaderTag)
 import           Pos.Chain.Genesis as Genesis
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (BlockVersion,
-                     BlockVersionData (bvdMaxBlockSize, bvdMaxTxSize),
+import           Pos.Chain.Update (BlockVersion, BlockVersionData (..),
                      BlockVersionModifier, SoftwareVersion, SystemTag,
                      UpdateConfiguration, UpdateData, mkUpdateProposalWSign,
                      updateConfiguration)
@@ -432,10 +431,10 @@ loadNKeys stateDir n = do
 printbvd :: Word64 -> Word16 -> Dict HasConfigurations -> Diffusion PocMode -> PocMode ()
 printbvd epoch slot Dict _diffusion = do
   let
-    bvdfmt :: Format r (Word64 -> Word16 -> Byte -> Byte -> r)
-    bvdfmt = "epoch: "%int%" slot: "%int%" BVD: max-tx: " %int% ", max-block: " %int
+    bvdfmt :: Format r (Word64 -> Word16 -> Byte -> Byte -> EpochIndex -> r)
+    bvdfmt = "epoch: "%int%" slot: "%int%" BVD: max-tx: " %int% ", max-block: " %int% ", unlockStakeEpoch: "%build
   bar <- gsAdoptedBVData
-  liftIO $ hPrint stderr $ sformat bvdfmt epoch slot (bvdMaxTxSize bar) (bvdMaxBlockSize bar)
+  liftIO $ hPrint stderr $ sformat bvdfmt epoch slot (bvdMaxTxSize bar) (bvdMaxBlockSize bar) (bvdUnlockStakeEpoch bar)
 
 setSystemStartMutator :: Timestamp -> ScriptRunnerOptions -> ScriptRunnerOptions
 setSystemStartMutator systemStartTs optsin =

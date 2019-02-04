@@ -12,7 +12,7 @@
 ### Features
 
 - Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
-- Add `script-runner` tool to automate cluster-level testing ([DEVOPS-1131](https://iohk.myjetbrains.com/youtrack/v2/issue/devops-1131): [#3916](https://github.com/input-output-hk/cardano-sl/pull/3916) [#4057](https://github.com/input-output-hk/cardano-sl/pull/4057))
+- Add `script-runner` tool to automate cluster-level testing ([DEVOPS-1131](https://iohk.myjetbrains.com/youtrack/v2/issue/devops-1131): [#3916](https://github.com/input-output-hk/cardano-sl/pull/3916) [#4057](https://github.com/input-output-hk/cardano-sl/pull/4057) [#4061](https://github.com/input-output-hk/cardano-sl/pull/4061))
 
 - Node Monitoring API: nodes now serve their own settings and info via a web server via a `/api/v1/node-settings` and `/api/v1/node-info` (still proxied by the wallet backend) ([#110](https://github.com/input-output-hk/cardano-wallet/issues/110))
   - Set up scaffolding for node API [#3788](https://github.com/input-output-hk/cardano-sl/pull/3788)

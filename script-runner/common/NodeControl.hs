@@ -133,20 +133,18 @@ commonNodeStart prog args typ idx = do
   atomically $ modifyTVar tvar $ Map.insert (typ, idx) hnd
 
 startNode :: NodeInfo -> PocMode ()
-startNode info@(NodeInfo idx Core stateRoot _topoPath _cfg) = do
-  let
-    params = (commonNodeParams info) <>
-             [ "--keyfile", T.unpack (stateRoot <> "/genesis-keys/generated-keys/rich/key" <> (show idx) <> ".sk")
-             , "--listen", "127.0.0.1:" <> show (startingPortOffset Core + idx + 3000)
-             ]
-  commonNodeStart "cardano-node-simple" params Core idx
-startNode info@(NodeInfo idx Relay stateRoot _topoPath _cfg) = do
-  let
-    params = (commonNodeParams info) <>
-             [ "--keyfile", T.unpack (stateRoot <> "/relay" <> (show idx) <> ".sk")
-             , "--listen", "127.0.0.1:" <> show (startingPortOffset Relay + idx + 3000)
-             ]
-  commonNodeStart "cardano-node-simple" params Relay idx
+startNode info@(NodeInfo idx typ stateRoot _topoPath _cfg) =
+    commonNodeStart "cardano-node-simple" params typ idx
+  where
+    params = (commonNodeParams info) <> nonSharedParams <> sharedParams
+    nonSharedParams = case typ of
+      Core  -> [ "--keyfile", T.unpack (stateRoot <> "/genesis-keys/generated-keys/rich/key" <> (show idx) <> ".sk")]
+      Relay -> [ "--keyfile", T.unpack (stateRoot <> "/relay" <> (show idx) <> ".sk")]
+    sharedParams = [ "--listen", "127.0.0.1:" <> show (startingPortOffset typ + idx + 3000)
+                   , "--tlskey", "scripts/tls-files/server.key"
+                   , "--tlsca", "scripts/tls-files/ca.crt"
+                   , "--tlscert", "scripts/tls-files/server.crt"
+                   ]
 
 stopNode :: NodeHandle -> IO ()
 stopNode (NodeHandle _async ph) = do

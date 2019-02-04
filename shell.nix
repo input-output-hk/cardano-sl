@@ -43,7 +43,7 @@ let
   ghc = iohkPkgs.haskellPackages.ghc.withPackages getCardanoSLDeps;
 
   # TODO: add cabal-install (2.0.0.1 won't work)
-  devTools = [ hlint iohkPkgs.haskellPackages.stylish-haskell stack ];
+  devTools = [ hlint iohkPkgs.haskellPackages.stylish-haskell stack curl jq ];
 
   shell = mkShell {
     name = "cardano-sl-env";

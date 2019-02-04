@@ -35,6 +35,8 @@
     - `feePolicy`: The fee policy, in flat Lovelace and variable Lovelace/byte
     - `securityParameter`: The consensus security parameter (usually referred as `k` in the papers)
 
+- Extra CLI tool to verify / decode transaction signatures `cardano-sl-tx-utils` [#3948](https://github.com/input-output-hk/cardano-sl/pull/3948)
+
 
 ### Improvements
 

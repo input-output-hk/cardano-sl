@@ -2,19 +2,24 @@
 
 # usage: ./stack-test test4.2
 
-# on Mac
-# usage: DARWIN=1 ./stack-test test4.2
-
 set -e
 set -x
 
 
-if [ -z $DARWIN ]; then
-  # non-darwin
-  EXTRA_GHC_OPTIONS=""
-else
-  # darwin
+unameOut="$(uname -s)"
+case "${unameOut}" in
+    Linux*)     machine=Linux;;
+    Darwin*)    machine=Darwin;;
+    CYGWIN*)    machine=Cygwin;;
+    MINGW*)     machine=MinGw;;
+    *)          machine="UNKNOWN:${unameOut}"
+esac
+echo "We are on a ${machine} machine"
+
+if [ "${machine}" == "Darwin" ]; then
   EXTRA_GHC_OPTIONS="--ghc-options=-optl-Wl,-dead_strip_dylibs"
+else
+  EXTRA_GHC_OPTIONS=""
 fi
 
 pushd ..
@@ -29,12 +34,10 @@ LOGCFG=$(realpath ./log-config.yaml)
 TOPO=$(realpath ./topology-local.yaml)
 POLFILE=$(realpath ../scripts/policies/policy_script-runner.yaml)
 
-if [ -z $DARWIN ]; then
-  # non-darwin
-  T=$(mktemp -d -p . testrun-XXXXXX)
-else
-  # darwin
+if [ "${machine}" == "Darwin" ]; then
   T=$(mktemp -d -t testrun)
+else
+  T=$(mktemp -d -p . testrun-XXXXXX)
 fi
 
 echo "Temp directory: $T"

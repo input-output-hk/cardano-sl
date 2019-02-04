@@ -13,12 +13,20 @@ set -e
 set -x
 
 
-if [ -z $DARWIN ]; then
-  # non-darwin
-  EXTRA_GHC_OPTIONS=""
-else
-  # darwin
+unameOut="$(uname -s)"
+case "${unameOut}" in
+    Linux*)     machine=Linux;;
+    Darwin*)    machine=Darwin;;
+    CYGWIN*)    machine=Cygwin;;
+    MINGW*)     machine=MinGw;;
+    *)          machine="UNKNOWN:${unameOut}"
+esac
+echo "We are on a ${machine} machine"
+
+if [ "${machine}" == "Darwin" ]; then
   EXTRA_GHC_OPTIONS="--ghc-options=-optl-Wl,-dead_strip_dylibs"
+else
+  EXTRA_GHC_OPTIONS=""
 fi
 
 pushd ..

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # usage: ./stack-test test4.2
 

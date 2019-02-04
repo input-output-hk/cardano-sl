@@ -201,6 +201,20 @@
             (hsPkgs.cardano-sl)
           ];
         };
+        "cardano-sl-tx-utils" = {
+          depends = [
+            (hsPkgs.base)
+            (hsPkgs.aeson)
+            (hsPkgs.aeson-pretty)
+            (hsPkgs.base16-bytestring)
+            (hsPkgs.bytestring)
+            (hsPkgs.cardano-sl-binary)
+            (hsPkgs.cardano-sl-chain)
+            (hsPkgs.cardano-sl-crypto)
+            (hsPkgs.docopt)
+            (hsPkgs.universum)
+          ];
+        };
       };
       tests = {
         "cardano-sl-tools-test" = {

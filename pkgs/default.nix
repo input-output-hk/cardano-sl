@@ -55946,9 +55946,9 @@ pname = "network-transport-tcp";
 version = "0.6.0";
 src = fetchgit {
 
-url = "https://github.com/serokell/network-transport-tcp";
-sha256 = "1cim8867kf36kv6ax9jx5shlqd7hhs1i4jf101x4pk3wriwbxsds";
-rev = "3d56652123bd296dc759cd31947eb2a17924e68a";
+url = "https://github.com/avieth/network-transport-tcp";
+sha256 = "03shp9prflhgqzw7pymw1pq2q7s1wf46pyjm2csx8646snrhf35i";
+rev = "2634e5e32178bb0456d800d133f8664321daa2ef";
 fetchSubmodules = true;
 
 };

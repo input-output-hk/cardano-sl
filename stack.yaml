@@ -96,8 +96,8 @@ packages:
 # https://github.com/haskell-distributed/network-transport-tcp/compare/master...serokell:3d56652123bd296dc759cd31947eb2a17924e68a?expand=1
 # As above, seems relatively straightforward to PR.
 - location:
-    git: https://github.com/serokell/network-transport-tcp
-    commit: 3d56652123bd296dc759cd31947eb2a17924e68a # csl-0.6.0
+    git: https://github.com/avieth/network-transport-tcp
+    commit: 2634e5e32178bb0456d800d133f8664321daa2ef # csl-0.6.0
   extra-dep: true
 
 # This one has more changes:

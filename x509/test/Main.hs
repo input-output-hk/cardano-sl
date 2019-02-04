@@ -17,16 +17,19 @@ import           Cardano.X509.Configuration (CertDescription (..),
 import           Data.X509.Extra (FailedReason, ServiceID, SignedCertificate,
                      genRSA256KeyPair, isServerCertificate,
                      validateCertificate)
+import           Test.Cardano.X509.Configuration (tests)
 import           Test.Cardano.X509.Configuration.Arbitrary (AltNames (..),
                      Invalid (..), Unknown (..))
-
+import           Test.Pos.Util.Tripping (runTests)
 
 --
 -- Main
 --
 
 main :: IO ()
-main = runQuickCheck
+main = do
+  runTests [ tests ]
+  runQuickCheck
     [ quickCheckResult $ label "GenCertificate is Valid" propGenCertificateValid
     , quickCheckResult $ label "validateCertificate fails for unknown ServiceID" propUnknownService
     , quickCheckResult $ label "Invalid Expiry Days throws" propInvalidExpiryDays

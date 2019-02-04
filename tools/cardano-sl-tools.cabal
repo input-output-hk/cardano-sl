@@ -432,6 +432,7 @@ executable cardano-sl-tx-utils
       -Wall
       -Werror
       -O2
+      -fexternal-interpreter
 
   build-depends:
       base

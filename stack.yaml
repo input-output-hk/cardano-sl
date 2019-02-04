@@ -256,7 +256,7 @@ ghc-options:
   cardano-sl-infra:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:        -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-tools:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-tools:             -Wall -Werror -Wcompat -fwarn-redundant-constraints -fexternal-interpreter
   cardano-sl-tools-post-mortem: -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util-test:         -Wall -Werror -Wcompat -fwarn-redundant-constraints

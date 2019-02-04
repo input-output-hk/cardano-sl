@@ -12,7 +12,8 @@
 ### Features
 
 - Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
-- Add `script-runner` tool to automate cluster-level testing ([DEVOPS-1131](https://iohk.myjetbrains.com/youtrack/v2/issue/devops-1131): [#3916](https://github.com/input-output-hk/cardano-sl/pull/3916) [#4057](https://github.com/input-output-hk/cardano-sl/pull/4057) [#4061](https://github.com/input-output-hk/cardano-sl/pull/4061))
+
+- Add `script-runner` tool to automate cluster-level testing ([DEVOPS-1131](https://iohk.myjetbrains.com/youtrack/v2/issue/devops-1131): [#3916](https://github.com/input-output-hk/cardano-sl/pull/3916) [#4057](https://github.com/input-output-hk/cardano-sl/pull/4057))
 
 - Node Monitoring API: nodes now serve their own settings and info via a web server via a `/api/v1/node-settings` and `/api/v1/node-info` (still proxied by the wallet backend) ([#110](https://github.com/input-output-hk/cardano-wallet/issues/110))
   - Set up scaffolding for node API [#3788](https://github.com/input-output-hk/cardano-sl/pull/3788)
@@ -35,6 +36,11 @@
     - `feePolicy`: The fee policy, in flat Lovelace and variable Lovelace/byte
     - `securityParameter`: The consensus security parameter (usually referred as `k` in the papers)
 
+- Implement block creation and validation for the OBFT `ConsensusEra`.
+    - Adapt epoch consolidation functionality for OBFT ([CBR-497](https://iohk.myjetbrains.com/youtrack/issue/CBR-497) [#3966](https://github.com/input-output-hk/cardano-sl/pull/3966))
+    - Extend `LastBlkSlots` data type and storage for OBFT ([CBR-499](https://iohk.myjetbrains.com/youtrack/issue/CBR-499) [#4003](https://github.com/input-output-hk/cardano-sl/pull/4003) [#4052](https://github.com/input-output-hk/cardano-sl/pull/4052))
+    - Disable SSC during OBFT. ([CBR-490](https://iohk.myjetbrains.com/youtrack/issue/CBR-490) [#4026](https://github.com/input-output-hk/cardano-sl/pull/4026))
+    - Implement OBFT block validation ([CBR-481](https://iohk.myjetbrains.com/youtrack/issue/CBR-481) [#4018](https://github.com/input-output-hk/cardano-sl/pull/4018) [#4029](https://github.com/input-output-hk/cardano-sl/pull/4029) [#4059](https://github.com/input-output-hk/cardano-sl/pull/4059))
 
 ### Improvements
 

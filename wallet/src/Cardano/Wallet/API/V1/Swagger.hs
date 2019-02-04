@@ -1050,8 +1050,8 @@ swaggerSchemaUIServer =
     <script>
         // Force Strict-URL Routing for assets relative paths
         (function onload() {
-            if (!window.location.href.endsWith("/")) {
-                window.location.href += "/";
+            if (!window.location.pathname.endsWith("/")) {
+                window.location.pathname += "/";
             }
         }());
     </script>

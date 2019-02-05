@@ -83,7 +83,6 @@ verifyFromEither :: Text -> Either Text b -> VerificationRes
 verifyFromEither txt (Left reason) = verifyGeneric [(False, txt <> ": " <> reason)]
 verifyFromEither txt (Right _)     = verifyGeneric [(True, txt)]
 
-{-# ANN verifyHeader ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
@@ -202,52 +201,52 @@ verifyHeader pm VerifyHeaderParams {..} h =
     relatedToLeaders leaders (OldestFirst lastBlkSlots, blkSecurityParam) =
         case h of
             BlockHeaderGenesis _ -> []
-            BlockHeaderMain mainHeader -> case vhpConsensusEra of
-                -- For the `OBFT ObftLenient` era, we only check whether the
-                -- block's creator is an "acceptable" slot leader (one of the
-                -- genesis stakeholders). So, in this case, `leaders`
-                -- represents a collection of acceptable slot leaders and not
-                -- a slot leader schedule as it would for the `OBFT ObftStrict`
-                -- and `Original` cases.
-                OBFT ObftLenient ->
-                    let slotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
-                    in [  ( (slotLeader `elem` leaders)
-                          , sformat ("slot's leader, "%build%", is not an acceptable leader. acceptableLeaders: "%shown)
-                                slotLeader
-                                leaders)
-                        , ( (obftLeaderCanMint slotLeader)
-                          , sformat ("slot's leader, "%build%", has minted too many blocks in the past "%build%" slots.")
-                                slotLeader
-                                k)
-                        ]
+            BlockHeaderMain mainHeader ->
 
-                OBFT ObftStrict ->
-                    let slotIndex = getSlotIndex $ siSlot $ mainHeader ^. headerSlotL
-                        slotLeader = leaders ^? ix (fromIntegral slotIndex)
-                        expectedSlotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
-                    in [  ( (Just expectedSlotLeader == slotLeader)
-                          , sformat ("slot's leader, "%build%", is different from expected one, "%build%". slotIndex: "%build%", leaders: "%shown)
-                                slotLeader
-                                expectedSlotLeader
-                                slotIndex
-                                leaders)
-                        , ( (obftLeaderCanMint expectedSlotLeader)
-                          , sformat ("slot's leader, "%build%", has minted too many blocks in the past "%build%" slots.")
-                                slotLeader
-                                k)
-                        ]
+              let slotIndex = getSlotIndex $ siSlot $ mainHeader ^. headerSlotL
+                  scheduleSlotLeader = leaders ^? ix (fromIntegral slotIndex)
+                  blockSlotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
 
-                Original ->
-                    let slotIndex = getSlotIndex $ siSlot $ mainHeader ^. headerSlotL
-                        slotLeader = leaders ^? ix (fromIntegral slotIndex)
-                        expectedSlotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
-                    in [ ( (Just expectedSlotLeader == slotLeader)
-                        , sformat ("slot's leader, "%build%", is different from expected one, "%build%". slotIndex: "%build%", leaders: "%shown)
-                                slotLeader
-                                expectedSlotLeader
-                                slotIndex
-                                leaders)
-                        ]
+               in case vhpConsensusEra of
+                    -- For the `OBFT ObftLenient` era, we only check whether the
+                    -- block's creator is an "acceptable" slot leader (one of the
+                    -- genesis stakeholders). So, in this case, `leaders`
+                    -- represents a collection of acceptable slot leaders and not
+                    -- a slot leader schedule as it would for the `OBFT ObftStrict`
+                    -- and `Original` cases.
+                    OBFT ObftLenient ->
+                        [  ( (blockSlotLeader `elem` leaders)
+                           , sformat ("slot leader who published block, "%build%", is not an acceptable leader. acceptableLeaders: "%shown)
+                                 blockSlotLeader
+                                 leaders)
+                         , ( (obftLeaderCanMint blockSlotLeader)
+                           , sformat ("slot leader who published block, "%build%", has minted too many blocks in the past "%build%" slots.")
+                                 blockSlotLeader
+                                 k)
+                         ]
+
+                    OBFT ObftStrict ->
+                        [  ( (Just blockSlotLeader == scheduleSlotLeader)
+                           , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
+                                 scheduleSlotLeader
+                                 blockSlotLeader
+                                 slotIndex
+                                 leaders)
+                         , ( (obftLeaderCanMint blockSlotLeader)
+                           , sformat ("slot's leader, "%build%", has minted too many blocks in the past "%build%" slots.")
+                                 blockSlotLeader
+                                 k)
+                         ]
+
+                    Original ->
+                        [  ( (Just blockSlotLeader == scheduleSlotLeader)
+                           , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
+                                 scheduleSlotLeader
+                                 blockSlotLeader
+                                 slotIndex
+                                 leaders)
+                         ]
+
       where
         -- Determine whether the leader is allowed to mint a block based on
         -- whether blocksMintedByLeaderInLastKSlots <= floor (k * t)

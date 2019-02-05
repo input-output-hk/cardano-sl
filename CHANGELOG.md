@@ -66,6 +66,7 @@
 
 - New "common use-case" entry the API doc about importing addresses ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
 
+- Links to specific sections of the API doc now work [#4064](https://github.com/input-output-hk/cardano-sl/pull/4064)
 
 ## Cardano SL 2.0.1
 

@@ -5,6 +5,8 @@ module Pos.Chain.Block.Slog.Types
        , LastSlotInfo (..)
        , noLastBlkSlots
 
+       , ConsensusEraLeaders (..)
+
        , SlogGState (..)
        , HasSlogGState (..)
 
@@ -27,8 +29,9 @@ import qualified Formatting.Buildable as Buildable
 import           System.Metrics.Label (Label)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
-                     LocalSlotIndex, SlotCount, slotIdF, unflattenSlotId)
+import           Pos.Core (BlockCount, ChainDifficulty, EpochIndex, FlatSlotId,
+                     LocalSlotIndex, SlotCount, SlotLeaders, StakeholderId,
+                     slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Reporting (MetricMonitorState)
 import           Pos.Crypto (PublicKey (..))
@@ -59,6 +62,10 @@ type LastBlkSlots = OldestFirst [] LastSlotInfo
 
 noLastBlkSlots :: LastBlkSlots
 noLastBlkSlots = OldestFirst []
+
+data ConsensusEraLeaders = OriginalLeaders SlotLeaders
+                         | ObftStrictLeaders SlotLeaders
+                         | ObftLenientLeaders (Set StakeholderId) BlockCount LastBlkSlots
 
 -- | In-memory representation of Slog (aka BlockExtra) part of
 -- GState. Note that it contains only part of BlockExtra.

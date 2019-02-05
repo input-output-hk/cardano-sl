@@ -66,6 +66,9 @@ noLastBlkSlots = OldestFirst []
 data ConsensusEraLeaders = OriginalLeaders SlotLeaders
                          | ObftStrictLeaders SlotLeaders
                          | ObftLenientLeaders (Set StakeholderId) BlockCount LastBlkSlots
+                         deriving (Eq, Show, Generic)
+
+instance NFData ConsensusEraLeaders
 
 -- | In-memory representation of Slog (aka BlockExtra) part of
 -- GState. Note that it contains only part of BlockExtra.

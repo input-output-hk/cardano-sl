@@ -20,11 +20,12 @@ module Test.Pos.Chain.Block.Arbitrary
        , genStubbedBHL
        ) where
 
+import qualified Prelude
 import           Universum
 
+import qualified Data.Set as Set (fromList)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
-import qualified Prelude
 import           System.Random (Random, mkStdGen, randomR)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat,
                      vectorOf)
@@ -32,14 +33,17 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Block (HeaderHash, mkMainBlock, mkMainBlockExplicit)
+import           Pos.Chain.Block (ConsensusEraLeaders (..), HeaderHash,
+                     mkMainBlock, mkMainBlockExplicit)
 import qualified Pos.Chain.Block as Block
 import qualified Pos.Chain.Delegation as Core
 import           Pos.Chain.Genesis (GenesisHash (..))
-import           Pos.Chain.Update (ConsensusEra (..))
+import           Pos.Chain.Update (ConsensusEra (..),
+                     ObftConsensusStrictness (..))
 import           Pos.Core (localSlotIndexMaxBound, localSlotIndexMinBound)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (areAttributesKnown)
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
                      toPublic)
 
@@ -460,14 +464,21 @@ genHeaderAndParams pm era = do
             case header of
                 Block.BlockHeaderGenesis h -> h ^. Block.gbhExtra . Block.gehAttributes
                 Block.BlockHeaderMain h    -> h ^. Block.gbhExtra . Block.mehAttributes
+        thisEpochLeaderSchedule = nonEmpty (map Core.addressHash thisHeadersEpoch)
         params = Block.VerifyHeaderParams
             { Block.vhpPrevHeader = prev
             , Block.vhpCurrentSlot = randomSlotBeforeThisHeader
-            , Block.vhpLeaders = nonEmpty $ map Core.addressHash thisHeadersEpoch
+            , Block.vhpLeaders = case era of
+                Original         -> OriginalLeaders <$> thisEpochLeaderSchedule
+                OBFT ObftStrict  -> ObftStrictLeaders <$> thisEpochLeaderSchedule
+                OBFT ObftLenient -> do
+                    ls <- thisEpochLeaderSchedule
+                    pure $ ObftLenientLeaders (Set.fromList (toList ls))
+                                              (Core.BlockCount 5)
+                                              (OldestFirst [])
             , Block.vhpMaxSize = Just (biSize header)
             , Block.vhpVerifyNoUnknown = not hasUnknownAttributes
             , Block.vhpConsensusEra = era
-            , Block.vhpLastBlkSlotsAndK = Nothing
             }
     return . HAndP $ (params, header)
 

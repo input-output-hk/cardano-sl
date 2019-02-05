@@ -21,18 +21,21 @@ import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE (toList)
+import qualified Data.Set as Set (fromList)
 import qualified Data.Text as T
 import           Formatting (build, int, sformat, shown, (%))
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..))
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Block (BlockHeader (..), HeaderHash,
-                     VerifyHeaderParams (..), headerHash, headerHashG,
-                     headerSlotL, prevBlockL, verifyHeader)
+import           Pos.Chain.Block (BlockHeader (..), ConsensusEraLeaders (..),
+                     HeaderHash, VerifyHeaderParams (..), headerHash,
+                     headerHashG, headerSlotL, prevBlockL, verifyHeader)
 import           Pos.Chain.Genesis as Genesis (Config (..),
-                     configBlkSecurityParam, configEpochSlots)
-import           Pos.Chain.Update (ConsensusEra (..), bvdMaxHeaderSize)
+                     configBlkSecurityParam, configEpochSlots,
+                     configGenesisWStakeholders)
+import           Pos.Chain.Update (ConsensusEra (..),
+                     ObftConsensusStrictness (..), bvdMaxHeaderSize)
 import           Pos.Core (difficultyL, epochIndexL, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)
@@ -109,13 +112,20 @@ classifyNewHeader genesisConfig (BlockHeaderMain header) = fmap (either identity
         -- If header's parent is our tip, we verify it against tip's header.
     if | tip == header ^. prevBlockL -> do
             leaders <- case era of
-                Original -> maybe (throwError $ CHUseless "Can't get leaders") pure =<<
+                Original -> maybe (throwError $ CHUseless "Can't get leaders") (pure . OriginalLeaders) =<<
                             lift (LrcDB.getLeadersForEpoch newHeaderEpoch)
-                OBFT _ -> pure $
-                          getEpochSlotLeaderScheduleObft genesisConfig
-                                                         (siEpoch newHeaderSlot)
-            lastBlkSlots <- GS.getLastSlots
-            let k = configBlkSecurityParam genesisConfig
+                OBFT ObftStrict -> pure $
+                    ObftStrictLeaders $
+                    getEpochSlotLeaderScheduleObft genesisConfig
+                                                   (siEpoch newHeaderSlot)
+                OBFT ObftLenient -> do
+                    lastBlkSlots <- GS.getLastSlots
+                    let gStakeholders = Genesis.configGenesisWStakeholders genesisConfig
+                        k = configBlkSecurityParam genesisConfig
+                    pure $ ObftLenientLeaders (Set.fromList gStakeholders)
+                                              k
+                                              lastBlkSlots
+
             let vhp =
                     VerifyHeaderParams
                     { vhpPrevHeader = Just tipHeader
@@ -131,7 +141,6 @@ classifyNewHeader genesisConfig (BlockHeaderMain header) = fmap (either identity
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
                     , vhpConsensusEra = era
-                    , vhpLastBlkSlotsAndK = Just (lastBlkSlots, k)
                     }
             let pm = configProtocolMagic genesisConfig
             case verifyHeader pm vhp (BlockHeaderMain header) of

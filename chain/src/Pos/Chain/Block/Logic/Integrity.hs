@@ -35,15 +35,15 @@ import           Pos.Chain.Block.Header (BlockHeader (..), HasHeaderHash (..),
                      mainHeaderLeaderKey, verifyBlockHeader)
 import           Pos.Chain.Block.IsHeader (headerSlotL)
 import           Pos.Chain.Block.Main (mebAttributes, mehAttributes)
-import           Pos.Chain.Block.Slog (LastBlkSlots, LastSlotInfo (..))
+import           Pos.Chain.Block.Slog (ConsensusEraLeaders (..),
+                     LastSlotInfo (..))
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxValidationRules)
-import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..),
-                     ObftConsensusStrictness (..))
+import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
 import           Pos.Core (BlockCount (..), ChainDifficulty, EpochOrSlot (..),
                      HasDifficulty (..), HasEpochOrSlot (..),
-                     LocalSlotIndex (..), SlotId (..), SlotLeaders,
-                     addressHash, getSlotIndex)
+                     LocalSlotIndex (..), SlotId (..), addressHash,
+                     getSlotIndex)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
@@ -60,21 +60,18 @@ headerDifficultyIncrement (BlockHeaderMain _)    = 1
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams = VerifyHeaderParams
-    { vhpPrevHeader       :: !(Maybe BlockHeader)
+    { vhpPrevHeader      :: !(Maybe BlockHeader)
       -- ^ Nothing means that block is unknown, not genesis.
-    , vhpCurrentSlot      :: !(Maybe SlotId)
+    , vhpCurrentSlot     :: !(Maybe SlotId)
       -- ^ Current slot is used to check whether header is not from future.
-    , vhpLeaders          :: !(Maybe SlotLeaders)
+    , vhpLeaders         :: !(Maybe ConsensusEraLeaders)
       -- ^ Set of leaders for the epoch related block is from.
-    , vhpMaxSize          :: !(Maybe Byte)
+    , vhpMaxSize         :: !(Maybe Byte)
       -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
-    , vhpVerifyNoUnknown  :: !Bool
+    , vhpVerifyNoUnknown :: !Bool
       -- ^ Check that header has no unknown attributes.
-    , vhpConsensusEra     :: !ConsensusEra
+    , vhpConsensusEra    :: !ConsensusEra
       -- ^ Used to perform specific header verification logic depending on the consensus era
-    , vhpLastBlkSlotsAndK :: !(Maybe (LastBlkSlots, BlockCount))
-      -- ^ The security parameter, `k`, and the slot leaders that signed the
-      -- last `k` blocks.
     } deriving (Eq, Show, Generic)
 
 instance NFData VerifyHeaderParams
@@ -113,19 +110,10 @@ verifyHeader pm VerifyHeaderParams {..} h =
             [ checkProtocolMagicId
             , maybe mempty relatedToPrevHeader vhpPrevHeader
             , maybe mempty relatedToCurrentSlot vhpCurrentSlot
-            , maybe2 mempty relatedToLeaders vhpLeaders vhpLastBlkSlotsAndK
+            , maybe mempty relatedToLeaders vhpLeaders
             , checkSize
             , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]
-    -- | Takes a default value, a function, and two Maybe values. If any of the
-    -- Maybe values is Nothing, the function returns the default value.
-    -- Otherwise, it applies the function to the values inside the two Justs
-    -- and returns the result.
-    maybe2 :: c -> (a -> b -> c) -> Maybe a -> Maybe b -> c
-    maybe2 c _ Nothing _          = c
-    maybe2 c _ _ Nothing          = c
-    maybe2 _ fn (Just a) (Just b) = fn a b
-    --
     checkHash :: HeaderHash -> HeaderHash -> (Bool, Text)
     checkHash expectedHash actualHash =
         ( expectedHash == actualHash
@@ -198,75 +186,69 @@ verifyHeader pm VerifyHeaderParams {..} h =
                 ]
 
     -- CHECK: Checks that the block leader is the expected one.
-    relatedToLeaders leaders (OldestFirst lastBlkSlots, blkSecurityParam) =
+    relatedToLeaders leaders =
         case h of
             BlockHeaderGenesis _ -> []
             BlockHeaderMain mainHeader ->
-
-              let slotIndex = getSlotIndex $ siSlot $ mainHeader ^. headerSlotL
-                  scheduleSlotLeader = leaders ^? ix (fromIntegral slotIndex)
-                  blockSlotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
-
-               in case vhpConsensusEra of
+                let slotIndex = getSlotIndex $ siSlot $ mainHeader ^. headerSlotL
+                    scheduleSlotLeader ls = ls ^? ix (fromIntegral slotIndex)
+                    blockSlotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
+                in case leaders of
                     -- For the `OBFT ObftLenient` era, we only check whether the
                     -- block's creator is an "acceptable" slot leader (one of the
                     -- genesis stakeholders). So, in this case, `leaders`
                     -- represents a collection of acceptable slot leaders and not
                     -- a slot leader schedule as it would for the `OBFT ObftStrict`
                     -- and `Original` cases.
-                    OBFT ObftLenient ->
-                        [  ( (blockSlotLeader `elem` leaders)
-                           , sformat ("slot leader who published block, "%build%", is not an acceptable leader. acceptableLeaders: "%shown)
-                                 blockSlotLeader
-                                 leaders)
-                         , ( (obftLeaderCanMint blockSlotLeader)
-                           , sformat ("slot leader who published block, "%build%", has minted too many blocks in the past "%build%" slots.")
-                                 blockSlotLeader
-                                 k)
-                         ]
+                    ObftLenientLeaders ldrs blkSecurityParam lastBlkSlots ->
+                        [  ( (blockSlotLeader `elem` ldrs)
+                            , sformat ("slot leader who published block, "%build%", is not an acceptable leader. acceptableLeaders: "%shown)
+                                    blockSlotLeader
+                                    ldrs)
+                            , ( (obftLeaderCanMint blockSlotLeader blkSecurityParam lastBlkSlots)
+                            , sformat ("slot leader who published block, "%build%", has minted too many blocks in the past "%build%" slots.")
+                                    blockSlotLeader
+                                    (getBlockCount blkSecurityParam))
+                            ]
 
-                    OBFT ObftStrict ->
-                        [  ( (Just blockSlotLeader == scheduleSlotLeader)
-                           , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
-                                 scheduleSlotLeader
-                                 blockSlotLeader
-                                 slotIndex
-                                 leaders)
-                         , ( (obftLeaderCanMint blockSlotLeader)
-                           , sformat ("slot's leader, "%build%", has minted too many blocks in the past "%build%" slots.")
-                                 blockSlotLeader
-                                 k)
-                         ]
+                    ObftStrictLeaders ldrs ->
+                        [  ( (Just blockSlotLeader == (scheduleSlotLeader ldrs))
+                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
+                                    (scheduleSlotLeader ldrs)
+                                    blockSlotLeader
+                                    slotIndex
+                                    ldrs)
+                            ]
 
-                    Original ->
-                        [  ( (Just blockSlotLeader == scheduleSlotLeader)
-                           , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
-                                 scheduleSlotLeader
-                                 blockSlotLeader
-                                 slotIndex
-                                 leaders)
-                         ]
-
+                    OriginalLeaders ldrs ->
+                        [  ( (Just blockSlotLeader == (scheduleSlotLeader ldrs))
+                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
+                                    (scheduleSlotLeader ldrs)
+                                    blockSlotLeader
+                                    slotIndex
+                                    ldrs)
+                            ]
       where
         -- Determine whether the leader is allowed to mint a block based on
         -- whether blocksMintedByLeaderInLastKSlots <= floor (k * t)
-        obftLeaderCanMint leaderAddrHash =
-            (blocksMintedByLeaderInLastKSlots leaderAddrHash)
-                <= leaderMintThreshold
+        obftLeaderCanMint leaderAddrHash
+                          blkSecurityParam
+                          (OldestFirst lastBlkSlots) =
+            (blocksMintedByLeaderInLastKSlots leaderAddrHash lastBlkSlots)
+                <= (leaderMintThreshold blkSecurityParam)
         --
-        blocksMintedByLeaderInLastKSlots leaderAddrHash =
+        blocksMintedByLeaderInLastKSlots leaderAddrHash lastBlkSlots =
             length $
                 filter (\lsi -> leaderAddrHash == (addressHash $ lsiLeaderPubkeyHash lsi))
                        lastBlkSlots
         --
-        leaderMintThreshold :: Int
-        leaderMintThreshold = floor $ (fromIntegral k :: Double) * t
+        leaderMintThreshold :: BlockCount -> Int
+        leaderMintThreshold blkSecurityParam =
+            let k = getBlockCount blkSecurityParam
+            in floor $ (fromIntegral k :: Double) * t
         --
         t :: Double
         t = 0.22
-        --
-        k :: Word64
-        k = getBlockCount blkSecurityParam
 
     verifyNoUnknown (BlockHeaderGenesis genH) =
         let attrs = genH ^. gbhExtra . gehAttributes
@@ -284,12 +266,11 @@ verifyHeader pm VerifyHeaderParams {..} h =
 verifyHeaders ::
        ProtocolMagic
     -> ConsensusEra
-    -> Maybe (LastBlkSlots, BlockCount)
-    -> Maybe SlotLeaders
+    -> Maybe ConsensusEraLeaders
     -> NewestFirst [] BlockHeader
     -> VerificationRes
-verifyHeaders _ _ _ _ (NewestFirst []) = mempty
-verifyHeaders pm era lastBlkSlotsAndK leaders (NewestFirst (headers@(_:xh))) =
+verifyHeaders _ _ _ (NewestFirst []) = mempty
+verifyHeaders pm era leaders (NewestFirst (headers@(_:xh))) =
     snd $
     foldr foldFoo (leaders,mempty) $ headers `zip` (map Just xh ++ [Nothing])
   where
@@ -308,7 +289,6 @@ verifyHeaders pm era lastBlkSlotsAndK leaders (NewestFirst (headers@(_:xh))) =
         , vhpMaxSize = Nothing
         , vhpVerifyNoUnknown = False
         , vhpConsensusEra = era
-        , vhpLastBlkSlotsAndK = lastBlkSlotsAndK
         }
 
 ----------------------------------------------------------------------------
@@ -380,7 +360,7 @@ verifyBlock genesisConfig era txValRules VerifyBlockParams {..} blk = mconcat
                ]
 
 -- Type alias for the fold accumulator used inside 'verifyBlocks'
-type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
+type VerifyBlocksIter = (ConsensusEraLeaders, Maybe BlockHeader, VerificationRes)
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
@@ -397,17 +377,15 @@ verifyBlocks
     :: Genesis.Config
     -> ConsensusEra
     -> TxValidationRules
-    -> Maybe (LastBlkSlots, BlockCount)
     -> Maybe SlotId
     -> Bool
     -> BlockVersionData
-    -> SlotLeaders
+    -> ConsensusEraLeaders
     -> OldestFirst [] Block
     -> VerificationRes
 verifyBlocks genesisConfig
              era
              txValRules
-             lastBlkSlotsAndK
              curSlotId
              verifyNoUnknown
              bvd
@@ -424,7 +402,7 @@ verifyBlocks genesisConfig
     step :: VerifyBlocksIter -> Block -> VerifyBlocksIter
     step (leaders, prevHeader, res) blk =
         let newLeaders = case blk of
-                Left genesisBlock -> genesisBlock ^. genBlockLeaders
+                Left genesisBlock -> OriginalLeaders (genesisBlock ^. genBlockLeaders)
                 Right _           -> leaders
             blockMaxSize = case blk of
                 Left _  -> 2000000
@@ -437,7 +415,6 @@ verifyBlocks genesisConfig
                 , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
                 , vhpVerifyNoUnknown = verifyNoUnknown
                 , vhpConsensusEra = era
-                , vhpLastBlkSlotsAndK = lastBlkSlotsAndK
                 }
             vbp =
                 VerifyBlockParams

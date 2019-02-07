@@ -194,14 +194,13 @@ importAddresses
     :: (MonadIO m)
     => Kernel.PassiveWallet
     -> V1.WalletId
-    -> V1.AccountIndex
     -> [V1.V1 V1.Address]
     -> m (Either ImportAddressError (V1.BatchImportResult (V1.V1 V1.Address)))
-importAddresses wallet wId accIx addrs = runExceptT $ do
-    accId <- withExceptT ImportAddressAddressDecodingFailed $
-        fromAccountId wId accIx
+importAddresses wallet wId addrs = runExceptT $ do
+    rootId <- withExceptT ImportAddressAddressDecodingFailed $
+        fromRootId wId
     res <- withExceptT ImportAddressError $ ExceptT $ liftIO $
-        Kernel.importAddresses accId (V1.unV1 <$> addrs) wallet
+        Kernel.importAddresses rootId (V1.unV1 <$> addrs) wallet
     return $ foldImportResults V1.V1 res
   where
     foldImportResults

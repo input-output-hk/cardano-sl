@@ -18,6 +18,10 @@
 │  ┆
 │  └─•
 └─ wallets/
+   ├─ <capture>/
+   │  └─ addresses/
+   │     └─•
+   ┆
    ├─•
    ┆
    ├─•

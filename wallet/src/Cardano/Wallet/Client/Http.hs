@@ -43,7 +43,7 @@ mkHttpClient baseUrl manager = WalletClient
     , getAddress
         = run . getAddressR
     , importAddresses
-        = \x y -> run . importAddressesR x y
+        = \x -> run . importAddressesR x
     -- wallets endpoints
     , postWallet
         = run . postWalletR

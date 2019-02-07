@@ -55,11 +55,10 @@ getAddress pwl addressRaw = do
 importAddresses
     :: PassiveWalletLayer IO
     -> WalletId
-    -> AccountIndex
     -> [V1 Address]
     -> Handler (APIResponse (BatchImportResult (V1 Address)))
-importAddresses pwl walId accIx addrs = do
-    res <- liftIO $ WalletLayer.importAddresses pwl walId accIx addrs
+importAddresses pwl walId addrs = do
+    res <- liftIO $ WalletLayer.importAddresses pwl walId addrs
     case res of
         Left err   -> throwM err
         Right res' -> return $ single res'

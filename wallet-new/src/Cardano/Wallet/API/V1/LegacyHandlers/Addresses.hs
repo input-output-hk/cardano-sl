@@ -138,7 +138,6 @@ getAddress nm addrText = do
 importAddresses
     :: NetworkMagic
     -> WalletId
-    -> AccountIndex
     -> [V1 Address]
     -> m (WalletResponse (BatchImportResult (V1 Address)))
-importAddresses _ _ _ _ = error "Not Implemented."
+importAddresses _ _ _ = error "Not Implemented."

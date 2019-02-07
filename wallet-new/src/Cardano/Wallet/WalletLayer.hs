@@ -458,7 +458,6 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , validateAddress      :: Text
                            -> m (Either ValidateAddressError WalletAddress)
     , importAddresses      :: WalletId
-                           -> AccountIndex
                            -> [V1 Address]
                            -> m (Either ImportAddressError (BatchImportResult (V1 Address)))
 

@@ -998,7 +998,7 @@ derivation, it is unlikely that the same addresses will be generated on two
 different node instances. However, some API users may wish to preserve unused
 addresses between different instances of the wallet backend.
 
-To enable this, the wallet backend provides an endpoint ([`POST /api/v1/wallets/{{walletId}}/accounts/{{accountId}/addresses`](#tag/Addresses%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1accounts~1{accountId}~1addresses%2Fpost))
+To enable this, the wallet backend provides an endpoint ([`POST /api/v1/wallets/{{walletId}}/addresses`](#tag/Addresses%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1addresses%2Fpost))
 to import a list of addresses into a given account. Note that this endpoint is
 quite lenient when it comes to errors: it tries to import all provided addresses
 one by one, and ignores any that can't be imported for whatever reason. The
@@ -1010,7 +1010,7 @@ For example:
 
 ```
 curl -X POST \
-  https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/accounts/2147483648/addresses \
+  https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/addresses \
   -H 'Accept: application/json;charset=utf-8' \
   --cacert ./scripts/tls-files/ca.crt \
   --cert ./scripts/tls-files/client.pem \

@@ -135,7 +135,6 @@ import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
 import           Pos.Util.Example (Example (..))
 import           Pos.Util.Jsend (HasDiagnostic (..), ResponseStatus (..),
                      jsendErrorGenericParseJSON, jsendErrorGenericToJSON)
-import           Pos.Util.KnownSymbols
 import           Pos.Util.Log.LoggerConfig (LogSecurityLevel (..))
 import           Pos.Util.Pagination
 import           Pos.Util.Wlog (LoggerName, LoggerNameBox, logInfo,

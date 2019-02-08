@@ -19,7 +19,7 @@ import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
 import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots)
-import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
+import           Pos.Chain.Security (shouldIgnorePkAddress)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..),
                      TossModifier, getCertId, getCommitmentsMap, ldModifier,
@@ -99,10 +99,9 @@ logicFull
     => Genesis.Config
     -> TxpConfiguration
     -> StakeholderId
-    -> SecurityParams
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull genesisConfig txpConfig ourStakeholderId securityParams jsonLogTx =
+logicFull genesisConfig txpConfig ourStakeholderId jsonLogTx =
     let
         genesisHash = configGenesisHash genesisConfig
 

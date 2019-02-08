@@ -21,7 +21,6 @@ import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import           System.Exit (ExitCode (..))
 
-import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
 import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
                      streamWindow)
@@ -93,11 +92,10 @@ runRealMode uc genesisConfig txpConfig nr@NodeResources {..} act =
   where
     NodeContext {..} = nrContext
     NodeParams {..}  = ncNodeParams
-    securityParams   = bcSecurityParams npBehaviorConfig
     ourStakeholderId :: StakeholderId
     ourStakeholderId = addressHash (toPublic npSecretKey)
     logic :: Logic (RealMode ext)
-    logic = logicFull genesisConfig txpConfig ourStakeholderId securityParams jsonLog
+    logic = logicFull genesisConfig txpConfig ourStakeholderId jsonLog
     pm = configProtocolMagic genesisConfig
     makeLogicIO :: Diffusion IO -> Logic IO
     makeLogicIO diffusion = hoistLogic (elimRealMode uc pm nr diffusion) logic

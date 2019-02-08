@@ -9,7 +9,6 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
-import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader (..),
@@ -70,7 +69,6 @@ pureLogic = Logic
     , postSscShares      = dummyKeyVal
     , postSscVssCert     = dummyKeyVal
     , recoveryInProgress = pure False
-    , securityParams     = def
     }
   where
     dummyKeyVal :: Applicative m => KeyVal key val m

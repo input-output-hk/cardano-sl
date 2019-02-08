@@ -13,12 +13,10 @@ module Pos.Logic.Types
 import           Universum
 
 import           Data.Conduit (ConduitT, transPipe)
-import           Data.Default (def)
 import           Data.Tagged (Tagged)
 
 import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Chain.Delegation (ProxySKHeavy)
-import           Pos.Chain.Security (SecurityParams (..))
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 import           Pos.Chain.Txp (TxId, TxMsgContents)
@@ -97,8 +95,6 @@ data Logic m = Logic
       -- Recovery mode related stuff.
       -- TODO get rid of this eventually.
     , recoveryInProgress :: m Bool
-
-    , securityParams     :: SecurityParams
     }
 
 -- | The Monad constraint arises due to `transPipe` from Conduit.
@@ -205,5 +201,4 @@ dummyLogic = Logic
     , postSscShares      = dummyKeyVal
     , postSscVssCert     = dummyKeyVal
     , recoveryInProgress = pure False
-    , securityParams     = def
     }

@@ -27,7 +27,7 @@ spec = do
         fixture <- setup defaultSetup
         addr <- successfulRequest $ Client.postAddress $- NewAddress
             Nothing
-            minBound
+            defaultAccountId
             (fixture ^. wallet . walletId)
         void $ successfulRequest $ Client.deleteWallet $- (fixture ^. wallet . walletId)
         void $ successfulRequest $ Client.postWallet $- NewWallet
@@ -39,7 +39,6 @@ spec = do
 
         response <- request $ Client.importAddresses
             $- fixture ^. wallet . walletId
-            $- defaultAccountId
             $- [view address addr]
 
         verify response
@@ -59,7 +58,6 @@ spec = do
 
         response <- request $ Client.importAddresses
             $- ourFixture ^. wallet . walletId
-            $- defaultAccountId
             $- addrs
         index <- fmap (fmap accAddresses) $ request $ Client.getAccount
             $- ourFixture ^. wallet . walletId
@@ -94,7 +92,6 @@ spec = do
 
         response <- request $ Client.importAddresses
             $- fixture ^. wallet . walletId
-            $- defaultAccountId
             $- map (view address) addrs
 
         verify response

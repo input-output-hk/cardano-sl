@@ -98,10 +98,9 @@ logicFull
        LogicWorkMode ctx m
     => Genesis.Config
     -> TxpConfiguration
-    -> StakeholderId
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull genesisConfig txpConfig ourStakeholderId jsonLogTx =
+logicFull genesisConfig txpConfig jsonLogTx =
     let
         genesisHash = configGenesisHash genesisConfig
 

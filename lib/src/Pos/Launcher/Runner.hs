@@ -31,9 +31,8 @@ import           Pos.Chain.Update (UpdateConfiguration, lastKnownBlockVersion,
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
-import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.JsonLog (jsonLog)
-import           Pos.Crypto (ProtocolMagic, toPublic)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Txp (MonadTxpLocal)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)
@@ -92,10 +91,8 @@ runRealMode uc genesisConfig txpConfig nr@NodeResources {..} act =
   where
     NodeContext {..} = nrContext
     NodeParams {..}  = ncNodeParams
-    ourStakeholderId :: StakeholderId
-    ourStakeholderId = addressHash (toPublic npSecretKey)
     logic :: Logic (RealMode ext)
-    logic = logicFull genesisConfig txpConfig ourStakeholderId jsonLog
+    logic = logicFull genesisConfig txpConfig jsonLog
     pm = configProtocolMagic genesisConfig
     makeLogicIO :: Diffusion IO -> Logic IO
     makeLogicIO diffusion = hoistLogic (elimRealMode uc pm nr diffusion) logic

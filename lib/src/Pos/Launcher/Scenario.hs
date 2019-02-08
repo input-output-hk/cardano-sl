@@ -23,10 +23,10 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion, ourSystemTag)
-import           Pos.Context (getOurPublicKey)
+import           Pos.Context (NodeContext (..), getOurPublicKey, npSecretKey)
 import           Pos.Core (addressHash)
 import           Pos.Core.Conc (mapConcurrently)
-import           Pos.Crypto (pskDelegatePk)
+import           Pos.Crypto (pskDelegatePk, toPublic)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -116,7 +116,9 @@ runNode
     -> Diffusion m -> m ()
 runNode genesisConfig txpConfig nr plugins =
     runNode' genesisConfig nr workers' plugins
-    where workers' = allWorkers genesisConfig txpConfig nr
+    where workers' = allWorkers sid genesisConfig txpConfig nr
+          sid = addressHash . toPublic . npSecretKey . ncNodeParams . nrContext
+              $ nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg

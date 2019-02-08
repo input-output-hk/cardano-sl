@@ -28,8 +28,8 @@ import           Pos.Launcher.Configuration (AssetLockPath (..),
                      HasConfigurations, WalletConfiguration, cfoKey,
                      withConfigurations)
 import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
-import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
-                     loggerBracket)
+import           Pos.Launcher.Resource (NodeResources,
+                     bracketNodeResources, loggerBracket)
 import           Pos.Launcher.Runner (elimRealMode, runRealMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.Util.CompileInfo (HasCompileInfo)

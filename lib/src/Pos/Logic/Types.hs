@@ -31,10 +31,8 @@ import           Pos.DB.Class (SerializedBlock)
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
 data Logic m = Logic
-    { -- | The stakeholder id of our node.
-      ourStakeholderId   :: StakeholderId
-      -- | Get serialized block, perhaps from a database.
-    , getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
+    { -- | Get serialized block, perhaps from a database.
+      getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
     , streamBlocks       :: HeaderHash -> ConduitT () SerializedBlock m ()
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
@@ -181,8 +179,7 @@ dummyKeyVal = KeyVal
 -- | A diffusion layer that does nothing, and probably crashes the program.
 dummyLogic :: Monad m => Logic m
 dummyLogic = Logic
-    { ourStakeholderId   = error "dummy: no stakeholder id"
-    , getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
+    { getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
     , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")

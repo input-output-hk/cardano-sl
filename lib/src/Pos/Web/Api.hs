@@ -13,7 +13,8 @@ module Pos.Web.Api
 
 import           Universum
 
-import           Servant.API ((:<|>), (:>), Get, JSON, PlainText)
+import           Pos.Util.Servant (Tag, TagDescription (..))
+import           Servant.API ((:<|>), (:>), Get, JSON, PlainText, Summary)
 
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Web.Types (CConfirmedProposalState)
@@ -27,13 +28,17 @@ import           Pos.Web.Types (CConfirmedProposalState)
 -- Implementations of these methods are in
 -- 'Pos.Web.Server.nodeServantHandlers'.
 type NodeApi =
-    "utxo"
+    Tag "Internal API" 'NoTagDescription
+    :>
+    ( "utxo"
+        :> Summary "Utxo"
         :> Get '[JSON] Utxo
-
     :<|>
 
     "confirmed_proposals"
+        :> Summary "Confirmed proposals"
         :> Get '[JSON] [CConfirmedProposalState]
+    )
 
 -- | Helper Proxy.
 nodeApi :: Proxy NodeApi

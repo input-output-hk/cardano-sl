@@ -68,6 +68,8 @@
 
 - Links to specific sections of the API doc now work [#4064](https://github.com/input-output-hk/cardano-sl/pull/4064)
 
+- Improve organization of the Node Monitoring API docs [#4072](https://github.com/input-output-hk/cardano-sl/pull/4072)
+
 ## Cardano SL 2.0.1
 
 ### Fixes

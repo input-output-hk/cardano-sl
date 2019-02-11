@@ -27,19 +27,22 @@ import           Universum
 import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Set as Set (fromList)
 import           Formatting
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 
-import           Pos.Chain.Block (Block, Blund, HasSlogGState, LastBlkSlots,
-                     LastSlotInfo (..), MainBlock, SlogUndo (..),
-                     genBlockLeaders, headerHash, headerHashG,
+import           Pos.Chain.Block (Block, Blund, ConsensusEraLeaders (..),
+                     HasSlogGState, LastBlkSlots, LastSlotInfo (..), MainBlock,
+                     SlogUndo (..), genBlockLeaders, headerHash, headerHashG,
                      mainBlockLeaderKey, mainBlockSlot, prevBlockL,
                      verifyBlocks)
-import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
-                     configK)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configEpochSlots,
+                     configGenesisWStakeholders, configK)
 import           Pos.Chain.Txp (mkLiveTxValidationRules)
-import           Pos.Chain.Update (BlockVersion (..), UpdateConfiguration,
+import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
+                     ObftConsensusStrictness (..), UpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (BlockCount, difficultyL, epochIndexL,
                      epochOrSlotToEpochIndex, flattenSlotId, kEpochSlots,
@@ -49,7 +52,7 @@ import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
 import           Pos.Core.Slotting (HasEpochIndex, MonadSlots, SlotCount,
-                     SlotId, getEpochOrSlot)
+                     SlotId (..), getEpochOrSlot)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
@@ -62,6 +65,7 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Lrc.OBFT (getEpochSlotLeaderScheduleObft)
 import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
@@ -145,41 +149,76 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     logInfo $ sformat ("slogVerifyBlocks: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
-    let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
-    leaders <- lift $
-        lrcActionOnEpochReason
-            headEpoch
-            (sformat
-                 ("slogVerifyBlocks: there are no leaders for epoch " %build)
-                 headEpoch)
-            LrcDB.getLeadersForEpoch
-    -- We take head here, because blocks are in oldest first order and
-    -- we know that all of them are from the same epoch. So if there
-    -- is a genesis block, it must be head and only head.
-    case blocks ^. _OldestFirst . _neHead of
-        (Left block) ->
-            when (block ^. genBlockLeaders /= leaders) $
-            throwError "Genesis block leaders don't match with LRC-computed"
-        _ -> pass
+
+
+    lastSlots <- lift GS.getLastSlots
+
+    leaders <- case era of
+        Original ->
+            let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
+            in lift $
+                OriginalLeaders <$> lrcActionOnEpochReason
+                    headEpoch
+                    (sformat
+                        ("slogVerifyBlocks Original: there are no leaders for epoch " %build)
+                        headEpoch)
+                    LrcDB.getLeadersForEpoch
+        OBFT ObftStrict -> do
+            initialSlot <- case curSlot of
+                                Just cs -> pure cs
+                                Nothing -> throwError "slogVerifyBlocks ObftStrict: curSlot set to Nothing - \
+                                            \this occurs in EBBs which should not appear"
+            pure $ ObftStrictLeaders $
+                getEpochSlotLeaderScheduleObft genesisConfig
+                                               (siEpoch initialSlot)
+        OBFT ObftLenient -> do
+            -- The lenient OBFT block validation algorithm only requires a
+            -- collection of "acceptable" slot leaders rather than a slot
+            -- leader schedule.
+            let gStakeholders = Genesis.configGenesisWStakeholders genesisConfig
+            pure $
+                ObftLenientLeaders (Set.fromList gStakeholders)
+                                   (configBlkSecurityParam genesisConfig)
+                                   lastSlots
+    logInfo $ sformat ("slogVerifyBlocks: Leaders are " % shown) leaders
+
+
+    -- This is pretty much equivalent to performing a case on `era` since the
+    -- `leaders` were evaluated above based on the `era`.
+    case leaders of
+        OriginalLeaders ls ->
+            -- We take head here, because blocks are in oldest first order and
+            -- we know that all of them are from the same epoch. So if there
+            -- is a genesis block, it must be head and only head.
+            case blocks ^. _OldestFirst . _neHead of
+                (Left block) ->
+                    when (block ^. genBlockLeaders /= ls) $
+                    throwError "Genesis block leaders don't match with LRC-computed"
+                _ -> pass
+        ObftStrictLeaders _ -> pass
+        ObftLenientLeaders {} -> pass
+
     -- Do pure block verification.
     currentEpoch <- epochOrSlotToEpochIndex . getEpochOrSlot <$> DB.getTipHeader
     let txValRulesConfig = configTxValRules $ genesisConfig
         txValRules = mkLiveTxValidationRules currentEpoch txValRulesConfig
-    let blocksList :: OldestFirst [] Block
+        blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
         verifyBlocks
             genesisConfig
+            era
             txValRules
             curSlot
             dataMustBeKnown
             adoptedBVD
             leaders
             blocksList
+
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.
-    lastSlots <- lift GS.getLastSlots
+
     -- these slots will be added if we apply all blocks
     let newSlots :: [LastSlotInfo]
         newSlots =

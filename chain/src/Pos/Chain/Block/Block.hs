@@ -97,6 +97,7 @@ import           Pos.Chain.Ssc.Functions (verifySscPayload)
 import           Pos.Chain.Ssc.Payload (SscPayload)
 import           Pos.Chain.Txp.Tx (TxValidationRules)
 import           Pos.Chain.Txp.TxPayload (TxPayload)
+import           Pos.Chain.Update (ConsensusEra (..))
 import           Pos.Chain.Update.BlockVersion (BlockVersion,
                      HasBlockVersion (..))
 import           Pos.Chain.Update.Payload (UpdatePayload)
@@ -136,11 +137,12 @@ getBlockHeader = \case
 verifyBlockInternal
     :: MonadError Text m
     => Genesis.Config
+    -> ConsensusEra
     -> TxValidationRules
     -> Block
     -> m ()
-verifyBlockInternal genesisConfig txValRules =
-    either verifyGenesisBlock (verifyMainBlock genesisConfig txValRules)
+verifyBlockInternal genesisConfig era txValRules =
+    either verifyGenesisBlock (verifyMainBlock genesisConfig era txValRules)
 
 
 --------------------------------------------------------------------------------
@@ -325,10 +327,11 @@ mkMainBlockExplicit pm bv sv prevHash difficulty slotId sk pske body =
 verifyMainBlock
     :: MonadError Text m
     => Genesis.Config
+    -> ConsensusEra
     -> TxValidationRules
     -> MainBlock
     -> m ()
-verifyMainBlock genesisConfig txValRules GenericBlock {..} = do
+verifyMainBlock genesisConfig era txValRules GenericBlock {..} = do
     let pm = configProtocolMagic genesisConfig
     verifyMainBlockHeader pm _gbHeader
     verifyMainBody pm txValRules _gbBody
@@ -343,11 +346,14 @@ verifyMainBlock genesisConfig txValRules GenericBlock {..} = do
         throwError "Hash of extra body data is not equal to its representation in the header."
     -- Ssc and Dlg consistency checks which require the header, and so can't
     -- be done in 'verifyMainBody'.
-    either (throwError . pretty) pure $
-        verifySscPayload
-            genesisConfig
-            (Right (Some _gbHeader))
-            (_mbSscPayload _gbBody)
+    case era of
+        Original ->
+            either (throwError . pretty) pure $
+                verifySscPayload
+                    genesisConfig
+                    (Right (Some _gbHeader))
+                    (_mbSscPayload _gbBody)
+        OBFT _ -> pass -- We don't perform SSC operations during the OBFT era
 
 
 ----------------------------------------------------------------------------

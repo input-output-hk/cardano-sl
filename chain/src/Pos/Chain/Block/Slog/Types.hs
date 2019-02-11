@@ -5,6 +5,8 @@ module Pos.Chain.Block.Slog.Types
        , LastSlotInfo (..)
        , noLastBlkSlots
 
+       , ConsensusEraLeaders (..)
+
        , SlogGState (..)
        , HasSlogGState (..)
 
@@ -27,8 +29,9 @@ import qualified Formatting.Buildable as Buildable
 import           System.Metrics.Label (Label)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
-                     LocalSlotIndex, SlotCount, slotIdF, unflattenSlotId)
+import           Pos.Core (BlockCount, ChainDifficulty, EpochIndex, FlatSlotId,
+                     LocalSlotIndex, SlotCount, SlotLeaders, StakeholderId,
+                     slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Reporting (MetricMonitorState)
 import           Pos.Crypto (PublicKey (..))
@@ -46,6 +49,8 @@ instance Buildable LastSlotInfo where
         bprint ( "LastSlotInfo "% int %" "% string)
             i (take 16 . BS.unpack . B16.encode $ CC.xpubPublicKey pk)
 
+instance NFData LastSlotInfo
+
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
 -- 'SlotId', because the main use case is chain quality calculation,
@@ -57,6 +62,13 @@ type LastBlkSlots = OldestFirst [] LastSlotInfo
 
 noLastBlkSlots :: LastBlkSlots
 noLastBlkSlots = OldestFirst []
+
+data ConsensusEraLeaders = OriginalLeaders SlotLeaders
+                         | ObftStrictLeaders SlotLeaders
+                         | ObftLenientLeaders (Set StakeholderId) BlockCount LastBlkSlots
+                         deriving (Eq, Show, Generic)
+
+instance NFData ConsensusEraLeaders
 
 -- | In-memory representation of Slog (aka BlockExtra) part of
 -- GState. Note that it contains only part of BlockExtra.

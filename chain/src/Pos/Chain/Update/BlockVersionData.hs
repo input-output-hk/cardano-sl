@@ -140,6 +140,8 @@ instance NFData ObftConsensusStrictness
 data ConsensusEra = Original | OBFT ObftConsensusStrictness
     deriving (Eq, Show, Generic)
 
+instance NFData ConsensusEra
+
 -- | This function uses the repurposed field `bvdUnlockStakeEpoch` to
 -- tell us whether we are in the Original or OBFT consensus eras.
 consensusEraBVD :: BlockVersionData -> ConsensusEra

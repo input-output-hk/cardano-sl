@@ -209,27 +209,31 @@ verify ma = withConfig $ do
 --   split the chain into epochs and validate each epoch individually
 verifyBlocksPrefix
   :: forall e' m.  Monad m
-  => OldestFirst NE Block
+  => ConsensusEra
+  -> OldestFirst NE Block
   -> TxValidationRules
   -> TranslateT e' m (Validated VerifyBlocksException (OldestFirst NE Undo, Utxo))
-verifyBlocksPrefix blocks txValRules =
+verifyBlocksPrefix era blocks txValRules =
     case splitEpochs blocks of
       ESREmptyEpoch _          ->
         validatedFromExceptT . throwError $ VerifyBlocksError "Whoa! Empty epoch!"
       ESRStartsOnBoundary _    ->
         validatedFromExceptT . throwError $ VerifyBlocksError "No genesis epoch!"
-      ESRValid genEpoch (OldestFirst succEpochs) -> do
-        CardanoContext{..} <- asks tcCardano
-        let pm = ccMagic
-        verify $ validateGenEpoch pm txValRules ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
-          epochUndos <- sequence $ validateSuccEpoch pm txValRules <$> succEpochs
-          return $ foldl' (\a b -> a <> b) genUndos epochUndos
+      ESRValid genEpoch (OldestFirst succEpochs) -> case era of
+        OBFT _ -> validatedFromExceptT . throwError $ VerifyBlocksError "No support for OBFT validation in UTxO package."
+        Original -> do
+          CardanoContext{..} <- asks tcCardano
+          let pm = ccMagic
+          let leaders = OriginalLeaders ccInitLeaders
+          verify $ validateGenEpoch pm txValRules ccHash0 leaders genEpoch >>= \genUndos -> do
+            epochUndos <- sequence $ validateSuccEpoch pm txValRules <$> succEpochs
+            return $ foldl' (\a b -> a <> b) genUndos epochUndos
 
   where
     validateGenEpoch :: ProtocolMagic
                      -> TxValidationRules
                      -> HeaderHash
-                     -> SlotLeaders
+                     -> ConsensusEraLeaders
                      -> OldestFirst NE MainBlock
                      -> Verify VerifyBlocksException (OldestFirst NE Undo)
     validateGenEpoch pm txValRules ccHash0 ccInitLeaders geb = do
@@ -237,6 +241,7 @@ verifyBlocksPrefix blocks txValRules =
         pm
         txValRules
         ccHash0
+        era
         Nothing
         ccInitLeaders
         (OldestFirst [])
@@ -250,8 +255,10 @@ verifyBlocksPrefix blocks txValRules =
         pm
         txValRules
         (ebb ^. headerHashG)
+        era
         Nothing
-        (ebb ^. gbBody . gbLeaders)
+        -- @intricate: Hardcoded `Original` (seems to make sense here)
+        (OriginalLeaders (ebb ^. gbBody . gbLeaders))
         (OldestFirst []) -- ^ TODO pass these?
         (Right <$> emb)
 

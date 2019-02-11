@@ -2,7 +2,6 @@
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TupleSections    #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ViewPatterns     #-}
 
 -- | Specification of Pos.Chain.Block and Pos.Chain.Block.Pure.
 
@@ -158,15 +157,15 @@ mainHeaderFormation pm prevHeader slotId signer body extra =
 ----------------------------------------------------------------------------
 
 validateGoodMainHeader :: ProtocolMagic -> ConsensusEra -> Gen Bool
-validateGoodMainHeader pm era = do
-    (BT.getHAndP -> (params, header)) <- BT.genHeaderAndParams pm era
+    (params, header) <- BT.getHAndP <$> BT.genHeaderAndParams pm era
     pure $ isVerSuccess $ Block.verifyHeader pm params header
 
 -- FIXME should sharpen this test to ensure that it fails with the expected
 -- reason.
 validateBadProtocolMagicMainHeader :: ProtocolMagic -> ConsensusEra -> Gen Bool
-validateBadProtocolMagicMainHeader pm era = do
-    (BT.getHAndP -> (params, header)) <- BT.genHeaderAndParams pm era
+validateBadProtocolMagicMainHeader :: ProtocolMagic -> Gen Bool
+validateBadProtocolMagicMainHeader pm = do
+    (params, header) <- BT.getHAndP <$> BT.genHeaderAndParams pm era
     let protocolMagicId' = ProtocolMagicId (getProtocolMagic pm + 1)
         header' = case header of
             BlockHeaderGenesis h -> BlockHeaderGenesis (h & gbhProtocolMagicId .~ protocolMagicId')

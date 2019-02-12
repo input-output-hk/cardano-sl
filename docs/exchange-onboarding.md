@@ -287,6 +287,20 @@ with a `200` response if the address is in one of the wallets on the running nod
 
 For more details see the [API documentation](#where-can-i-find-the-api-documentation).
 
+# Migrate wallet to new data layer
+
+Migration to the new data layer is automatic in the default configuration and
+equivalent to restoring wallet from seed. As part of the migration, the wallet
+will be restored from the blockchain which will result in unused 0 balance
+addresses no longer showing in the wallet. The v1 API introduces a new endpoing
+`/api/v1/wallets/{{walletId}}/accounts/{{accountId}/addresses`. For details, please
+see the following URL:
+https://cardanodocs.com/technical/v1/#section/Common-Use-Cases/Importing-(Unused)-Addresses-From-a-Previous-Node-(or-Version)/
+
+Migrating to the new data layer drops the ability to use the v0 API. It is heavily
+encouraged to shutdown the wallet and make a backup of your wallet state directory
+prior to upgrading.
+
 # Usage FAQs
 
 ## What are recommended hardware/software requirements for exchange wallets?

@@ -103,7 +103,7 @@ let
     clientExpiryDays = 365;
   } // tlsConfig;
   tlsConfigFile = let cfg = tlsConfigResultant; in writeText "tls-config-${environment}.yaml" (''
-    ${environments.${environment}.confKey}:
+    ${env.confKey}:
       tls:
         ca:
           organization: ${cfg.organization}
@@ -154,7 +154,7 @@ in writeScript "${executable}-connect-to-${environment}" ''
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
       --configuration-file ${tlsConfigFile}                      \
-      --configuration-key ${environments.${environment}.confKey}
+      --configuration-key ${env.confKey}
   fi
   ln -sf ${curlScript} ${stateDir}/curl
   ''}

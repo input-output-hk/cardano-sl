@@ -55,7 +55,6 @@ pureLogic = Logic
       -- hashes are *not* in the chain.
     , getLcaMainChain    = \hashes -> pure (NewestFirst [], hashes)
     , getTip             = pure block
-    , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
     , postBlockHeader    = \_ _ -> pure ()
     , postPskHeavy       = \_ -> pure True

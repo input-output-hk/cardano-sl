@@ -58,8 +58,6 @@ data Logic m = Logic
                          -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
       -- | Get the current tip of chain.
     , getTip             :: m Block
-      -- | Cheaper version of 'headerHash <$> getTip'.
-    , getTipHeader       :: m BlockHeader
       -- | Get state of last adopted BlockVersion. Related to update system.
     , getAdoptedBVData   :: m BlockVersionData
 
@@ -110,7 +108,6 @@ hoistLogic nat logic = logic
     , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
     , getLcaMainChain = nat . getLcaMainChain logic
     , getTip = nat $ getTip logic
-    , getTipHeader = nat $ getTipHeader logic
     , getAdoptedBVData = nat $ getAdoptedBVData logic
     , postBlockHeader = \a b -> nat (postBlockHeader logic a b)
     , postTx = hoistKeyVal nat (postTx logic)
@@ -192,7 +189,6 @@ dummyLogic = Logic
     , getLcaMainChain    = \_ -> pure (NewestFirst [], OldestFirst [])
     , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
     , getTip             = pure (error "dummy: can't get tip")
-    , getTipHeader       = pure (error "dummy: can't get tip header")
     , getAdoptedBVData   = pure (error "dummy: can't get block version data")
     , postBlockHeader    = \_ _ -> pure ()
     , postPskHeavy       = \_ -> pure False

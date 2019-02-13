@@ -14,9 +14,9 @@ import           Serokell.Util.Verify (isVerSuccess)
 import           System.Random (newStdGen)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
-import           Pos.Chain.Block (Block, VerifyBlockParams (..),
-                     VerifyHeaderParams (..), getBlockHeader, verifyBlock,
-                     verifyHeader)
+import           Pos.Chain.Block (Block, ConsensusEraLeaders (..),
+                     VerifyBlockParams (..), VerifyHeaderParams (..),
+                     getBlockHeader, verifyBlock, verifyHeader)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      FakeAvvmOptions (..), GenesisInitializer (..),
                      TestnetBalanceOptions (..), configBlockVersionData,
@@ -195,7 +195,9 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
                 , _bgpTxpGlobalSettings =
                       txpGlobalSettings genesisConfig (_tpTxpConfiguration tp)
                 }
-        leaders <- lrcActionOnEpochReason epoch "genBlock" getLeadersForEpoch
+        leaders <-
+            OriginalLeaders
+                <$> lrcActionOnEpochReason epoch "genBlock" getLeadersForEpoch
         mblock <- flip evalRandT g $ do
             blockGenCtx <- lift $ mkBlockGenContext
                 (configEpochSlots genesisConfig)
@@ -212,7 +214,6 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
                 , vhpMaxSize = Nothing
                 , vhpVerifyNoUnknown = False
                 , vhpConsensusEra = Original
-                , vhpLastBlkSlotsAndK = Nothing
                 }
         let !params = VerifyBlockParams
                 { vbpVerifyHeader = verifyHeaderParams

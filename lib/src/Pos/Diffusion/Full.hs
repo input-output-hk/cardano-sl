@@ -15,7 +15,7 @@ module Pos.Diffusion.Full
 
 import           Universum
 
-import           Control.Concurrent.Async (Concurrently (..))
+import           Control.Concurrent.Async (Concurrently (..), race)
 import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Control.Concurrent.STM as STM
 import           Data.Functor.Contravariant (contramap)
@@ -455,13 +455,17 @@ runDiffusionLayerFull logTrace
                       listeners
                       k =
     maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
-        timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
+        timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse -> do
             -- Concurrently run the dequeue thread, subscription thread, and
             -- main action.
             let sendActions :: SendActions
                 sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
                 dequeueDaemon = OQ.dequeueThread oq (sendMsgFromConverse converse)
-                subscriptionDaemon = subscriptionThread (fst <$> mKademlia) sendActions
+                -- A subscription worker can finish normally (without exception).
+                -- But we don't want that, so we'll run it forever.
+                subscriptionDaemon = do
+                  subscriptionThread (fst <$> mKademlia) sendActions
+                  subscriptionDaemon
                 mainAction = do
                     maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
                     maybe (pure ()) (joinKademlia logTrace) mKademlia
@@ -477,11 +481,12 @@ runDiffusionLayerFull logTrace
                     OQ.waitShutdown oq
                     pure t
 
-                action = Concurrently dequeueDaemon
-                      *> Concurrently subscriptionDaemon
-                      *> Concurrently mainAction
+                action = Concurrently dequeueDaemon *> Concurrently mainAction
 
-            in  runConcurrently action
+            outcome <- race subscriptionDaemon (runConcurrently action)
+            case outcome of
+              Left  impossible -> pure impossible
+              Right t          -> pure t
   where
     oqEnqueue :: Msg
               -> (NodeId -> VerInfo -> Conversation PackingType t)

@@ -35,7 +35,7 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)
-import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
+import qualified Pos.DB.BlockIndex as DB (getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
                      SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
@@ -113,9 +113,6 @@ logicFull genesisConfig txpConfig jsonLogTx =
 
         getTip :: m Block
         getTip = DB.getTipBlock genesisHash
-
-        getTipHeader :: m BlockHeader
-        getTipHeader = DB.getTipHeader
 
         getAdoptedBVData :: m BlockVersionData
         getAdoptedBVData = gsAdoptedBVData

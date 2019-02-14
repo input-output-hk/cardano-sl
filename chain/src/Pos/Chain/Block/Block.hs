@@ -54,6 +54,8 @@ module Pos.Chain.Block.Block
        , mainBlockUpdatePayload
        , mainBlockAttributes
        , verifyMainBlock
+
+       , blockLastSlotInfo
        ) where
 
 import           Universum
@@ -77,9 +79,10 @@ import           Pos.Chain.Block.Header (BlockHeader (..), BlockSignature (..),
                      MainConsensusData (..), blockHeaderHash, gbhBodyProof,
                      gbhConsensus, gbhPrevBlock, genHeaderAttributes,
                      genHeaderDifficulty, genHeaderEpoch, genHeaderProof,
-                     mainHeaderAttributes, mainHeaderBlockVersion,
-                     mainHeaderDifficulty, mainHeaderEBDataProof,
-                     mainHeaderLeaderKey, mainHeaderProof, mainHeaderSignature,
+                     headerLastSlotInfo, mainHeaderAttributes,
+                     mainHeaderBlockVersion, mainHeaderDifficulty,
+                     mainHeaderEBDataProof, mainHeaderLeaderKey,
+                     mainHeaderProof, mainHeaderSignature,
                      mainHeaderSlot, mainHeaderSoftwareVersion,
                      mkGenesisHeader, mkMainHeaderExplicit,
                      verifyMainBlockHeader)
@@ -89,6 +92,7 @@ import           Pos.Chain.Block.Main (BlockBodyAttributes,
                      MainProof (..), checkMainProof, mbDlgPayload,
                      mbSscPayload, mbTxPayload, mbTxs, mbUpdatePayload,
                      mebAttributes, verifyMainBody)
+import           Pos.Chain.Block.Slog.Types (LastSlotInfo (..))
 import           Pos.Chain.Delegation.HeavyDlgIndex (ProxySKBlockInfo)
 import           Pos.Chain.Delegation.Payload (DlgPayload)
 import           Pos.Chain.Genesis.Config as Genesis (Config (..))
@@ -107,10 +111,9 @@ import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..),
                      SlotLeaders, slotLeadersF)
 import           Pos.Core.Slotting (EpochIndex, HasEpochIndex (..),
-                     HasEpochOrSlot (..), SlotId (..))
+                     HasEpochOrSlot (..), SlotId (..), SlotCount)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SecretKey, hash)
 import           Pos.Util.Some (Some (..))
-
 
 --------------------------------------------------------------------------------
 -- Block
@@ -132,6 +135,10 @@ getBlockHeader :: Block -> BlockHeader
 getBlockHeader = \case
     Left  gb -> BlockHeaderGenesis (_gbHeader gb)
     Right mb -> BlockHeaderMain    (_gbHeader mb)
+
+blockLastSlotInfo :: SlotCount -> Block -> Maybe LastSlotInfo
+blockLastSlotInfo slotCount =
+    headerLastSlotInfo slotCount . getBlockHeader
 
 -- | Verify a Block in isolation.
 verifyBlockInternal

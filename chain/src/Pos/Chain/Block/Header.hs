@@ -11,6 +11,7 @@ module Pos.Chain.Block.Header
        , _BlockHeaderGenesis
        , _BlockHeaderMain
        , verifyBlockHeader
+       , headerLastSlotInfo
 
        , HeaderHash
        , headerHashF
@@ -100,8 +101,8 @@ import           Pos.Chain.Update.SoftwareVersion (HasSoftwareVersion (..),
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
-                     HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..),
-                     slotIdF)
+                     HasEpochIndex (..), HasEpochOrSlot (..), SlotCount (..),
+                     SlotId (..), flattenSlotId, slotIdF)
 import           Pos.Crypto (Hash, ProtocolMagic (..), ProtocolMagicId (..),
                      PublicKey, SecretKey, SignTag (..), Signature, checkSig,
                      hashHexF, isSelfSignedPsk, proxySign, proxyVerify,
@@ -109,6 +110,7 @@ import           Pos.Crypto (Hash, ProtocolMagic (..), ProtocolMagicId (..),
 import           Pos.Util.Some (Some, applySome)
 import           Pos.Util.Util (cborError, cerealError)
 
+import           Pos.Chain.Block.Slog.Types (LastSlotInfo (..))
 
 --------------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock
@@ -173,6 +175,16 @@ verifyBlockHeader
 verifyBlockHeader _ (BlockHeaderGenesis _) = pure ()
 verifyBlockHeader pm (BlockHeaderMain bhm) = verifyMainBlockHeader pm bhm
 
+headerLastSlotInfo :: SlotCount -> BlockHeader -> Maybe LastSlotInfo
+headerLastSlotInfo slotCount = \case
+    BlockHeaderGenesis _ -> Nothing
+    BlockHeaderMain mbh -> Just $ convert mbh
+  where
+    convert :: MainBlockHeader -> LastSlotInfo
+    convert bh =
+        LastSlotInfo
+            (flattenSlotId slotCount . _mcdSlot $ _gbhConsensus bh)
+            (_mcdLeaderKey $ _gbhConsensus bh)
 
 --------------------------------------------------------------------------------
 -- HeaderHash

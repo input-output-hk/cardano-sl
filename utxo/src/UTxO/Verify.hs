@@ -339,7 +339,7 @@ slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
     -- we can remove one of the last slots stored in
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
     -- these slots will be added if we apply all blocks
-    let newSlots = mapMaybe (toLastSlotInfo dummyEpochSlots) $ toList blocks
+    let newSlots = mapMaybe (blockLastSlotInfo dummyEpochSlots) $ toList blocks
     let combinedSlots :: LastBlkSlots
         combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
     -- these slots will be removed if we apply all blocks, because we store
@@ -362,18 +362,6 @@ slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
     -- NE.fromList is safe here, because it's obvious that the size of
     -- 'slogUndo' is the same as the size of 'blocks'.
     return $ over _Wrapped NE.fromList $ map (SlogUndo . fmap lsiFlatSlotId) slogUndo
-
-
-
-toLastSlotInfo :: SlotCount -> Block -> Maybe LastSlotInfo
-toLastSlotInfo slotCount blk =
-    convert <$> rightToMaybe blk
-  where
-    convert :: MainBlock -> LastSlotInfo
-    convert b =
-        LastSlotInfo
-            (flattenSlotId slotCount $ view mainBlockSlot b)
-            (view mainBlockLeaderKey b)
 
 -- | Verify block transactions
 --

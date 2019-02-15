@@ -180,7 +180,6 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
                 ObftLenientLeaders (Set.fromList gStakeholders)
                                    (configBlkSecurityParam genesisConfig)
                                    lastSlots
-    logInfo $ sformat ("slogVerifyBlocks: Leaders are " % shown) leaders
 
 
     -- This is pretty much equivalent to performing a case on `era` since the

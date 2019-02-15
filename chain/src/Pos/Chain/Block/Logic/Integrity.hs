@@ -21,7 +21,7 @@ module Pos.Chain.Block.Logic.Integrity
 import           Universum
 
 import           Control.Lens (ix)
-import           Formatting (build, int, sformat, shown, (%))
+import           Formatting (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (VerificationRes (..), verifyGeneric)
 
@@ -202,9 +202,8 @@ verifyHeader pm VerifyHeaderParams {..} h =
                     -- and `Original` cases.
                     ObftLenientLeaders ldrs blkSecurityParam lastBlkSlots ->
                         [  ( (blockSlotLeader `elem` ldrs)
-                            , sformat ("slot leader who published block, "%build%", is not an acceptable leader. acceptableLeaders: "%shown)
-                                    blockSlotLeader
-                                    ldrs)
+                            , sformat ("slot leader who published block, "%build%", is not an acceptable leader.")
+                                    blockSlotLeader)
                             , ( (obftLeaderCanMint blockSlotLeader blkSecurityParam lastBlkSlots)
                             , sformat ("slot leader who published block, "%build%", has minted too many blocks in the past "%build%" slots.")
                                     blockSlotLeader
@@ -213,20 +212,16 @@ verifyHeader pm VerifyHeaderParams {..} h =
 
                     ObftStrictLeaders ldrs ->
                         [  ( (Just blockSlotLeader == (scheduleSlotLeader ldrs))
-                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
+                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%".")
                                     (scheduleSlotLeader ldrs)
-                                    blockSlotLeader
-                                    slotIndex
-                                    ldrs)
+                                    blockSlotLeader)
                             ]
 
                     OriginalLeaders ldrs ->
                         [  ( (Just blockSlotLeader == (scheduleSlotLeader ldrs))
-                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%". slotIndex: "%build%", leaders: "%shown)
+                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%".")
                                     (scheduleSlotLeader ldrs)
-                                    blockSlotLeader
-                                    slotIndex
-                                    ldrs)
+                                    blockSlotLeader)
                             ]
       where
         -- Determine whether the leader is allowed to mint a block based on

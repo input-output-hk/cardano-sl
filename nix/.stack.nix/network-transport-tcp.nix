@@ -27,7 +27,7 @@
     };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.network-transport)
           (hsPkgs.data-accessor)
@@ -39,7 +39,7 @@
       };
       tests = {
         "TestTCP" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.bytestring)
             (hsPkgs.network-transport-tests)
@@ -49,7 +49,7 @@
           ];
         };
         "TestQC" = {
-          depends  = pkgs.lib.optionals (flags.use-mock-network) [
+          depends = pkgs.lib.optionals (flags.use-mock-network) [
             (hsPkgs.base)
             (hsPkgs.test-framework)
             (hsPkgs.test-framework-quickcheck2)
@@ -72,8 +72,8 @@
     };
   } // {
     src = pkgs.fetchgit {
-      url = "https://github.com/serokell/network-transport-tcp";
-      rev = "3d56652123bd296dc759cd31947eb2a17924e68a";
-      sha256 = "1cim8867kf36kv6ax9jx5shlqd7hhs1i4jf101x4pk3wriwbxsds";
+      url = "https://github.com/avieth/network-transport-tcp";
+      rev = "2634e5e32178bb0456d800d133f8664321daa2ef";
+      sha256 = "03shp9prflhgqzw7pymw1pq2q7s1wf46pyjm2csx8646snrhf35i";
     };
   }

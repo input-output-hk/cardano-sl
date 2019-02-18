@@ -34,8 +34,8 @@ import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 
 import           Pos.Chain.Block (Block, Blund, ConsensusEraLeaders (..),
                      HasSlogGState, LastBlkSlots, LastSlotInfo (..),
-                     SlogUndo (..), genBlockLeaders, headerHash, headerHashG,
-                     prevBlockL, blockLastSlotInfo, verifyBlocks)
+                     SlogUndo (..), blockLastSlotInfo, genBlockLeaders,
+                     headerHash, headerHashG, prevBlockL, verifyBlocks)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
                      configGenesisWStakeholders, configK)
@@ -44,8 +44,7 @@ import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
                      ObftConsensusStrictness (..), UpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (BlockCount, difficultyL, epochIndexL,
-                     epochOrSlotToEpochIndex, kEpochSlots,
-                     pcBlkSecurityParam)
+                     epochOrSlotToEpochIndex, kEpochSlots, pcBlkSecurityParam)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)

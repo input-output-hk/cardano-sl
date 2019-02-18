@@ -14,7 +14,8 @@ import           Universum
 import           Serokell.Util (VerificationRes (..), isVerSuccess)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, counterexample, forAll, (===), (==>))
+import           Test.QuickCheck (Property, counterexample, forAll, (===),
+                     (==>))
 
 import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
                      GenesisBody (..), GenesisConsensusData (..),

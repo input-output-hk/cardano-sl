@@ -82,10 +82,9 @@ import           Pos.Chain.Block.Header (BlockHeader (..), BlockSignature (..),
                      headerLastSlotInfo, mainHeaderAttributes,
                      mainHeaderBlockVersion, mainHeaderDifficulty,
                      mainHeaderEBDataProof, mainHeaderLeaderKey,
-                     mainHeaderProof, mainHeaderSignature,
-                     mainHeaderSlot, mainHeaderSoftwareVersion,
-                     mkGenesisHeader, mkMainHeaderExplicit,
-                     verifyMainBlockHeader)
+                     mainHeaderProof, mainHeaderSignature, mainHeaderSlot,
+                     mainHeaderSoftwareVersion, mkGenesisHeader,
+                     mkMainHeaderExplicit, verifyMainBlockHeader)
 import           Pos.Chain.Block.Main (BlockBodyAttributes,
                      BlockHeaderAttributes, MainBody (..),
                      MainExtraBodyData (..), MainExtraHeaderData (..),
@@ -111,7 +110,7 @@ import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..),
                      SlotLeaders, slotLeadersF)
 import           Pos.Core.Slotting (EpochIndex, HasEpochIndex (..),
-                     HasEpochOrSlot (..), SlotId (..), SlotCount)
+                     HasEpochOrSlot (..), SlotCount, SlotId (..))
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SecretKey, hash)
 import           Pos.Util.Some (Some (..))
 

@@ -11,6 +11,7 @@ module Pos.Chain.Block.Header
        , _BlockHeaderGenesis
        , _BlockHeaderMain
        , verifyBlockHeader
+       , headerLeaderKey
        , headerLastSlotInfo
 
        , HeaderHash
@@ -686,6 +687,11 @@ mainHeaderSlot = gbhConsensus . mcdSlot
 -- | Lens from 'MainBlockHeader' to 'PublicKey'.
 mainHeaderLeaderKey :: Lens' MainBlockHeader PublicKey
 mainHeaderLeaderKey = gbhConsensus . mcdLeaderKey
+
+headerLeaderKey :: BlockHeader -> Maybe PublicKey
+headerLeaderKey = \case
+    BlockHeaderGenesis _ -> Nothing
+    BlockHeaderMain mbh -> Just $ view mainHeaderLeaderKey mbh
 
 -- | Lens from 'MainBlockHeader' to 'ChainDifficulty'.
 mainHeaderDifficulty :: Lens' MainBlockHeader ChainDifficulty

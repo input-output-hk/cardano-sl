@@ -33,10 +33,9 @@ import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 
 import           Pos.Chain.Block (Block, Blund, ConsensusEraLeaders (..),
-                     HasSlogGState, LastBlkSlots, LastSlotInfo (..), MainBlock,
-                     SlogUndo (..), genBlockLeaders, headerHash, headerHashG,
-                     mainBlockLeaderKey, mainBlockSlot, prevBlockL,
-                     verifyBlocks)
+                     HasSlogGState, LastBlkSlots, LastSlotInfo (..),
+                     SlogUndo (..), blockLastSlotInfo, genBlockLeaders,
+                     headerHash, headerHashG, prevBlockL, verifyBlocks)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
                      configGenesisWStakeholders, configK)
@@ -45,14 +44,13 @@ import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
                      ObftConsensusStrictness (..), UpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (BlockCount, difficultyL, epochIndexL,
-                     epochOrSlotToEpochIndex, flattenSlotId, kEpochSlots,
-                     pcBlkSecurityParam)
+                     epochOrSlotToEpochIndex, kEpochSlots, pcBlkSecurityParam)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
-import           Pos.Core.Slotting (HasEpochIndex, MonadSlots, SlotCount,
-                     SlotId (..), getEpochOrSlot)
+import           Pos.Core.Slotting (HasEpochIndex, MonadSlots, SlotId (..),
+                     getEpochOrSlot)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
@@ -221,7 +219,7 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     -- these slots will be added if we apply all blocks
     let newSlots :: [LastSlotInfo]
         newSlots =
-            mapMaybe (toLastSlotInfo (configEpochSlots genesisConfig)) $ toList blocks
+            mapMaybe (blockLastSlotInfo (configEpochSlots genesisConfig)) $ toList blocks
     let combinedSlots :: LastBlkSlots
         combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
     -- these slots will be removed if we apply all blocks, because we store
@@ -245,16 +243,6 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     -- NE.fromList is safe here, because it's obvious that the size of
     -- 'slogUndo' is the same as the size of 'blocks'.
     return $ over _Wrapped NE.fromList $ map (SlogUndo . fmap lsiFlatSlotId) slogUndo
-
-toLastSlotInfo :: SlotCount -> Block -> Maybe LastSlotInfo
-toLastSlotInfo slotCount blk =
-    convert <$> rightToMaybe blk
-  where
-    convert :: MainBlock -> LastSlotInfo
-    convert b =
-        LastSlotInfo
-            (flattenSlotId slotCount $ view mainBlockSlot b)
-            (view mainBlockLeaderKey b)
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type MonadSlogApply ctx m =
@@ -328,7 +316,7 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
 
     newSlots :: [LastSlotInfo]
-    newSlots = mapMaybe (toLastSlotInfo (kEpochSlots k)) $ toList blocks
+    newSlots = mapMaybe (blockLastSlotInfo (kEpochSlots k)) $ toList blocks
 
     newLastSlots :: LastBlkSlots -> LastBlkSlots
     newLastSlots = OldestFirst . updateLastSlots . getOldestFirst
@@ -417,7 +405,7 @@ slogRollbackBlocks genesisConfig (BypassSecurityCheck bypassSecurity) (ShouldCal
 
     lastSlotsToAppend :: [LastSlotInfo]
     lastSlotsToAppend =
-        mapMaybe (toLastSlotInfo (configEpochSlots genesisConfig) . fst)
+        mapMaybe (blockLastSlotInfo (configEpochSlots genesisConfig) . fst)
             $ toList (toOldestFirst blunds)
 
     newLastSlots :: LastBlkSlots -> LastBlkSlots

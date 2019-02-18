@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
@@ -23,27 +24,31 @@ module Test.Pos.Chain.Block.Arbitrary
 import qualified Prelude
 import           Universum
 
-import qualified Data.Set as Set (fromList)
+import qualified Data.List as List
+import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
 import           System.Random (Random, mkStdGen, randomR)
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat,
-                     vectorOf)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (ConsensusEraLeaders (..), HeaderHash,
-                     mkMainBlock, mkMainBlockExplicit)
+                     headerLastSlotInfo, mkMainBlock, mkMainBlockExplicit)
 import qualified Pos.Chain.Block as Block
 import qualified Pos.Chain.Delegation as Core
 import           Pos.Chain.Genesis (GenesisHash (..))
 import           Pos.Chain.Update (ConsensusEra (..),
                      ObftConsensusStrictness (..))
-import           Pos.Core (localSlotIndexMaxBound, localSlotIndexMinBound)
+import           Pos.Core (BlockCount (..), EpochOrSlot (..), SlotId (..),
+                     getEpochOrSlot, localSlotIndexMaxBound,
+                     localSlotIndexMinBound)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Core.Slotting (LocalSlotIndex (..), SlotCount (..),
+                     epochOrSlotToSlot)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
                      toPublic)
 
@@ -57,7 +62,7 @@ import           Test.Pos.Chain.Update.Arbitrary (genUpdatePayload)
 import           Test.Pos.Core.Arbitrary (genSlotId)
 
 newtype BodyDependsOnSlot body = BodyDependsOnSlot
-    { genBodyDepsOnSlot :: Core.SlotId -> Gen body
+    { genBodyDepsOnSlot :: SlotId -> Gen body
     }
 
 ------------------------------------------------------------------------------------------
@@ -191,7 +196,7 @@ genMainBlockBody pm epoch =
 
 genMainBlockBodyForSlot
     :: ProtocolMagic
-    -> Core.SlotId
+    -> SlotId
     -> Gen Block.MainBody
 genMainBlockBodyForSlot pm slotId = do
     txpPayload <- genTxPayload pm
@@ -289,7 +294,7 @@ recursiveHeaderGen
     -> GenesisHash
     -> Bool -- ^ Whether to create genesis block before creating main block for 0th slot
     -> [Either SecretKey (SecretKey, SecretKey)]
-    -> [Core.SlotId]
+    -> [SlotId]
     -> [Block.BlockHeader]
     -> Gen [Block.BlockHeader]
 recursiveHeaderGen pm
@@ -297,7 +302,7 @@ recursiveHeaderGen pm
                    gHash
                    genesis
                    (eitherOfLeader : leaders)
-                   (Core.SlotId{..} : rest)
+                   (SlotId{..} : rest)
                    blockchain
     | genesis && era == Original && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
@@ -315,7 +320,7 @@ recursiveHeaderGen pm
         -- These two values may not be used at all. If the slot in question
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
-        let slotId = Core.SlotId siEpoch siSlot
+        let slotId = SlotId siEpoch siSlot
             (leader, proxySK) = case eitherOfLeader of
                 Left sk -> (sk, Nothing)
                 Right (issuerSK, delegateSK) ->
@@ -366,7 +371,7 @@ genStubbedBHL
     -> Gen BlockHeaderList
 genStubbedBHL pm era = do
     incompleteEpochSize <- choose (1, dummyEpochSlots - 1)
-    let slot = Core.SlotId 0 localSlotIndexMinBound
+    let slot = SlotId 0 localSlotIndexMinBound
     generateBHL pm era dummyGenesisHash True slot (dummyEpochSlots * bhlEpochs + incompleteEpochSize)
 
 generateBHL
@@ -375,17 +380,11 @@ generateBHL
     -> GenesisHash
     -> Bool         -- ^ Whether to create genesis block before creating main
                     --    block for 0th slot
-    -> Core.SlotId     -- ^ Start slot
-    -> Core.SlotCount  -- ^ Slot count
+    -> SlotId     -- ^ Start slot
+    -> SlotCount  -- ^ Slot count
     -> Gen BlockHeaderList
 generateBHL pm era gHash createInitGenesis startSlot slotCount = BHL <$> do
-    let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey))
-        correctLeaderGen =
-            -- We don't want to create blocks with self-signed psks
-            let issDelDiff (Left _)      = True
-                issDelDiff (Right (i,d)) = i /= d
-            in arbitrary `suchThat` issDelDiff
-    leadersList <- vectorOf (fromIntegral slotCount) correctLeaderGen
+    leadersList <- genLeaderKeyList $ fromIntegral slotCount
     let actualLeaders = map (toPublic . either identity (view _1)) leadersList
         slotIdsRange =
             take (fromIntegral slotCount) $
@@ -401,42 +400,69 @@ generateBHL pm era gHash createInitGenesis startSlot slotCount = BHL <$> do
             slotIdsRange
             []
 
+-- Generate a unique list of leader keys of the specified length. Needs to be
+-- unique so that block vaidation doesn't fail when validating ObftLenient.
+genLeaderKeyList :: Int -> Gen [Either SecretKey (SecretKey, SecretKey)]
+genLeaderKeyList count =
+    loop 0 []
+  where
+    loop :: Int -> [Either SecretKey (SecretKey, SecretKey)] -> Gen [Either SecretKey (SecretKey, SecretKey)]
+    loop n !acc
+        | n >= count = pure acc
+        | otherwise = do
+            key <- correctLeaderGen
+            -- New keys that are already present in the list are discarded.
+            if key `elem` acc
+                then loop n acc
+                else loop (n + 1) (key : acc)
+
+    correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey))
+    correctLeaderGen =
+        -- We don't want to create blocks with self-signed psks
+        let issDelDiff (Left _)      = True
+            issDelDiff (Right (i,d)) = i /= d
+        in arbitrary `suchThat` issDelDiff
+
 -- | This type is used to generate a valid blockheader and associated header
 -- verification params. With regards to the block header function
 -- 'Pos.Types.Blocks.Functions.verifyHeader', the blockheaders that may be
 -- part of the verification parameters are guaranteed to be valid, as are the
 -- slot leaders and the current slot.
-newtype HeaderAndParams = HAndP
-    { getHAndP :: (Block.VerifyHeaderParams, Block.BlockHeader)
+data HeaderAndParams = HeaderAndParams
+    { hapHeader :: Block.BlockHeader
+    , hapParams :: Block.VerifyHeaderParams
     } deriving (Eq, Show)
 
+-- This generator produces a header and a set of params for testing that header.
 genHeaderAndParams :: ProtocolMagic -> ConsensusEra -> Gen HeaderAndParams
 genHeaderAndParams pm era = do
-    -- This integer is used as a seed to randomly choose a slot down below
+    -- This Int is used as a seed to randomly choose a slot down below
     seed <- arbitrary :: Gen Int
-    startSlot <- Core.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
-    (headers, leaders) <- first reverse . getHeaderList <$>
-        (generateBHL pm era dummyGenesisHash True startSlot =<< choose (1, 2))
-    let num = length headers
+    -- If the blkSecurityParam is too low (ie < 10) then ObftLenient is likely
+    -- to fail.
+    blkSecurityParam <- BlockCount <$> choose (10, 50)
+    slotsPerEpoch <- SlotCount . (getBlockCount blkSecurityParam *) <$> choose (2, 10)
+    startSlot <- SlotId <$> choose (0, bhlMaxStartingEpoch)
+                    <*> (UnsafeLocalSlotIndex <$> choose (0, fromIntegral (getSlotCount slotsPerEpoch) - 1))
+    -- Create up to 10 slots, and trim them later.
+    slotCount <- choose (2, 10)
+    headers <- reverse . fst . getHeaderList
+                    <$> generateBHL pm era dummyGenesisHash True startSlot slotCount
+
     -- 'skip' is the random number of headers that should be skipped in
     -- the header chain. This ensures different parts of it are chosen
     -- each time.
-    skip <- choose (0, num - 1)
-    let atMost2HeadersAndLeaders = take 2 $ drop skip headers
-        (prev, header) =
-            case atMost2HeadersAndLeaders of
+    skip <- choose (0, length headers - 2)
+    let (prev, header) =
+            case take 2 $ drop skip headers of
                 [h]      -> (Nothing, h)
                 [h1, h2] -> (Just h1, h2)
+                []       -> error "[BlockSpec] empty headerchain"
                 _        -> error "[BlockSpec] the headerchain doesn't have enough headers"
-        -- This binding captures the chosen header's epoch. It is used to
-        -- drop all all leaders of headers from previous epochs.
-        thisEpochStartIndex = fromIntegral dummyEpochSlots *
-                                fromIntegral (header ^. Core.epochIndexL)
-        thisHeadersEpoch = drop thisEpochStartIndex leaders
         -- A helper function. Given integers 'x' and 'y', it chooses a
         -- random integer in the interval [x, y]
         betweenXAndY :: Random a => a -> a -> a
-        betweenXAndY x y = fst . randomR (x, y) . mkStdGen $ seed
+        betweenXAndY x y = fst . randomR (x, y) $ mkStdGen seed
         -- One of the fields in the 'VerifyHeaderParams' type is 'Just
         -- SlotId'. The following binding is where it is calculated.
         randomSlotBeforeThisHeader =
@@ -449,38 +475,79 @@ genHeaderAndParams pm era = do
                 -- the header's epoch and with any slot index, or any in
                 -- the same epoch but with a greater or equal slot index
                 -- than the header.
-                Block.BlockHeaderMain h -> -- Nothing {-
-                    let (Core.SlotId e s) = view Block.headerSlotL h
+                Block.BlockHeaderMain h ->
+                    let (SlotId e s) = view Block.headerSlotL h
                         rndEpoch :: Core.EpochIndex
                         rndEpoch = betweenXAndY e maxBound
-                        rndSlotIdx :: Core.LocalSlotIndex
+                        rndSlotIdx :: LocalSlotIndex
                         rndSlotIdx = if rndEpoch > e
-                            then betweenXAndY localSlotIndexMinBound (localSlotIndexMaxBound dummyEpochSlots)
-                            else betweenXAndY s (localSlotIndexMaxBound dummyEpochSlots)
-                        rndSlot = Core.SlotId rndEpoch rndSlotIdx
+                            then betweenXAndY localSlotIndexMinBound (localSlotIndexMaxBound slotsPerEpoch)
+                            else betweenXAndY s (localSlotIndexMaxBound slotsPerEpoch)
+                        rndSlot = SlotId rndEpoch rndSlotIdx
                     in Just rndSlot
         hasUnknownAttributes =
             not . areAttributesKnown $
             case header of
                 Block.BlockHeaderGenesis h -> h ^. Block.gbhExtra . Block.gehAttributes
                 Block.BlockHeaderMain h    -> h ^. Block.gbhExtra . Block.mehAttributes
-        thisEpochLeaderSchedule = nonEmpty (map Core.addressHash thisHeadersEpoch)
+
+        thisEpochLeaderSchedule :: Maybe (NonEmpty (Core.AddressHash PublicKey))
+        thisEpochLeaderSchedule =
+            mkEpochLeaderSchedule era (getEpochOrSlot header) headers
+
         params = Block.VerifyHeaderParams
             { Block.vhpPrevHeader = prev
             , Block.vhpCurrentSlot = randomSlotBeforeThisHeader
             , Block.vhpLeaders = case era of
                 Original         -> OriginalLeaders <$> thisEpochLeaderSchedule
                 OBFT ObftStrict  -> ObftStrictLeaders <$> thisEpochLeaderSchedule
-                OBFT ObftLenient -> do
-                    ls <- thisEpochLeaderSchedule
-                    pure $ ObftLenientLeaders (Set.fromList (toList ls))
-                                              (Core.BlockCount 5)
-                                              (OldestFirst [])
+                OBFT ObftLenient ->
+                    pure $ ObftLenientLeaders
+                            (Set.fromList $ mapMaybe (fmap Core.addressHash . Block.headerLeaderKey) headers)
+                            blkSecurityParam
+                            (OldestFirst $ mapMaybe (headerLastSlotInfo slotsPerEpoch) headers)
             , Block.vhpMaxSize = Just (biSize header)
             , Block.vhpVerifyNoUnknown = not hasUnknownAttributes
             , Block.vhpConsensusEra = era
             }
-    return . HAndP $ (params, header)
+    return $ HeaderAndParams header params
+
+-- Pad the head of a list of block headers to generate a list that is long enough
+-- to index correctly during validation. Use the EpochOrSlot of the target
+-- BlockHeader to and the header index to calculate the number of fake leader
+-- keys to prepend to the header
+mkEpochLeaderSchedule :: ConsensusEra -> EpochOrSlot -> [Block.BlockHeader] -> Maybe (NonEmpty (Core.AddressHash PublicKey))
+mkEpochLeaderSchedule era eos hdrs =
+    case List.elemIndex eos (map getEpochOrSlot hdrs) of
+        Nothing -> Nothing
+        Just idx ->
+            let count = prependCount idx in
+            nonEmpty .
+                (if count >= 0
+                    then (replicate count fakeLeaderKey ++)
+                    else List.drop (- count - extra)
+                    )
+                $ mapMaybe (fmap Core.addressHash . Block.headerLeaderKey) hdrs
+  where
+    fakeLeaderKey :: Core.AddressHash PublicKey
+    fakeLeaderKey = Core.unsafeAddressHash ("fake leader key" :: ByteString)
+
+    prependCount :: Int -> Int
+    prependCount idx =
+        fromIntegral (getSlotIndex . siSlot $ epochOrSlotToSlot eos) - idx
+
+    -- Need this because in the validation code, the indexing for the slot
+    -- leader schedule starts at 1 for the Original chain (due to the epoch
+    -- boundary block) but at 0 for ObftStrict.
+    extra :: Int
+    extra =
+        case era of
+            Original -> 1
+            OBFT ObftStrict -> 0
+            OBFT ObftLenient ->
+                -- This should never happen.
+                Prelude.error "Test.Pos.Chain.Block.Arbitrary.mkEpochLeaderSchedule ObftLenient"
+
 
 -- | A lot of the work to generate a valid sequence of blockheaders has
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'

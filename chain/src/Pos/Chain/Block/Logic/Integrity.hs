@@ -40,14 +40,14 @@ import           Pos.Chain.Block.Slog (ConsensusEraLeaders (..),
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxValidationRules)
 import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
-import           Pos.Core (BlockCount (..), ChainDifficulty, EpochOrSlot (..),
-                     HasDifficulty (..), HasEpochOrSlot (..),
+import           Pos.Core (AddressHash, BlockCount (..), ChainDifficulty,
+                     EpochOrSlot (..), HasDifficulty (..), HasEpochOrSlot (..),
                      LocalSlotIndex (..), SlotId (..), addressHash,
                      getSlotIndex)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
-                     getProtocolMagic)
+                     PublicKey, getProtocolMagic)
 
 ----------------------------------------------------------------------------
 -- Header
@@ -135,6 +135,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
               ("slots are not monotonic ("%build%" >= "%build%")")
               oldEOS newEOS
         )
+    checkProtocolMagicId :: [(Bool, Text)]
     checkProtocolMagicId =
         [ ( getProtocolMagicId pm == blockHeaderProtocolMagicId h
           , sformat
@@ -143,6 +144,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
                 (getProtocolMagic pm)
           )
         ]
+    checkSize :: [(Bool, Text)]
     checkSize =
         case vhpMaxSize of
             Nothing -> mempty
@@ -186,6 +188,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
                 ]
 
     -- CHECK: Checks that the block leader is the expected one.
+    relatedToLeaders :: ConsensusEraLeaders -> [(Bool, Text)]
     relatedToLeaders leaders =
         case h of
             BlockHeaderGenesis _ -> []
@@ -201,50 +204,62 @@ verifyHeader pm VerifyHeaderParams {..} h =
                     -- a slot leader schedule as it would for the `OBFT ObftStrict`
                     -- and `Original` cases.
                     ObftLenientLeaders ldrs blkSecurityParam lastBlkSlots ->
-                        [  ( (blockSlotLeader `elem` ldrs)
-                            , sformat ("slot leader who published block, "%build%", is not an acceptable leader.")
-                                    blockSlotLeader)
-                            , ( (obftLeaderCanMint blockSlotLeader blkSecurityParam lastBlkSlots)
-                            , sformat ("slot leader who published block, "%build%", has minted too many blocks in the past "%build%" slots.")
+                        [   ( blockSlotLeader `elem` ldrs
+                            , sformat ("ObftLenient: slot leader who published block, "%build%", is not an acceptable leader.")
                                     blockSlotLeader
-                                    (getBlockCount blkSecurityParam))
-                            ]
+                              )
+                        ,   ( obftLeaderCanMint blockSlotLeader blkSecurityParam lastBlkSlots
+                            , sformat ("ObftLenient: slot leader who published block, "%build%", has minted too many blocks ("% build %") in the past "%build%" slots.")
+                                    blockSlotLeader
+                                    (blocksMintedByLeaderInLastKSlots blockSlotLeader $ getOldestFirst lastBlkSlots)
+                                    (getBlockCount blkSecurityParam)
+                            )
+                        ]
 
                     ObftStrictLeaders ldrs ->
-                        [  ( (Just blockSlotLeader == (scheduleSlotLeader ldrs))
-                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%".")
-                                    (scheduleSlotLeader ldrs)
-                                    blockSlotLeader)
-                            ]
+                        if isNothing (scheduleSlotLeader ldrs)
+                            then [ (isJust (scheduleSlotLeader ldrs), "ObftStrict: scheduled slot leader is missing") ]
+                            else
+                                [   ( Just blockSlotLeader == scheduleSlotLeader ldrs
+                                    , sformat ("ObftStrict: slot leader from schedule, "%build%", is different from slot leader who published block, "%build%".")
+                                        (scheduleSlotLeader ldrs)
+                                        blockSlotLeader
+                                    )
+                                ]
 
                     OriginalLeaders ldrs ->
-                        [  ( (Just blockSlotLeader == (scheduleSlotLeader ldrs))
-                            , sformat ("slot leader from schedule, "%build%", is different from slot leader who published block, "%build%".")
-                                    (scheduleSlotLeader ldrs)
-                                    blockSlotLeader)
-                            ]
+                        if isNothing (scheduleSlotLeader ldrs)
+                            then [ (isJust (scheduleSlotLeader ldrs), "ObftStrict: scheduled slot leader is missing") ]
+                            else
+                                [   ( Just blockSlotLeader == scheduleSlotLeader ldrs
+                                    , sformat ("Original: slot leader from schedule, "%build%", is different from slot leader who published block, "%build%".")
+                                        (scheduleSlotLeader ldrs)
+                                        blockSlotLeader
+                                    )
+                                ]
       where
         -- Determine whether the leader is allowed to mint a block based on
         -- whether blocksMintedByLeaderInLastKSlots <= floor (k * t)
-        obftLeaderCanMint leaderAddrHash
-                          blkSecurityParam
-                          (OldestFirst lastBlkSlots) =
-            (blocksMintedByLeaderInLastKSlots leaderAddrHash lastBlkSlots)
-                <= (leaderMintThreshold blkSecurityParam)
-        --
+        obftLeaderCanMint :: AddressHash PublicKey -> BlockCount -> OldestFirst [] LastSlotInfo -> Bool
+        obftLeaderCanMint leaderAddrHash blkSecurityParam (OldestFirst lastBlkSlots) =
+            blocksMintedByLeaderInLastKSlots leaderAddrHash lastBlkSlots
+                <= leaderMintThreshold blkSecurityParam
+
+        blocksMintedByLeaderInLastKSlots :: AddressHash PublicKey -> [LastSlotInfo] -> Int
         blocksMintedByLeaderInLastKSlots leaderAddrHash lastBlkSlots =
             length $
                 filter (\lsi -> leaderAddrHash == (addressHash $ lsiLeaderPubkeyHash lsi))
                        lastBlkSlots
-        --
+
         leaderMintThreshold :: BlockCount -> Int
         leaderMintThreshold blkSecurityParam =
             let k = getBlockCount blkSecurityParam
             in floor $ (fromIntegral k :: Double) * t
-        --
+
         t :: Double
         t = 0.22
 
+    verifyNoUnknown :: BlockHeader -> [(Bool, Text)]
     verifyNoUnknown (BlockHeaderGenesis genH) =
         let attrs = genH ^. gbhExtra . gehAttributes
         in  [ ( areAttributesKnown attrs

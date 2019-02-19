@@ -199,6 +199,8 @@ extra-deps:
 - git: https://github.com/input-output-hk/iohk-monitoring-framework.git
   commit: 34f3b7febef064856fc27df9f36626dd186029ed
 
+- libyaml-0.1.1.0
+
 # Serokell-specific utilities not on stackage
 - fmt-0.6
 

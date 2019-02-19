@@ -2,6 +2,7 @@
   overlay = hackage:
     {
       packages = {
+        "libyaml" = hackage.libyaml."0.1.1.0".revisions.default;
         "fmt" = hackage.fmt."0.6".revisions.default;
         "servant-multipart" = hackage.servant-multipart."0.11.2".revisions.default;
         "normaldistribution" = hackage.normaldistribution."1.1.0.3".revisions.default;

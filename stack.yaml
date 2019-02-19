@@ -153,7 +153,7 @@ packages:
 # buggy async
 - location:
     git: https://github.com/input-output-hk/log-warper.git
-    commit: 0b7d4d48310f139d75829d31883aaa87ce53312c
+    commit: 16246d4fbf16da7984f2a4b6c42f2ed5098182e4
   extra-dep: true
 
 # Exposes a custom discovery function so you can specify the prefix.
@@ -200,6 +200,9 @@ extra-deps:
   commit: aa430c860445817dc074ddb42ed29ad9e8da9f78
 
 - libyaml-0.1.0.0
+# Can't use yaml before 0.10.4.0 because it exports the same symbols as
+# libyaml.
+- yaml-0.11.0.0
 
 # Serokell-specific utilities not on stackage
 - fmt-0.6

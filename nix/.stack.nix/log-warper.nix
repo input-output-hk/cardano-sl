@@ -25,7 +25,7 @@
     };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.aeson)
           (hsPkgs.ansi-terminal)
@@ -51,32 +51,11 @@
           (hsPkgs.yaml)
         ] ++ pkgs.lib.optional (!system.isWindows) (hsPkgs.unix);
       };
-      tests = {
-        "log-test" = {
-          depends  = [
-            (hsPkgs.async)
-            (hsPkgs.base)
-            (hsPkgs.data-default)
-            (hsPkgs.directory)
-            (hsPkgs.filepath)
-            (hsPkgs.hspec)
-            (hsPkgs.HUnit)
-            (hsPkgs.microlens-mtl)
-            (hsPkgs.log-warper)
-            (hsPkgs.QuickCheck)
-            (hsPkgs.universum)
-            (hsPkgs.unordered-containers)
-          ];
-          build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-          ];
-        };
-      };
     };
   } // {
     src = pkgs.fetchgit {
       url = "https://github.com/input-output-hk/log-warper.git";
-      rev = "0b7d4d48310f139d75829d31883aaa87ce53312c";
-      sha256 = "0m9inw7m42yj0kn3x3ip5ipv72pr34l4744myzlidbpqa2wf4b7g";
+      rev = "16246d4fbf16da7984f2a4b6c42f2ed5098182e4";
+      sha256 = "11vw6h3lshhwrjbxni6z0jr6w9x2x338rv6p2b4b0rgr650pv2a9";
     };
   }

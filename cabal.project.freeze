@@ -186,5 +186,5 @@ constraints: Cabal ==2.2.0.1,
              x509 ==1.7.5,
              x509-store ==1.6.7,
              x509-validation ==1.6.11,
-             yaml ==0.8.32,
+             yaml ==0.11.0.0,
              zlib ==0.6.2

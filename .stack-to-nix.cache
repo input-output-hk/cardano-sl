@@ -30,3 +30,4 @@ https://github.com/avieth/network-transport-tcp 2634e5e32178bb0456d800d133f86643
 https://github.com/input-output-hk/iohk-monitoring-framework.git 34f3b7febef064856fc27df9f36626dd186029ed . 0926bk8jvprc69csiav0kfv984nn1lq840gr1nj58i1xfdhi8wmw iohk-monitoring .stack.nix/iohk-monitoring.nix
 https://github.com/input-output-hk/iohk-monitoring-framework.git e72f808815cec4ec76f9c43f7c882806870faf64 . 02y4yyssmjyhrc3vsr1qdilrlhh9klr3b5k6vyshra1n6f5zqgra iohk-monitoring .stack.nix/iohk-monitoring.nix
 https://github.com/input-output-hk/iohk-monitoring-framework.git aa430c860445817dc074ddb42ed29ad9e8da9f78 . 069bc110ipzv2xsn45m1fpl1lqb3219cmn1gfmid6qqc7rkv8vii iohk-monitoring .stack.nix/iohk-monitoring.nix
+https://github.com/input-output-hk/log-warper.git 16246d4fbf16da7984f2a4b6c42f2ed5098182e4 . 11vw6h3lshhwrjbxni6z0jr6w9x2x338rv6p2b4b0rgr650pv2a9 log-warper .stack.nix/log-warper.nix

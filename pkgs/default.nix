@@ -50299,8 +50299,8 @@ version = "1.8.10.1";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/log-warper.git";
-sha256 = "0m9inw7m42yj0kn3x3ip5ipv72pr34l4744myzlidbpqa2wf4b7g";
-rev = "0b7d4d48310f139d75829d31883aaa87ce53312c";
+sha256 = "11vw6h3lshhwrjbxni6z0jr6w9x2x338rv6p2b4b0rgr650pv2a9";
+rev = "16246d4fbf16da7984f2a4b6c42f2ed5098182e4";
 fetchSubmodules = true;
 
 };
@@ -85995,9 +85995,10 @@ license = stdenv.lib.licenses.bsd3;
 , containers
 , directory
 , filepath
+, libyaml
+, mtl
 , resourcet
 , scientific
-, semigroups
 , stdenv
 , template-haskell
 , text
@@ -86008,8 +86009,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "yaml";
-version = "0.8.32";
-sha256 = "dc20f863deb4ee75395bf1f78268781db76be6209af67b70c05f6e1a09f47a31";
+version = "0.11.0.0";
+sha256 = "e66466cd29a4d256c3dd4dd4ab366033dbc5fa1fb67fdc6f7ac7aa3f161527bf";
 configureFlags = [
 "-fsystem-libyaml"
 ];
@@ -86024,9 +86025,10 @@ conduit
 containers
 directory
 filepath
+libyaml
+mtl
 resourcet
 scientific
-semigroups
 template-haskell
 text
 transformers

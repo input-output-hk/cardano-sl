@@ -231,6 +231,7 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       let
         allLinux = x: map (system: x.${system}) [ "x86_64-linux" ];
         all = x: map (system: x.${system}) supportedSystems;
+        recursiveFlattenAttrs = set: builtins.concatLists (lib.mapAttrsFlatten (key: value: if (lib.isDerivation value) then [value] else (recursiveFlattenAttrs value)) set);
       in
     [
       (builtins.concatLists (map lib.attrValues (allLinux jobsets.all-cardano-tests)))
@@ -241,6 +242,7 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       jobsets.tests.shellcheck
       jobsets.tests.stylishHaskell
       jobsets.tests.swaggerSchemaValidation
+      (recursiveFlattenAttrs jobsets.nix-tools.benchmarks)
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.libs)))
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.exes)))
     ];

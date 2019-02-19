@@ -178,6 +178,7 @@ let
          packages.diagrams-svg        = withTH;
          packages.diagrams-postscript = withTH;
          packages.Chart-diagrams      = withTH;
+         packages.statistics          = withTH;
       })
       # packages we wish to ignore version bounds of.
       # this is similar to jailbreakCabal, however it

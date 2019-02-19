@@ -197,9 +197,9 @@ nix:
 
 extra-deps:
 - git: https://github.com/input-output-hk/iohk-monitoring-framework.git
-  commit: 34f3b7febef064856fc27df9f36626dd186029ed
+  commit: e72f808815cec4ec76f9c43f7c882806870faf64
 
-- libyaml-0.1.1.0
+- libyaml-0.1.0.0
 
 # Serokell-specific utilities not on stackage
 - fmt-0.6

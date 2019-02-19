@@ -45586,8 +45586,8 @@ version = "0.1.2.0";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/iohk-monitoring-framework.git";
-sha256 = "0926bk8jvprc69csiav0kfv984nn1lq840gr1nj58i1xfdhi8wmw";
-rev = "34f3b7febef064856fc27df9f36626dd186029ed";
+sha256 = "02y4yyssmjyhrc3vsr1qdilrlhh9klr3b5k6vyshra1n6f5zqgra";
+rev = "e72f808815cec4ec76f9c43f7c882806870faf64";
 fetchSubmodules = true;
 
 };
@@ -49484,8 +49484,8 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "libyaml";
-version = "0.1.1.0";
-sha256 = "6a034047f45c2f5d3acb8a5b0852075bd4b4f7d6a222a992f45afac152b55f5f";
+version = "0.1.0.0";
+sha256 = "9cd688e316938d8a80536cb1b329c4b651c845e34e045b0c443b345580fb6f07";
 libraryHaskellDepends = [
 base
 bytestring

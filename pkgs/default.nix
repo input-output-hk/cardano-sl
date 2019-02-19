@@ -45485,6 +45485,7 @@ license = stdenv.lib.licenses.bsd3;
 , aeson
 , array
 , async
+, attoparsec
 , auto-update
 , base
 , bytestring
@@ -45495,11 +45496,11 @@ license = stdenv.lib.licenses.bsd3;
 , download
 , ekg
 , ekg-core
-, exceptions
 , fetchgit
 , filepath
 , katip
 , lens
+, libyaml
 , mtl
 , random
 , safe-exceptions
@@ -45519,12 +45520,12 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "iohk-monitoring";
-version = "0.1.1.0";
+version = "0.1.2.0";
 src = fetchgit {
 
-url = "git@github.com:input-output-hk/iohk-monitoring-framework.git";
-sha256 = "1c48frgvcxmawhc8zalgd83zzr2j0h0kxawgdimmzlcdxrf506gd";
-rev = "dae08b9b6ed33ecc50d02d8a9d3945b990276441";
+url = "https://github.com/input-output-hk/iohk-monitoring-framework.git";
+sha256 = "0926bk8jvprc69csiav0kfv984nn1lq840gr1nj58i1xfdhi8wmw";
+rev = "34f3b7febef064856fc27df9f36626dd186029ed";
 fetchSubmodules = true;
 
 };
@@ -45534,6 +45535,7 @@ libraryHaskellDepends = [
 aeson
 array
 async
+attoparsec
 auto-update
 base
 bytestring
@@ -45543,10 +45545,10 @@ contravariant
 directory
 ekg
 ekg-core
-exceptions
 filepath
 katip
 lens
+libyaml
 mtl
 safe-exceptions
 scientific

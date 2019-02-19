@@ -27,3 +27,4 @@ https://github.com/primetype/inspector.git c975f4329365f0379c04358138e616fb96fb0
 https://github.com/input-output-hk/cardano-crypto 59eb60b3a227c615736db9bb1609fd5c20109098 . 0afacdk9ibdzay43l79r1zvg957gkrnrfla5dzcd64jz6xnigg8j cardano-crypto .stack.nix/cardano-crypto.nix
 https://github.com/input-output-hk/cardano-crypto 45e1a0eafac774c109704be44ca06fd8cae193ba . 1jyzai4sn9hi3p6r97h54f9a7an7vk38lwrbl4mds9zmdsw5f5ad cardano-crypto .stack.nix/cardano-crypto.nix
 https://github.com/avieth/network-transport-tcp 2634e5e32178bb0456d800d133f8664321daa2ef . 03shp9prflhgqzw7pymw1pq2q7s1wf46pyjm2csx8646snrhf35i network-transport-tcp .stack.nix/network-transport-tcp.nix
+https://github.com/input-output-hk/iohk-monitoring-framework.git 34f3b7febef064856fc27df9f36626dd186029ed . 0926bk8jvprc69csiav0kfv984nn1lq840gr1nj58i1xfdhi8wmw iohk-monitoring .stack.nix/iohk-monitoring.nix

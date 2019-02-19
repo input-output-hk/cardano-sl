@@ -126,7 +126,7 @@
   } // {
     src = pkgs.fetchgit {
       url = "https://github.com/input-output-hk/iohk-monitoring-framework.git";
-      rev = "e72f808815cec4ec76f9c43f7c882806870faf64";
-      sha256 = "02y4yyssmjyhrc3vsr1qdilrlhh9klr3b5k6vyshra1n6f5zqgra";
+      rev = "aa430c860445817dc074ddb42ed29ad9e8da9f78";
+      sha256 = "069bc110ipzv2xsn45m1fpl1lqb3219cmn1gfmid6qqc7rkv8vii";
     };
   }

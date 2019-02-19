@@ -197,7 +197,7 @@ nix:
 
 extra-deps:
 - git: https://github.com/input-output-hk/iohk-monitoring-framework.git
-  commit: e72f808815cec4ec76f9c43f7c882806870faf64
+  commit: aa430c860445817dc074ddb42ed29ad9e8da9f78
 
 - libyaml-0.1.0.0
 

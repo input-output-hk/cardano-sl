@@ -74347,9 +74347,9 @@ pname = "stylish-haskell";
 version = "0.9.2.0";
 src = fetchgit {
 
-url = "https://github.com/input-output-hk/stylish-haskell.git";
-sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
-rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
+url = "https://github.com/avieth/stylish-haskell.git";
+sha256 = "11q9gh38bchkhla64l7wghrp6bdp72vh3j8ddf29z7ixx80x2db1";
+rev = "0bd3e534dcfbad8cc41db773acf623dcc6245d8d";
 fetchSubmodules = true;
 
 };

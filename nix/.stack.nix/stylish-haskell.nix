@@ -25,7 +25,7 @@
     };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.aeson)
           (hsPkgs.base)
           (hsPkgs.bytestring)
@@ -42,7 +42,7 @@
       };
       exes = {
         "stylish-haskell" = {
-          depends  = [
+          depends = [
             (hsPkgs.stylish-haskell)
             (hsPkgs.strict)
             (hsPkgs.optparse-applicative)
@@ -62,7 +62,7 @@
       };
       tests = {
         "stylish-haskell-tests" = {
-          depends  = [
+          depends = [
             (hsPkgs.HUnit)
             (hsPkgs.test-framework)
             (hsPkgs.test-framework-hunit)
@@ -83,8 +83,8 @@
     };
   } // {
     src = pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/stylish-haskell.git";
-      rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
-      sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
+      url = "https://github.com/avieth/stylish-haskell.git";
+      rev = "0bd3e534dcfbad8cc41db773acf623dcc6245d8d";
+      sha256 = "11q9gh38bchkhla64l7wghrp6bdp72vh3j8ddf29z7ixx80x2db1";
     };
   }

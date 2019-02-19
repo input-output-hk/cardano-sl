@@ -31,3 +31,4 @@ https://github.com/input-output-hk/iohk-monitoring-framework.git 34f3b7febef0648
 https://github.com/input-output-hk/iohk-monitoring-framework.git e72f808815cec4ec76f9c43f7c882806870faf64 . 02y4yyssmjyhrc3vsr1qdilrlhh9klr3b5k6vyshra1n6f5zqgra iohk-monitoring .stack.nix/iohk-monitoring.nix
 https://github.com/input-output-hk/iohk-monitoring-framework.git aa430c860445817dc074ddb42ed29ad9e8da9f78 . 069bc110ipzv2xsn45m1fpl1lqb3219cmn1gfmid6qqc7rkv8vii iohk-monitoring .stack.nix/iohk-monitoring.nix
 https://github.com/input-output-hk/log-warper.git 16246d4fbf16da7984f2a4b6c42f2ed5098182e4 . 11vw6h3lshhwrjbxni6z0jr6w9x2x338rv6p2b4b0rgr650pv2a9 log-warper .stack.nix/log-warper.nix
+https://github.com/avieth/stylish-haskell.git 0bd3e534dcfbad8cc41db773acf623dcc6245d8d . 11q9gh38bchkhla64l7wghrp6bdp72vh3j8ddf29z7ixx80x2db1 stylish-haskell .stack.nix/stylish-haskell.nix

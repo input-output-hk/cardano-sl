@@ -335,7 +335,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
 
             representation = Representation
                             { minSeverity     = logSeverity
-                            , rotation        = RotationParameters
+                            , rotation        = Just $ RotationParameters
                                 { rpLogLimitBytes = (104857600 :: Word64)
                                 , rpMaxAgeHours   = (1 :: Word)
                                 , rpKeepFilesNum  = (1 :: Word)

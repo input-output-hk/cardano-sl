@@ -36,7 +36,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurations)
 import           Pos.Node.API (ForceNtpCheck (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.Wlog.Compatibility (usingNamedPureLogger)
+import           Pos.Util.Wlog (usingNamedPureLogger)
 
 
 prefix :: String

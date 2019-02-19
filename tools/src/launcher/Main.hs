@@ -93,9 +93,11 @@ import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
                      LogSecurityLevel (..), defaultInteractiveConfiguration,
                      lcBasePath, lcLoggerTree, ltHandlers, ltMinSeverity,
                      retrieveLogFiles)
-import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Info), logError,
-                     logInfo, logNotice, logWarning, removeAllHandlers,
-                     setupLogging', usingLoggerName)
+import           Pos.Util.Wlog (LoggerNameBox (..), logError,
+                     logInfo, logNotice, logWarning,
+                     usingLoggerName)
+import           Pos.Util.Wlog.Compatibility (Severity (Info), setupLogging',
+                     removeAllHandlers)
 
 import           Pos.Tools.Launcher.Environment (substituteEnvVarsValue)
 import           Pos.Tools.Launcher.Logging (reportErrorDefault)

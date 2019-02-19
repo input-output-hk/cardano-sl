@@ -31,8 +31,8 @@ import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease,
                      wusRootKey)
-import           Pos.Util.Wlog (Severity (Debug), WithLogger, logInfo,
-                     setupLogging', usingLoggerName)
+import           Pos.Util.Wlog (WithLogger, logInfo, usingLoggerName)
+import           Pos.Util.Wlog.Compatibility (Severity (Debug), setupLogging')
 
 import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                      dumpRichSecrets)

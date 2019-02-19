@@ -18,7 +18,7 @@ import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
                      MsgSerializedBlock (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.Wlog (setupTestLogging)
+import           Pos.Util.Wlog.Compatibility (setupTestLogging)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),

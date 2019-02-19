@@ -48,7 +48,7 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),
                      runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Util.Wlog (setupTestLogging)
+import           Pos.Util.Wlog.Compatibility (setupTestLogging)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                      DbNotEquivalentToSnapshot (..), runBlockScenario)

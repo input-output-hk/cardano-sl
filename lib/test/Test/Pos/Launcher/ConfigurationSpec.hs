@@ -16,7 +16,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      WalletConfiguration, defaultConfigurationOptions,
                      withConfigurations)
 import           Pos.Util.Config (ConfigurationException)
-import           Pos.Util.Wlog (setupTestLogging)
+import           Pos.Util.Wlog.Compatibility (setupTestLogging)
 
 configFilePath :: FilePath
 configFilePath = "configuration.yaml"

@@ -40,7 +40,7 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                      unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
-import           Pos.Util.Wlog (setupTestLogging)
+import           Pos.Util.Wlog.Compatibility (setupTestLogging)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut)
 

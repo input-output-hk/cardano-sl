@@ -673,8 +673,8 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
         (prefix, _) <- Logic.getLcaMainChain logic (OldestFirst (fmap headerHash (cl:cxs)))
         case getNewestFirst prefix of
              [] -> do
-                send conv $ MsgStreamNoBlock "handleStreamStart:strean Failed to find lca"
-                traceWith logTrace (Debug, sformat ("handleStreamStart:strean getBlockHeaders from "%shown%" failed for "%listJson) nodeId (cl:cxs))
+                send conv $ MsgStreamNoBlock "handleStreamStart:stream Failed to find lca"
+                traceWith logTrace (Debug, sformat ("handleStreamStart:stream getBlockHeaders from "%shown%" failed for "%listJson) nodeId (cl:cxs))
                 return ()
              -- 'lca' is the newest client-supplied checkpoint that we have.
              -- We need to begin streaming from its child, which is what

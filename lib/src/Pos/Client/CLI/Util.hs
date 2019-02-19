@@ -20,7 +20,8 @@ import           Pos.Chain.Security (AttackTarget (..), AttackType (..))
 import           Pos.Core (StakeholderId)
 import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
-import           Pos.Util.Wlog (LoggerConfig, parseLoggerConfig, productionB)
+import           Pos.Util.Log (LoggerConfig, parseLoggerConfig)
+import           Pos.Util.Wlog.Compatibility (productionB)
 
 attackTypeParser :: P.Parser AttackType
 attackTypeParser = P.string "No" >>

@@ -42,7 +42,7 @@ import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      readUserSecret, takeUserSecret, usKeys, usWallet,
                      writeRaw, writeUserSecretRelease, _wusRootKey)
-import           Pos.Util.Wlog (addLoggerName)
+import           Pos.Util.Wlog.Compatibility (addLoggerName)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))

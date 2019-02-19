@@ -21,8 +21,9 @@ import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
 import           Pos.Util.Log.Rotator (latestLogFile)
 import           Pos.Util.Log.Structured (logDebugX, logErrorX, logInfoX,
                      logNoticeX, logWarningX)
-import           Pos.Util.Wlog
-import           Pos.Util.Wlog.Compatibility (setupLogging')
+import           Pos.Util.Wlog.Compatibility (Severity (..), WithLogger,
+                     addLoggerName, logDebug, logInfo, logNotice, logWarning,
+                     logError, setupLogging', usingLoggerName)
 
 someLogging :: IO ()
 someLogging = do

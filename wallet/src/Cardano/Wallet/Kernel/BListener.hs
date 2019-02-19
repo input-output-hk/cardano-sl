@@ -29,7 +29,7 @@ import           Pos.Chain.Txp (TxId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.DB.Block (getBlund)
-import           Pos.Util.Log (Severity (..))
+import           Pos.Util.Klog.Compatibility (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      ObservableRollbackUseInTestsOnly (..), SwitchToFork (..),

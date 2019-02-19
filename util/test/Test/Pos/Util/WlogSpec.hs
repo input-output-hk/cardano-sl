@@ -17,7 +17,7 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration,
                      lcLoggerTree, ltNamedSeverity)
-import           Pos.Util.Wlog (Severity (..), WithLogger, addLoggerName,
+import           Pos.Util.Wlog.Compatibility (Severity (..), WithLogger, addLoggerName,
                      getLinesLogged, logDebug, logError, logInfo, logNotice,
                      logWarning, setLoggerName, setupLogging, usingLoggerName)
 

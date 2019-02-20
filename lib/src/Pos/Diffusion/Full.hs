@@ -389,17 +389,17 @@ diffusionLayerFullExposeInternals fdconf
         sendVote = Diffusion.Update.sendVote logTrace enqueue
 
         -- TODO put these into a Pos.Diffusion.Full.Ssc module.
-        sendSscCert :: VssCertificate -> IO ()
-        sendSscCert = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCVssCertificate
+        sendSscCert :: StakeholderId -> VssCertificate -> IO ()
+        sendSscCert sid = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) sid . MCVssCertificate
 
-        sendSscOpening :: Opening -> IO ()
-        sendSscOpening = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCOpening (ourStakeholderId logic)
+        sendSscOpening :: StakeholderId -> Opening -> IO ()
+        sendSscOpening sid = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) sid . MCOpening sid
 
-        sendSscShares :: InnerSharesMap -> IO ()
-        sendSscShares = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCShares (ourStakeholderId logic)
+        sendSscShares :: StakeholderId -> InnerSharesMap -> IO ()
+        sendSscShares sid = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) sid . MCShares sid
 
-        sendSscCommitment :: SignedCommitment -> IO ()
-        sendSscCommitment = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic) . MCCommitment
+        sendSscCommitment :: StakeholderId -> SignedCommitment -> IO ()
+        sendSscCommitment sid = void . invReqDataFlowTK logTrace "ssc" enqueue (MsgMPC OriginSender) sid . MCCommitment
 
         sendPskHeavy :: ProxySKHeavy -> IO ()
         sendPskHeavy = Diffusion.Delegation.sendPskHeavy logTrace enqueue

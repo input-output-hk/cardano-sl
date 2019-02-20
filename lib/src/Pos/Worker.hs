@@ -15,6 +15,7 @@ import           Pos.Worker.Block (blkWorkers)
 import           Pos.Chain.Genesis as Genesis (Config, configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Context (NodeContext (..))
+import           Pos.Core (StakeholderId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
@@ -28,12 +29,13 @@ import           Pos.WorkMode (WorkMode)
 -- | All, but in reality not all, workers used by full node.
 allWorkers
     :: forall ext ctx m . WorkMode ctx m
-    => Genesis.Config
+    => StakeholderId
+    -> Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
     -> [ (Text, Diffusion m -> m ()) ]
-allWorkers genesisConfig txpConfig NodeResources {..} = mconcat
-    [ sscWorkers genesisConfig
+allWorkers sid genesisConfig txpConfig NodeResources {..} = mconcat
+    [ sscWorkers sid genesisConfig
     , usWorkers genesisConfig
     , blkWorkers genesisConfig txpConfig
     , dlgWorkers

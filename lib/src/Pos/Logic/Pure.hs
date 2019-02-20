@@ -9,7 +9,6 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
-import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader (..),
@@ -25,8 +24,7 @@ import           Pos.Chain.Txp (TxProof (..), emptyTxPayload)
 import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), SoftforkRule (..),
                      SoftwareVersion (..), UpdatePayload (..), UpdateProof)
-import           Pos.Core (StakeholderId, TxFeePolicy (..),
-                     unsafeCoinPortionFromDouble)
+import           Pos.Core (TxFeePolicy (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
@@ -48,8 +46,7 @@ pureLogic
     :: ( Monad m )
     => Logic m
 pureLogic = Logic
-    { ourStakeholderId   = stakeholderId
-    , getSerializedBlock = \_ -> pure (Just serializedBlock)
+    { getSerializedBlock = \_ -> pure (Just serializedBlock)
     , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
@@ -58,7 +55,6 @@ pureLogic = Logic
       -- hashes are *not* in the chain.
     , getLcaMainChain    = \hashes -> pure (NewestFirst [], hashes)
     , getTip             = pure block
-    , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
     , postBlockHeader    = \_ _ -> pure ()
     , postPskHeavy       = \_ -> pure True
@@ -70,7 +66,6 @@ pureLogic = Logic
     , postSscShares      = dummyKeyVal
     , postSscVssCert     = dummyKeyVal
     , recoveryInProgress = pure False
-    , securityParams     = def
     }
   where
     dummyKeyVal :: Applicative m => KeyVal key val m
@@ -80,9 +75,6 @@ pureLogic = Logic
         , handleReq  = \_ -> pure Nothing
         , handleData = \_ -> pure False
         }
-
-stakeholderId :: StakeholderId
-stakeholderId = unsafeMkAbstractHash mempty
 
 blockVersionData :: BlockVersionData
 blockVersionData = BlockVersionData

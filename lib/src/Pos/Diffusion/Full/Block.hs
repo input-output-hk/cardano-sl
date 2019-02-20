@@ -46,7 +46,6 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
-import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Infra.Communication.Listener (listenerConv)
@@ -58,7 +57,6 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
 import           Pos.Infra.Diffusion.Types (DiffusionHealth (..),
                      StreamBlocks (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Infra.Util.TimeWarp (nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
 import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
@@ -66,9 +64,6 @@ import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
                      MsgSerializedBlock (..), MsgStream (..),
                      MsgStreamBlock (..), MsgStreamStart (..),
                      MsgStreamUpdate (..))
--- Dubious having this security stuff in here.
-import           Pos.Chain.Security (AttackTarget (..), AttackType (..),
-                     NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
@@ -490,25 +485,6 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
     waitForDequeues <$> enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
-        -- TODO figure out what this security stuff is doing and judge whether
-        -- it needs to change / be removed.
-        let sparams = Logic.securityParams logic
-        -- Copied from Pos.Chain.Security but made pure. The existing
-        -- implementation was tied to a reader rather than taking a
-        -- SecurityParams value as a function argument.
-            shouldIgnoreAddress :: NetworkAddress -> Bool
-            shouldIgnoreAddress addr = and
-                [ AttackNoBlocks `elem` spAttackTypes sparams
-                , NetworkAddressTarget addr `elem` spAttackTargets sparams
-                ]
-            throwOnIgnored :: NodeId -> IO ()
-            throwOnIgnored nId =
-                whenJust (nodeIdToAddress nId) $ \addr ->
-                    when (shouldIgnoreAddress addr) $
-                        throwIO AttackNoBlocksTriggered
-        -- TODO the when condition is not necessary, as it's a part of the
-        -- conjunction in shouldIgnoreAddress
-        when (AttackNoBlocks `elem` spAttackTypes sparams) (throwOnIgnored nodeId)
         traceWith logTrace (Debug,
             sformat
                 ("Announcing block "%shortHashF%" to "%build)

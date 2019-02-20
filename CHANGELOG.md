@@ -65,7 +65,7 @@
   - Remove `wallet` from cardano-sl codebase ([CO-443](https://iohk.myjetbrains.com/youtrack/issue/CO-443) [#3837](https://github.com/input-output-hk/cardano-sl/pull/3837))
 
 - Rewritten and redesigned integration tests framework ([CO-356](https://iohk.myjetbrains.com/youtrack/issue/CO-356) [#4047](https://github.com/input-output-hk/cardano-sl/pull/4047))
-
+- Add proper mapping of kernel addresses to API errors when batch import of addresses ([CO-447](https://iohk.myjetbrains.com/youtrack/issue/CO-447) [#4084](https://github.com/input-output-hk/cardano-sl/pull/4084))
 
 ### Documentation
 

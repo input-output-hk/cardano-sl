@@ -209,7 +209,7 @@ let
   # return an attribute set containing the result of running every test-suite in cardano, on the given system
   makeCardanoTestRuns = system:
   let
-    pred = name: value: fixedLib.isCardanoSL name && value ? testrun;
+    pred = name: value: fixedLib.isNet name && value ? testrun;
     cardanoPkgs = import ./. { inherit system; };
     f = name: value: value.testrun;
   in pkgs.lib.mapAttrs f (lib.filterAttrs pred cardanoPkgs);

@@ -47,6 +47,7 @@ in lib // (rec {
   inherit fetchNixPkgs importPkgs cleanSourceTree;
   # cardano-crypto is not a cardano-sl package.
   isCardanoSL = name: lib.hasPrefix "cardano-" name && !(name == "cardano-crypto");
+  isNet = name: lib.hasPrefix "cardano-sl-networking" name;
   isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
 
   # Insert this into builder scripts where programs require a UTF-8

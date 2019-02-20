@@ -386,6 +386,7 @@ executable wallet-extractor
                      , universum
                      , text
                      , cardano-sl
+                     , cardano-sl-util
 
 test-suite cardano-sl-tools-test
   main-is:             Test.hs

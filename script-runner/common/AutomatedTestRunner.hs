@@ -89,7 +89,7 @@ import           Pos.Launcher (HasConfigurations, InitModeContext, NodeParams (n
 import           Pos.Util (lensOf, logException)
 import           Pos.Util.CompileInfo (CompileTimeInfo (ctiGitRevision),
                      HasCompileInfo, compileInfo, withCompileInfo)
-import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace (fromTypeclassWlog, noTrace)
 import           Pos.Util.UserSecret (readUserSecret, usKeys, usPrimKey, usVss)
 import           Pos.Util.Wlog (LoggerName)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
@@ -174,7 +174,7 @@ runWithConfig :: (HasCompileInfo, HasConfigurations) => ScriptRunnerOptions -> I
 runWithConfig opts inputParams genesisConfig _walletConfig txpConfig _ntpConfig = do
   let
     nArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing}
-  (nodeParams', _mSscParams) <- CLI.getNodeParams loggerName (opts ^. srCommonNodeArgs) nArgs (configGeneratedSecrets genesisConfig)
+  (nodeParams', _mSscParams) <- CLI.getNodeParams fromTypeclassWlog loggerName (opts ^. srCommonNodeArgs) nArgs (configGeneratedSecrets genesisConfig)
   let
     nodeParams = maybeAddPeers (opts ^. srPeers) $ nodeParams'
     vssSK = fromMaybe (error "no user secret given") (npUserSecret nodeParams ^. usVss)
@@ -421,7 +421,7 @@ loadNKeys stateDir n = do
     loadKey x = do
       let
         keypath = sformat fmt stateDir x
-      secret <- readUserSecret (T.unpack keypath)
+      secret <- readUserSecret fromTypeclassWlog (T.unpack keypath)
       let
         sk = maybeToList $ secret ^. usPrimKey
         secret' = secret & usKeys %~ (++ map noPassEncrypt sk)

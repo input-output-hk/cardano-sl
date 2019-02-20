@@ -39,6 +39,7 @@ import           System.IO (hClose, openTempFile)
 
 import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, hash)
+import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      readUserSecret, takeUserSecret, usKeys, usWallet,
                      writeRaw, writeUserSecretRelease, _wusRootKey)
@@ -94,7 +95,7 @@ bracketKeystore deletePolicy fp withKeystore =
 -- | Creates a new keystore.
 newKeystore :: FilePath -> IO Keystore
 newKeystore fp = do
-    us <- takeUserSecret fp
+    us <- takeUserSecret fromTypeclassWlog fp
     Keystore <$> Strict.newMVar (InternalStorage us)
 
 -- | Reads the legacy root key stored in the specified keystore. This is
@@ -115,7 +116,7 @@ readWalletSecret fp =
 
     importKeystore :: IO Keystore
     importKeystore = do
-        us <- readUserSecret fp
+        us <- readUserSecret fromTypeclassWlog fp
         Keystore <$> Strict.newMVar (InternalStorage us)
 
 
@@ -156,7 +157,7 @@ newTestKeystore = do
     tempDir         <- getTemporaryDirectory
     (tempFile, hdl) <- openTempFile tempDir "keystore.key"
     hClose hdl
-    us <- takeUserSecret tempFile
+    us <- takeUserSecret fromTypeclassWlog tempFile
     Keystore <$> Strict.newMVar (InternalStorage us)
 
 -- | Release the resources associated with this 'Keystore'.

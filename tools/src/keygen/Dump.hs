@@ -20,6 +20,7 @@ import           System.FilePath ((</>))
 import           Pos.Chain.Genesis (GeneratedSecrets (..), PoorSecret (..),
                      RichSecrets (..), poorSecretToEncKey)
 import           Pos.Crypto (SecretKey)
+import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret (UserSecret, initializeUserSecret,
                      mkGenesisWalletUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease)
@@ -134,8 +135,8 @@ dumpUserSecret
     -> (UserSecret -> UserSecret)
     -> m ()
 dumpUserSecret fp operation = do
-    initializeUserSecret fp
-    us <- takeUserSecret fp
+    initializeUserSecret fromTypeclassWlog fp
+    us <- takeUserSecret fromTypeclassWlog fp
     writeUserSecretRelease (operation us)
 
 -- Replace "{}" with the result of applying 'show' to the given

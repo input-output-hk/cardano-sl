@@ -37,6 +37,7 @@
     - `securityParameter`: The consensus security parameter (usually referred as `k` in the papers)
 
 - Implement block creation and validation for the OBFT `ConsensusEra`.
+    - Implement hard fork mechanism ([CDEC-610](https://iohk.myjetbrains.com/youtrack/issue/CDEC-610): [#3822](https://github.com/input-output-hk/cardano-sl/pull/3822))
     - Adapt epoch consolidation functionality for OBFT ([CBR-497](https://iohk.myjetbrains.com/youtrack/issue/CBR-497) [#3966](https://github.com/input-output-hk/cardano-sl/pull/3966))
     - Extend `LastBlkSlots` data type and storage for OBFT ([CBR-499](https://iohk.myjetbrains.com/youtrack/issue/CBR-499) [#4003](https://github.com/input-output-hk/cardano-sl/pull/4003) [#4052](https://github.com/input-output-hk/cardano-sl/pull/4052))
     - Disable SSC during OBFT. ([CBR-490](https://iohk.myjetbrains.com/youtrack/issue/CBR-490) [#4026](https://github.com/input-output-hk/cardano-sl/pull/4026))

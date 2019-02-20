@@ -21,6 +21,8 @@ module Pos.Util.Trace
     , logWarning
     , logNotice
     , logError
+    , fromTypeclass
+    , fromTypeclassWlog
     ) where
 
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
@@ -109,3 +111,11 @@ logNotice = contramap ((,) Log.Notice)
 
 logError :: TraceIO -> Trace IO Text
 logError = contramap ((,) Log.Error)
+
+-- | You want a 'Trace' but only have a 'WithLogger'.
+fromTypeclass :: ( Log.WithLogger m ) => Trace m (Log.Severity, Text)
+fromTypeclass = Trace $ Op $ uncurry Log.logMessage
+
+-- | You want a 'Trace' but only have a 'WithLogger' from Wlog.
+fromTypeclassWlog :: ( Wlog.WithLogger m ) => Trace m (Log.Severity, Text)
+fromTypeclassWlog = Trace $ Op $ uncurry Wlog.logMessage

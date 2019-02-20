@@ -316,7 +316,7 @@ allocateNodeContext genesisConfig ancd txpSettings ekgStore = do
     logDebug ("Dequeue policy to relay: " <> (show ((ncDequeuePolicy networkConfig) NodeRelay)))
         `catch` \(ErrorCall msg) -> logDebug (toText msg)
     print (("Dequeue policy to edge: " <> (show ((ncDequeuePolicy networkConfig) NodeEdge)))::String)
-        `catch` (\(e::SomeException) -> logDebug "HAHA" >> logDebug (show e))
+        `catch` (\(e::SomeException) -> logDebug (show e))
 
 
     logDebug "Finished allocating node context!"

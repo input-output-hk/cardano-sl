@@ -35,6 +35,7 @@ translateWalletLayerErrors :: SomeException -> Maybe V1.WalletError
 translateWalletLayerErrors ex = do
        (    try' @CreateAddressError createAddressError
         <|> try' @ValidateAddressError validateAddressError
+        <|> try' @ImportAddressError importAddressError
 
         <|> try' @CreateAccountError createAccountError
         <|> try' @GetAccountError getAccountError
@@ -60,7 +61,12 @@ translateWalletLayerErrors ex = do
   where try' :: forall e. Exception e => (e -> V1.WalletError) -> Maybe V1.WalletError
         try' f = f <$> fromException @e ex
 
-
+importAddressError :: ImportAddressError -> V1.WalletError
+importAddressError e = case e of
+    (ImportAddressError (Kernel.ImportAddressKeystoreNotFound _)) ->
+        V1.WalletNotFound
+    (ImportAddressAddressDecodingFailed _) ->
+        V1.WalletNotFound
 
 createAddressErrorKernel :: Kernel.CreateAddressError -> V1.WalletError
 createAddressErrorKernel e = case e of

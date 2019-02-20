@@ -67,6 +67,7 @@ import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurations)
 import           Pos.Util.Log.LoggerConfig (LoggerConfig)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.UserSecret (UserSecret, defaultUserSecret,
                      mkGenesisWalletUserSecret, usKeys, usPath, usPrimKey,
                      usVss, usWallet)
@@ -211,7 +212,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             getGeneratedSecrets :: ConfigurationOptions -> IO GeneratedSecrets
             getGeneratedSecrets opts = fst <$>
                 ( usingNamedPureLogger "_"
-                    $ withConfigurations Nothing Nothing False opts
+                    $ withConfigurations noTrace Nothing Nothing False opts
                     $ \config _ _ _ -> configGeneratedSecretsThrow config
                 )
 

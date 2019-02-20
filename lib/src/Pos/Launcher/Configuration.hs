@@ -73,7 +73,7 @@ import           Pos.Crypto (RequiresNetworkMagic (..))
 import           Pos.Util (postfixLFields)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Config (parseYamlConfig)
-import           Pos.Util.Wlog (WithLogger, logInfo)
+import           Pos.Util.Trace (Trace, traceWith)
 
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation
@@ -230,15 +230,16 @@ instance Default ConfigurationOptions where
 -- | Parse some big yaml file to 'MultiConfiguration' and then use the
 -- configuration at a given key.
 withConfigurations
-    :: (WithLogger m, MonadThrow m, MonadIO m)
-    => Maybe AssetLockPath
+    :: (MonadThrow m, MonadIO m)
+    => Trace m Text
+    -> Maybe AssetLockPath
     -> Maybe FilePath
     -> Bool
     -> ConfigurationOptions
     -> (HasConfigurations => Genesis.Config -> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
-withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
-    logInfo ("using configurations: " <> show cfo)
+withConfigurations logTrace mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
+    traceWith logTrace ("using configurations: " <> show cfo)
     cfg <- parseYamlConfig (cfoFilePath cfo) (cfoKey cfo)
     assetLock <- case mAssetLockPath of
         Nothing -> pure mempty
@@ -259,6 +260,7 @@ withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
         withNodeConfiguration (ccNode cfg) $ do
             let txpConfig = addAssetLock assetLock $ ccTxp cfg
             printInfoOnStart
+                logTrace
                 dumpGenesisPath
                 dumpConfig
                 (configGenesisData genesisConfig)
@@ -287,8 +289,9 @@ readAssetLockedSrcAddrs (AssetLockPath fp) = do
       not (Text.null t || "#" `Text.isPrefixOf` t)
 
 printInfoOnStart ::
-       (HasConfigurations, WithLogger m, MonadIO m)
-    => Maybe FilePath
+       (HasConfigurations, MonadIO m)
+    => Trace m Text
+    -> Maybe FilePath
     -> Bool
     -> GenesisData
     -> StaticConfig
@@ -299,6 +302,7 @@ printInfoOnStart ::
     -> TxValidationRulesConfig
     -> m ()
 printInfoOnStart
+    logTrace
     dumpGenesisPath
     dumpConfig
     genesisData
@@ -308,26 +312,26 @@ printInfoOnStart
     txpConfig
     rnm
     txValRules = do
-        whenJust dumpGenesisPath $ dumpGenesisData genesisData True
+        whenJust dumpGenesisPath $ dumpGenesisData logTrace genesisData True
         when dumpConfig $ dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig rnm txValRules
-        printFlags
+        printFlags logTrace
         t <- currentTime
-        mapM_ logInfo $
+        mapM_ (traceWith logTrace) $
             [ sformat ("System start time is " % shown) $ gdStartTime genesisData
             , sformat ("Current time is "%shown) (Timestamp t)
             ]
 
-printFlags :: WithLogger m => m ()
-printFlags = do
-    inAssertMode $ logInfo "Asserts are ON"
+printFlags :: ( Applicative m ) => Trace m Text -> m ()
+printFlags logTrace =
+    inAssertMode $ traceWith logTrace "Asserts are ON"
 
 -- | Dump our 'GenesisData' into a file.
 dumpGenesisData ::
-       (MonadIO m, WithLogger m) => GenesisData -> Bool -> FilePath -> m ()
-dumpGenesisData genesisData canonical path = do
+       (MonadIO m) => Trace m Text -> GenesisData -> Bool -> FilePath -> m ()
+dumpGenesisData logTrace genesisData canonical path = do
     let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData
     let prettyJsonStr = prettyGenesisJson genesisData
-    logInfo $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
+    traceWith logTrace $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
     liftIO $ case canonical of
         True  -> BSL.writeFile path canonicalJsonBytes
         False -> writeFile path (toText prettyJsonStr)

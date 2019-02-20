@@ -43,8 +43,9 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace (Trace, contramap, fromTypeclassWlog)
 import           Pos.Util.Util (realTime)
-import           Pos.Util.Wlog (LoggerConfig, Severity (Debug), logError,
+import           Pos.Util.Wlog (LoggerConfig, Severity (Debug, Info), logError,
                      logInfo, removeAllHandlers, setupLogging')
 
 import           Test.Pos.Block.Logic.Mode (BlockTestMode, TestParams (..),
@@ -200,8 +201,10 @@ main = do
             , cfoKey = baConfigKey args
             , cfoSystemStart = Just (Timestamp startTime)
             }
+        traceInfo :: Trace IO Text
+        traceInfo = contramap ((,) Info) fromTypeclassWlog
     withCompileInfo $
-        withConfigurations Nothing Nothing False cfo $ \ !genesisConfig !_ !txpConfig !_ -> do
+        withConfigurations traceInfo Nothing Nothing False cfo $ \ !genesisConfig !_ !txpConfig !_ -> do
             let genesisConfig' = genesisConfig
                     { configProtocolConstants =
                         (configProtocolConstants genesisConfig) { pcK = baK args }

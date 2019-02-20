@@ -35,6 +35,7 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 
@@ -55,7 +56,7 @@ main = do
 
 action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath cnaDumpGenesisDataPath cnaDumpConfiguration conf $ \genesisConfig _ txpConfig _ntpConfig ->
+    withConfigurations noTrace blPath cnaDumpGenesisDataPath cnaDumpConfiguration conf $ \genesisConfig _ txpConfig _ntpConfig ->
     withCompileInfo $ do
         logInfo $ "Explorer is enabled!"
         (currentParams, Just sscParams) <- getNodeParams

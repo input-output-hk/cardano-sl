@@ -23,6 +23,7 @@ module Pos.Util.Trace
     , logError
     , fromTypeclass
     , fromTypeclassWlog
+    , contramap
     ) where
 
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))

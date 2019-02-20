@@ -89,6 +89,7 @@ import           Pos.Launcher (HasConfigurations, InitModeContext, NodeParams (n
 import           Pos.Util (lensOf, logException)
 import           Pos.Util.CompileInfo (CompileTimeInfo (ctiGitRevision),
                      HasCompileInfo, compileInfo, withCompileInfo)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.UserSecret (readUserSecret, usKeys, usPrimKey, usVss)
 import           Pos.Util.Wlog (LoggerName)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
@@ -151,7 +152,7 @@ executeAction opts inputParams = do
   let
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     cArgs@CLI.CommonNodeArgs{CLI.cnaDumpGenesisDataPath,CLI.cnaDumpConfiguration} = opts ^. srCommonNodeArgs
-  withConfigurations Nothing cnaDumpGenesisDataPath cnaDumpConfiguration conf (runWithConfig opts inputParams)
+  withConfigurations noTrace Nothing cnaDumpGenesisDataPath cnaDumpConfiguration conf (runWithConfig opts inputParams)
 
 maybeAddPeers :: [NodeId] -> NodeParams -> NodeParams
 maybeAddPeers [] params = params

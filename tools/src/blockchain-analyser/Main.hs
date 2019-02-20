@@ -19,6 +19,7 @@ import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (getBlock)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Launcher (withConfigurations)
+import           Pos.Util.Trace (noTrace)
 
 import           Options (CLIOptions (..), getOptions)
 import           Rendering (render, renderBlock, renderBlocks, renderHeader)
@@ -100,7 +101,7 @@ main = do
     action args
 
 action :: CLIOptions -> IO ()
-action cli@CLIOptions{..} = withConfigurations Nothing Nothing False conf $ \genesisConfig _ _ _ -> do
+action cli@CLIOptions{..} = withConfigurations noTrace Nothing Nothing False conf $ \genesisConfig _ _ _ -> do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)
     liftIO $ putText $ render uom printMode sizes

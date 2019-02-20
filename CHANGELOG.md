@@ -8,10 +8,11 @@
 
 - Fix incoherent To/FromJSON instances in `core`, `chain`, `lib`. Alter `TxValidationRules` datatype. ([CBR-502](https://iohk.myjetbrains.com/youtrack/issue/CBR-502) [#4037](https://github.com/input-output-hk/cardano-sl/pull/4037))
 
+- Fix target name to correct integration tests ([CO-437](https://iohk.myjetbrains.com/youtrack/issue/CO-437) [#3794](https://github.com/input-output-hk/cardano-sl/pull/3794))
 
 ### Features
 
-- Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
+- Support for (unused) addresses batch import ([CO-447](https://iohk.myjetbrains.com/youtrack/issue/CO-447) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
 
 - Add `script-runner` tool to automate cluster-level testing ([DEVOPS-1131](https://iohk.myjetbrains.com/youtrack/v2/issue/devops-1131): [#3916](https://github.com/input-output-hk/cardano-sl/pull/3916) [#4057](https://github.com/input-output-hk/cardano-sl/pull/4057))
 
@@ -66,13 +67,13 @@
   - Remove `wallet` from cardano-sl codebase ([CO-443](https://iohk.myjetbrains.com/youtrack/issue/CO-443) [#3837](https://github.com/input-output-hk/cardano-sl/pull/3837))
 
 - Rewritten and redesigned integration tests framework ([CO-356](https://iohk.myjetbrains.com/youtrack/issue/CO-356) [#4047](https://github.com/input-output-hk/cardano-sl/pull/4047))
-
+- Simplify prefixing of transaction to account for foreign transactions in inputs rather than process them from outputs ([CO-432](https://iohk.myjetbrains.com/youtrack/issue/CO-432) [#3768](https://github.com/input-output-hk/cardano-sl/pull/3768))
 
 ### Documentation
 
 - Remove redundant [] in backupPhrase doc example ([#4038](https://github.com/input-output-hk/cardano-sl/pull/4038))
 
-- New "common use-case" entry the API doc about importing addresses ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
+- New "common use-case" entry the API doc about importing addresses ([CO-447](https://iohk.myjetbrains.com/youtrack/issue/CO-447) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
 
 - Links to specific sections of the API doc now work [#4064](https://github.com/input-output-hk/cardano-sl/pull/4064)
 

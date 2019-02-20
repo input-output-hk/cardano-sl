@@ -16,18 +16,19 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat,
                      shown, (%))
+import qualified Prelude
 import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 
 import           Pos.Chain.Block (BlockHeader (..), HasBlockConfiguration,
-                     criticalCQ, criticalCQBootstrap, fixedTimeCQSec, gbHeader,
-                     lsiFlatSlotId, networkDiameter, nonCriticalCQ,
-                     nonCriticalCQBootstrap, scCQFixedMonitorState,
-                     scCQOverallMonitorState, scCQkMonitorState,
-                     scCrucialValuesLabel, scDifficultyMonitorState,
-                     scEpochMonitorState, scGlobalSlotMonitorState,
-                     scLocalSlotMonitorState)
+                     blockHeaderHash, criticalCQ, criticalCQBootstrap,
+                     fixedTimeCQSec, gbHeader, lsiFlatSlotId, networkDiameter,
+                     nonCriticalCQ, nonCriticalCQBootstrap,
+                     scCQFixedMonitorState, scCQOverallMonitorState,
+                     scCQkMonitorState, scCrucialValuesLabel,
+                     scDifficultyMonitorState, scEpochMonitorState,
+                     scGlobalSlotMonitorState, scLocalSlotMonitorState)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
@@ -41,7 +42,7 @@ import           Pos.Core (BlockCount, ChainDifficulty, EpochIndex (..),
                      getSlotIndex, kEpochSlots, localSlotIndexFromEnum,
                      localSlotIndexMinBound, slotIdF, slotIdSucc,
                      unflattenSlotId)
-import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
@@ -50,7 +51,8 @@ import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import           Pos.DB.Block (calcChainQualityFixedTime, calcChainQualityM,
                      calcOverallChainQuality, createGenesisBlockAndApply,
-                     createMainBlockAndApply, lrcSingleShot, slogGetLastSlots)
+                     createMainBlockAndApply, getBlund, lrcSingleShot,
+                     normalizeMempool, rollbackBlocks, slogGetLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
@@ -167,6 +169,7 @@ blockCreator genesisConfig txpConfig slotId diffusion = do
             whenEpochBoundaryObft (siEpoch slotId) tipHeader (\ei -> do
                 logDebug $ "blockCreator OBFT: running lrcSingleShot"
                 lrcSingleShot genesisConfig ei)
+            dropObftEbb genesisConfig txpConfig
             blockCreatorObft genesisConfig txpConfig slotId diffusion
   where
     whenEpochBoundaryObft ::
@@ -213,6 +216,28 @@ blockCreatorObft genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
     logOnEpochFS = if siSlot == localSlotIndexMinBound then logInfoS else logDebugS
     logOnEpochF = if siSlot == localSlotIndexMinBound then logInfo else logDebug
 
+dropObftEbb ::
+       forall ctx m.
+       ( BlockWorkMode ctx m
+       )
+    => Genesis.Config
+    -> TxpConfiguration
+    -> m ()
+dropObftEbb genesisConfig txpConfig = do
+    -- not sure if everything needs to run inside StateLock
+    tipHeader <- DB.getTipHeader
+    logDebug $ sformat ("dropObftEbb: tipHeader: ("%shown%").") tipHeader
+    case tipHeader of
+        BlockHeaderMain _      -> pure ()
+        BlockHeaderGenesis _   -> do
+            mbEbbBlund <- getBlund (configGenesisHash genesisConfig)
+                                   (blockHeaderHash tipHeader)
+            case mbEbbBlund of
+                Nothing -> Prelude.error "Pos.Worker.Block.dropObftEbb: unable to get blund for EBB"
+                Just ebbBlund -> do
+                    rollbackBlocks genesisConfig $ NewestFirst (ebbBlund :| [])
+                    normalizeMempool genesisConfig txpConfig
+
 blockCreatorOriginal
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
@@ -224,22 +249,44 @@ blockCreatorOriginal
 blockCreatorOriginal genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlockAndApply genesisConfig txpConfig siEpoch
-    whenJust mGenBlock $ \createdBlk -> do
-        logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
-        jsonLog $ jlCreatedBlock (configEpochSlots genesisConfig) (Left createdBlk)
 
-    -- Then we get leaders for current epoch.
-    leadersMaybe <- LrcDB.getLeadersForEpoch siEpoch
-    case leadersMaybe of
-        -- If we don't know leaders, we can't do anything.
-        Nothing -> logWarning "Leaders are not known for new slot"
-        -- If we know leaders, we check whether we are leader and
-        -- create a new block if we are. We also create block if we
-        -- have suitable PSK.
-        Just leaders ->
-            maybe onNoLeader
-                  (onKnownLeader leaders)
-                  (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
+    -- the ConsensusEra could've changed due to to this
+    -- call trace (thing above calls thing below):
+
+    --    blockCreatorOriginal
+    -- -> createGenesisBlockAndApply
+    -- -> createGenesisBlockDo
+    -- -> verifyBlocksPrefix
+    -- -> usVerifyBlocks
+    -- -> verifyBlock
+    -- -> processGenesisBlock
+    -- -> adoptBlockVersion
+
+    era <- getConsensusEra
+    case era of
+        -- If the ConsensusEra has changed due to `createGenesisBlockAndApply`
+        -- being run, then we want to switch over to `blockCreatorObft`, while
+        -- running the logic which precedes its call in `blockCreator`.
+        -- So we just re-enter `blockCreator`.
+        OBFT _ -> blockCreator genesisConfig txpConfig slotId diffusion
+
+        Original -> do
+            whenJust mGenBlock $ \createdBlk -> do
+                logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
+                jsonLog $ jlCreatedBlock (configEpochSlots genesisConfig) (Left createdBlk)
+
+            -- Then we get leaders for current epoch.
+            leadersMaybe <- LrcDB.getLeadersForEpoch siEpoch
+            case leadersMaybe of
+                -- If we don't know leaders, we can't do anything.
+                Nothing -> logWarning "Leaders are not known for new slot"
+                -- If we know leaders, we check whether we are leader and
+                -- create a new block if we are. We also create block if we
+                -- have suitable PSK.
+                Just leaders ->
+                    maybe onNoLeader
+                          (onKnownLeader leaders)
+                          (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
   where
     onNoLeader =
         logError "Couldn't find a leader for current slot among known ones"

@@ -16,7 +16,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      WalletConfiguration, defaultConfigurationOptions,
                      withConfigurations)
 import           Pos.Util.Config (ConfigurationException)
-import           Pos.Util.Wlog (setupTestLogging)
+import           Pos.Util.Trace (noTrace)
 
 configFilePath :: FilePath
 configFilePath = "configuration.yaml"
@@ -24,10 +24,9 @@ configFilePath = "configuration.yaml"
 checkYamlSection :: Text -> Spec
 checkYamlSection key = describe ("key: " ++ show key) $ do
     it "should be RequiresNoMagic" $ do
-        liftIO $ setupTestLogging
         startTime <- Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
         let cfo = ConfigurationOptions configFilePath key (Just startTime) Nothing
-        rnm  <- liftIO (withConfigurations Nothing Nothing False cfo getRNM)
+        rnm  <- liftIO (withConfigurations noTrace Nothing Nothing False cfo getRNM)
         rnm `shouldBe` RequiresNoMagic
 
 getRNM
@@ -43,7 +42,6 @@ spec :: Spec
 spec = describe "Pos.Launcher.Configuration" $ do
     describe "withConfigurations" $ do
         it ("should parse `" <> configFilePath <> "` file") $ do
-            liftIO $ setupTestLogging
             startTime <- Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
             let cfo = defaultConfigurationOptions
                         { cfoFilePath = configFilePath
@@ -52,7 +50,7 @@ spec = describe "Pos.Launcher.Configuration" $ do
             let catchFn :: ConfigurationException -> IO (Maybe ConfigurationException)
                 catchFn e = return $ Just e
             res  <- liftIO $ catch
-                (withConfigurations Nothing Nothing False cfo (\_ _ _ _ -> return Nothing))
+                (withConfigurations noTrace Nothing Nothing False cfo (\_ _ _ _ -> return Nothing))
                 catchFn
             res `shouldSatisfy` isNothing
 

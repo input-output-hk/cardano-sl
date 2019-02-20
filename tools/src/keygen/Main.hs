@@ -46,7 +46,7 @@ import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
 
 rearrangeKeyfile :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
-    us <- takeUserSecret fp
+    us <- takeUserSecret fromTypeclassWlog fp
     let sk = maybeToList $ us ^. usPrimKey
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
@@ -74,7 +74,7 @@ genPrimaryKey path = do
 
 readKey :: (MonadIO m, WithLogger m) => FilePath -> m ()
 readKey path = do
-    us <- readUserSecret path
+    us <- readUserSecret fromTypeclassWlog path
     logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
@@ -136,7 +136,7 @@ genVssCert
     -> FilePath
     -> m ()
 genVssCert genesisConfig path = do
-    us <- readUserSecret path
+    us <- readUserSecret fromTypeclassWlog path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate

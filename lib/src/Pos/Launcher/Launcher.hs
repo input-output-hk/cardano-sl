@@ -72,8 +72,10 @@ launchNode nArgs cArgs lArgs action = do
         -- instance makes it obvious that it's all a lie: you can't log anytime
         -- anywhere, so why claim that you can? Just to avoid passing a
         -- parameter? To "write less code"?
+        logTrace :: Trace IO (Severity, Text)
+        logTrace = fromTypeclassWlog
         traceInfo :: Trace IO Text
-        traceInfo = contramap ((,) Info) fromTypeclassWlog
+        traceInfo = contramap ((,) Info) logTrace
         withConfigurations' = withConfigurations
             traceInfo
             (AssetLockPath <$> cnaAssetLockPath cArgs)
@@ -83,6 +85,7 @@ launchNode nArgs cArgs lArgs action = do
 
     withLogger' $ withConfigurations' $ \genesisConfig walletConfig txpConfig ntpConfig -> do
         (nodeParams, Just sscParams) <- getNodeParams
+            logTrace
             (lpDefaultName lArgs)
             cArgs
             nArgs

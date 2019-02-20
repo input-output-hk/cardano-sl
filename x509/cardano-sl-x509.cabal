@@ -58,8 +58,11 @@ test-suite cardano-sl-x509-test
   hs-source-dirs:     test
   main-is:            Main.hs
   other-modules:      Test.Cardano.X509.Configuration.Arbitrary
+                      Test.Cardano.X509.Configuration
 
   build-depends:      base
                     , QuickCheck
                     , cardano-sl-x509
                     , universum
+                    , hedgehog
+                    , cardano-sl-util-test

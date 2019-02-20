@@ -53,6 +53,8 @@
             (hsPkgs.QuickCheck)
             (hsPkgs.cardano-sl-x509)
             (hsPkgs.universum)
+            (hsPkgs.hedgehog)
+            (hsPkgs.cardano-sl-util-test)
           ];
         };
       };

@@ -16945,10 +16945,12 @@ license = stdenv.lib.licenses.mit;
 , base
 , base64-bytestring
 , bytestring
+, cardano-sl-util-test
 , cryptonite
 , data-default-class
 , directory
 , filepath
+, hedgehog
 , hourglass
 , ip
 , QuickCheck
@@ -16993,6 +16995,8 @@ yaml
 ];
 testHaskellDepends = [
 base
+cardano-sl-util-test
+hedgehog
 QuickCheck
 universum
 ];

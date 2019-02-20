@@ -31,11 +31,9 @@ import           Universum
 
 import           Control.Monad ((>=>))
 import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
-import           Data.Aeson (FromJSON (..))
 import           Data.ASN1.OID (OIDable (..))
 import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod,
                      timeAdd)
-import           Data.List (stripPrefix)
 import           Data.Semigroup ((<>))
 import           Data.String (fromString)
 import           Data.X509 (DistinguishedName (..), DnElement (..),
@@ -54,9 +52,8 @@ import           Time.Types (DateTime (..))
 
 import           Data.X509.Extra (parseSAN, signAlgRSA256, signCertificate)
 
-import qualified Data.Aeson as Aeson
+import           Data.Aeson
 import qualified Data.Aeson.Types as Aeson
-import qualified Data.Char as Char
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.X509 as X509
@@ -74,7 +71,14 @@ data TLSConfiguration = TLSConfiguration
     } deriving (Generic, Show, Eq)
 
 instance FromJSON TLSConfiguration where
-    parseJSON = Aeson.genericParseJSON (aesonDropPrefix "tls")
+    parseJSON = withObject "TLSConfiguration" $ \o -> TLSConfiguration <$> o .: "ca" <*> o .: "server" <*> o .: "clients"
+
+instance ToJSON TLSConfiguration where
+    toJSON conf = object
+      [ "ca"      .= tlsCa conf
+      , "server"  .= tlsServer conf
+      , "clients" .= tlsClients conf
+      ]
 
 -- | Output directories configuration
 data DirConfiguration = DirConfiguration
@@ -91,7 +95,14 @@ data CertConfiguration = CertConfiguration
     } deriving (Generic, Show, Eq)
 
 instance FromJSON CertConfiguration where
-    parseJSON = Aeson.genericParseJSON (aesonDropPrefix "cert")
+    parseJSON = withObject "CertConfiguration" $ \o -> CertConfiguration <$> o .: "organization" <*> o .: "commonName" <*> o .: "expiryDays"
+
+instance ToJSON CertConfiguration where
+    toJSON certconf = object
+      [ "organization" .= certOrganization certconf
+      , "commonName"   .= certCommonName certconf
+      , "expiryDays"   .= certExpiryDays certconf
+      ]
 
 -- | Foreign Server Certificate Configuration (SANS extra options)
 data ServerConfiguration = ServerConfiguration
@@ -103,15 +114,16 @@ data ServerConfiguration = ServerConfiguration
 -- are simply client config with an extra field 'altDNS'
 instance FromJSON ServerConfiguration where
     parseJSON v = ServerConfiguration
-        <$> parseJSON v
-        <*> Aeson.withObject "ServerConfiguration" parseDNS v
-      where
-        parseDNS =
-            let
-                errMsg = "Invalid Server Configuration: missing property 'altDNS'"
-            in
-                maybe (fail errMsg) parseJSON . HM.lookup "altDNS"
+        <$> ((withObject "CertConfiguration" $ \o -> CertConfiguration <$> o .: "organization" <*> o .: "commonName" <*> o .: "expiryDays") v)
+        <*> ((withObject "ServerConfiguration" $ \o -> o .: "altDNS") v)
 
+instance ToJSON ServerConfiguration where
+    toJSON conf = object
+      [ "organization" .= (certOrganization $ serverConfiguration conf)
+      , "commonName" .= (certCommonName $ serverConfiguration conf)
+      , "expiryDays" .= (certExpiryDays $ serverConfiguration conf)
+      , "altDNS" .= serverAltNames conf
+      ]
 
 --
 -- Description of Certificates
@@ -333,16 +345,6 @@ svExtensionsV3 subDN issDN altNames =
 clExtensionsV3 :: DistinguishedName -> DistinguishedName -> [ExtensionRaw]
 clExtensionsV3 =
     usExtensionsV3 KeyUsagePurpose_ClientAuth
-
-
-aesonDropPrefix :: String -> Aeson.Options
-aesonDropPrefix pre = Aeson.defaultOptions
-    { Aeson.fieldLabelModifier = \s -> maybe s lowerFirst (stripPrefix pre s) }
-  where
-    lowerFirst :: String -> String
-    lowerFirst []    = []
-    lowerFirst (h:q) = Char.toLower h : q
-
 
 forEach :: [a] -> ((Int, a) -> b) -> [b]
 forEach xs fn =

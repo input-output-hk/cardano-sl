@@ -12,6 +12,7 @@ runCommand "cardano-daedalus-bridge-${version}" {
   cd $out
   ${optionalString (buildId != null) "echo ${buildId} > build-id"}
   echo ${gitrev} > commit-id
+  # this comes from cardano-sl.cabal, via an inherit in default.nix
   echo ${version} > version
 
   cp --no-preserve=mode -R ${cardano-sl-config}/lib config

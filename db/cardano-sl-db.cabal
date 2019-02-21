@@ -20,9 +20,13 @@ library
                        Pos.DB.Error
                        Pos.DB.Functions
                        Pos.DB.BlockIndex
+                       Pos.DB.GState.ChainDifficulty
                        Pos.DB.GState.Common
+                       Pos.DB.GState.CommonOp
+                       Pos.DB.GState.Initialization
                        Pos.DB.GState.Lock
                        Pos.DB.GState.Stakes
+                       Pos.DB.GState.Tip
                        Pos.DB.Misc.Common
                        Pos.DB.Pure
                        Pos.DB.Sum
@@ -94,6 +98,7 @@ library
                        Pos.DB.Update.GState
                        Pos.DB.Update.Logic
                        Pos.DB.Update.MemState
+                       Pos.DB.Update.GState.BlockVersion
                        Pos.DB.Update.GState.Misc
                        Pos.DB.Update.Logic.Global
                        Pos.DB.Update.Logic.Local

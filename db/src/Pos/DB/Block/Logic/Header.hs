@@ -45,7 +45,7 @@ import qualified Pos.DB.Block.GState.BlockExtra as GS
 import           Pos.DB.Block.Load (loadHeadersByDepth)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
-import qualified Pos.DB.GState.Common as GS (getTip)
+import qualified Pos.DB.GState.Tip as GS (getTip)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Lrc.OBFT (getEpochSlotLeaderScheduleObft)
 import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)

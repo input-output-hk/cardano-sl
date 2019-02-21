@@ -58,9 +58,9 @@ import           Pos.DB.Block.Load (putBlunds)
 import           Pos.DB.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
-import qualified Pos.DB.GState.Common as GS
-                     (CommonOp (PutMaxSeenDifficulty, PutTip),
-                     getMaxSeenDifficulty)
+import qualified Pos.DB.GState.ChainDifficulty as GS (getMaxSeenDifficulty)
+import qualified Pos.DB.GState.CommonOp as GS
+                     (CommonOp (PutMaxSeenDifficulty, PutTip))
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Lrc.OBFT (getEpochSlotLeaderScheduleObft)

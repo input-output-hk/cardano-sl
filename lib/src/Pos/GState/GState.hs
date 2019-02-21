@@ -12,7 +12,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.DB.Block (initGStateBlockExtra, upgradeLastSlotsVersion)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Delegation (initGStateDlg)
-import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
+import           Pos.DB.GState.Initialization (initGStateCommon, isInitialized,
                      setInitialized)
 import           Pos.DB.Ssc (initSscDB)
 import           Pos.DB.Txp (initGStateStakes, initGStateUtxo)

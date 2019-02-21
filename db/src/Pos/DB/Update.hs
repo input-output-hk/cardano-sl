@@ -1,6 +1,7 @@
 module Pos.DB.Update
        ( module Pos.DB.Update.Context
        , module Pos.DB.Update.GState
+       , module Pos.DB.Update.GState.BlockVersion
        , module Pos.DB.Update.GState.Misc
        , module Pos.DB.Update.Logic
        , module Pos.DB.Update.MemState
@@ -12,6 +13,7 @@ module Pos.DB.Update
 
 import           Pos.DB.Update.Context
 import           Pos.DB.Update.GState
+import           Pos.DB.Update.GState.BlockVersion
 import           Pos.DB.Update.GState.Misc
 import           Pos.DB.Update.Logic
 import           Pos.DB.Update.MemState

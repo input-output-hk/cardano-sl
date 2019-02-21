@@ -45,7 +45,7 @@ import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..),
                      mustDataBeKnown, slogVerifyBlocks)
 import           Pos.DB.Delegation (dlgVerifyBlocks)
-import qualified Pos.DB.GState.Common as GS (getTip)
+import qualified Pos.DB.GState.Tip as GS (getTip)
 import           Pos.DB.Ssc (sscVerifyBlocks)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))

@@ -36,7 +36,7 @@ import           Pos.DB.BlockIndex (getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDB (..), MonadDBRead (..),
                      Serialized (..), getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
-import           Pos.DB.GState.Common (getTip, getTipSomething)
+import           Pos.DB.GState.Tip (getTip, getTipSomething)
 import           Pos.Util.Util (maybeThrow)
 
 type LoadHeadersMode m =

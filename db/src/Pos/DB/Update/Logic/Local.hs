@@ -48,8 +48,8 @@ import           Pos.Core (SlotId (..), slotIdF)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
-import qualified Pos.DB.GState.Common as DB
 import           Pos.DB.GState.Lock (StateLock)
+import qualified Pos.DB.GState.Tip as DB
 import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.DB.Update.Context (UpdateContext (..))
 import qualified Pos.DB.Update.GState as DB
@@ -357,7 +357,7 @@ usPreparePayload ::
     -> HeaderHash
     -> SlotId
     -> m UpdatePayload
-usPreparePayload genesisBvd neededTip slotId@SlotId{..} = do
+usPreparePayload genesisBvd _neededTip slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
@@ -392,7 +392,7 @@ usPreparePayload genesisBvd neededTip slotId@SlotId{..} = do
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%
                       "(our payload is for "%
                        slotIdF%", but requested one is "%slotIdF%")"
-    tipMismatchFmt =  "US payload can't be created due to tip mismatch "
+    _tipMismatchFmt =  "US payload can't be created due to tip mismatch "
                      %"(our payload is for "
                      %shortHashF%", but we want to create payload based on tip "
                      %shortHashF%")"

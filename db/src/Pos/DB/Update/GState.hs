@@ -5,12 +5,18 @@
 
 module Pos.DB.Update.GState
        (
-         -- * Getters
-         getAdoptedBV
+         -- * Getters and types re-exported from Pos.DB.Update.GState.BlockVersion
+         getConsensusEra
        , getAdoptedBVData
        , getAdoptedBVFull
+       , getAdoptedBV
        , getBVState
-       , getConsensusEra
+       , BVIter
+       , getProposedBVs
+       , getCompetingBVStates
+       , getProposedBVStates
+
+         -- * Getters
        , getProposalState
        , getConfirmedSV
        , getMaxBlockSize
@@ -33,11 +39,6 @@ module Pos.DB.Update.GState
        , ConfPropIter
        , getConfirmedProposals
 
-       , BVIter
-       , getProposedBVs
-       , getCompetingBVStates
-       , getProposedBVStates
-
        ) where
 
 import           Universum
@@ -56,12 +57,12 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData, configEpochSlots)
 import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData (..), BlockVersionState (..),
-                     ConfirmedProposalState (..), ConsensusEra (..),
+                     ConfirmedProposalState (..),
                      DecidedProposalState (dpsDifficulty), NumSoftwareVersion,
                      ProposalState (..), SoftwareVersion (..),
                      UndecidedProposalState (upsSlot), UpId,
-                     UpdateConfiguration, UpdateProposal (..), bvsIsConfirmed,
-                     consensusEraBVD, cpsSoftwareVersion, genesisBlockVersion,
+                     UpdateConfiguration, UpdateProposal (..),
+                     cpsSoftwareVersion, genesisBlockVersion,
                      genesisSoftwareVersions, ourAppName, ourSystemTag,
                      psProposal)
 import           Pos.Core (ChainDifficulty, SlotId, StakeholderId,
@@ -69,42 +70,25 @@ import           Pos.Core (ChainDifficulty, SlotId, StakeholderId,
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      createInitSlottingData)
 import           Pos.Crypto (hash)
-import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB,
-                     MonadDBRead (..), RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB.BatchOp (RocksBatchOp (..))
+import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType,
+                     MonadDB, MonadDBRead (..))
 import           Pos.DB.Error (DBError (DBMalformed))
+import           Pos.DB.Functions (encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
+import           Pos.DB.Update.GState.BlockVersion (BVIter, adoptedBVKey,
+                     bvStateKey, getAdoptedBV, getAdoptedBVData,
+                     getAdoptedBVFull, getBVState, getCompetingBVStates,
+                     getConsensusEra, getProposedBVStates, getProposedBVs)
 import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
 ----------------------------------------------------------------------------
 
--- | Get last adopted block version.
-getAdoptedBV :: MonadDBRead m => m BlockVersion
-getAdoptedBV = fst <$> getAdoptedBVFull
-
--- | Get state of last adopted BlockVersion.
-getAdoptedBVData :: MonadDBRead m => m BlockVersionData
-getAdoptedBVData = snd <$> getAdoptedBVFull
-
--- | Get last adopted BlockVersion and data associated with it.
-getAdoptedBVFull :: MonadDBRead m => m (BlockVersion, BlockVersionData)
-getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
-  where
-    msg =
-        "Update System part of GState DB is not initialized (last adopted BV is missing)"
-
--- | Get the ConsensusEra from the database.
-getConsensusEra :: MonadDBRead m => m ConsensusEra
-getConsensusEra = consensusEraBVD <$> getAdoptedBVData
-
 -- | Get maximum block size (in bytes).
 getMaxBlockSize :: MonadDBRead m => m Byte
 getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
-
--- | Get 'BlockVersionState' associated with given BlockVersion.
-getBVState :: MonadDBRead m => BlockVersion -> m (Maybe BlockVersionState)
-getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
 getProposalState :: (MonadDBRead m) => UpId -> m (Maybe ProposalState)
@@ -296,43 +280,9 @@ getConfirmedProposals uc reqNsv =
     hasOurSystemTag ConfirmedProposalState {..} =
         isJust $ upData cpsUpdateProposal ^. at (ourSystemTag uc)
 
--- Iterator by block versions
-data BVIter
-
-instance DBIteratorClass BVIter where
-    type IterKey BVIter = BlockVersion
-    type IterValue BVIter = BlockVersionState
-    iterKeyPrefix = bvStateIterationPrefix
-
-bvSource :: (MonadDBRead m) => ConduitT () (IterType BVIter) (ResourceT m) ()
-bvSource = dbIterSource GStateDB (Proxy @BVIter)
-
--- | Get all proposed 'BlockVersion's.
-getProposedBVs :: (MonadDBRead m, MonadUnliftIO m) => m [BlockVersion]
-getProposedBVs = runConduitRes $ mapOutput fst bvSource .| CL.consume
-
-getProposedBVStates :: (MonadDBRead m, MonadUnliftIO m) => m [BlockVersionState]
-getProposedBVStates = runConduitRes $ mapOutput snd bvSource .| CL.consume
-
--- | Get all competing 'BlockVersion's and their states.
-getCompetingBVStates
-    :: (MonadDBRead m, MonadUnliftIO m)
-    => m [(BlockVersion, BlockVersionState)]
-getCompetingBVStates =
-    runConduitRes $ bvSource .| CL.filter (bvsIsConfirmed . snd) .| CL.consume
-
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)
 ----------------------------------------------------------------------------
-
-adoptedBVKey :: ByteString
-adoptedBVKey = "us/adopted-block-version/"
-
-bvStateKey :: BlockVersion -> ByteString
-bvStateKey = encodeWithKeyPrefix @BVIter
-
-bvStateIterationPrefix :: ByteString
-bvStateIterationPrefix = "us/bvs/"
 
 proposalKey :: UpId -> ByteString
 proposalKey = encodeWithKeyPrefix @PropIter
@@ -362,7 +312,4 @@ epochProposersKey = "us/epoch-proposers/"
 -- Details
 ----------------------------------------------------------------------------
 
-getAdoptedBVFullMaybe
-    :: MonadDBRead m
-    => m (Maybe (BlockVersion, BlockVersionData))
-getAdoptedBVFullMaybe = gsGetBi adoptedBVKey
+

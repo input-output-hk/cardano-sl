@@ -12,7 +12,7 @@ import           Universum
 import           Data.Default (Default (def))
 
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.DB.GState.Common (getTip)
+import           Pos.DB.GState.Tip (getTip)
 import           Pos.DB.Txp.MemState.Types (GenericTxpLocalData (..))
 
 ----------------------------------------------------------------------------

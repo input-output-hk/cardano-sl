@@ -9,16 +9,15 @@ module Pos.DB.BlockIndex
 
 import           Universum
 
-import           Data.ByteArray (convert)
-
 import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Chain.Block (BlockHeader, HeaderHash, headerHash)
+import           Pos.Chain.Block (BlockHeader (..), HeaderHash, headerHash)
 import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead,
                      MonadDB (..))
 import           Pos.DB.Functions (dbGetBi)
-import           Pos.DB.GState.Common (getTipSomething)
+import           Pos.DB.GState.Tip (getTipSomething)
+import           Pos.DB.Update.GState.BlockVersion (blockIndexKey)
 
 -- | Returns header of block that was requested from Block DB.
 getHeader
@@ -39,10 +38,3 @@ putHeadersIndex =
 -- | Deletes header from the index db.
 deleteHeaderIndex :: MonadDB m => HeaderHash -> m ()
 deleteHeaderIndex = dbDelete BlockIndexDB . blockIndexKey
-
-----------------------------------------------------------------------------
--- Keys
-----------------------------------------------------------------------------
-
-blockIndexKey :: HeaderHash -> ByteString
-blockIndexKey h = "b" <> convert h

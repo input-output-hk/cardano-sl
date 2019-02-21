@@ -54,7 +54,7 @@ import           Pos.DB.Delegation.Logic.Common (DelegationError (..),
                      runDelegationStateAction)
 import           Pos.DB.Delegation.Logic.Mempool (clearDlgMemPoolAction,
                      deleteFromDlgMemPool, processProxySKHeavyInternal)
-import qualified Pos.DB.GState.Common as GS
+import qualified Pos.DB.GState.Tip as GS
 import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen, getDlgRichmenObft)
 import           Pos.DB.Update (getConsensusEra)
 import           Pos.Util (getKeys, _neHead)

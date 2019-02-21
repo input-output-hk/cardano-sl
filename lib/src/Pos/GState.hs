@@ -4,6 +4,8 @@
 
 module Pos.GState
        ( module Pos.DB.GState.Stakes
+       , module Pos.DB.GState.Initialization
+       , module Pos.DB.GState.Tip
        , module Pos.DB.GState.Common
        , module Pos.DB.Delegation
        , module Pos.DB.Block
@@ -15,7 +17,9 @@ module Pos.GState
 import           Pos.DB.Block
 import           Pos.DB.Delegation
 import           Pos.DB.GState.Common
+import           Pos.DB.GState.Initialization
 import           Pos.DB.GState.Stakes
+import           Pos.DB.GState.Tip
 import           Pos.DB.Update
 import           Pos.GState.Context
 import           Pos.GState.GState

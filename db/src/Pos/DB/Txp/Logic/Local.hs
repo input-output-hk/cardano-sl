@@ -44,9 +44,9 @@ import           Pos.Core.Slotting (MonadSlots (..), epochOrSlotToEpochIndex,
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadGState (..))
-import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.GState.Lock (Priority (..), StateLock, StateLockMetrics,
                      withStateLock)
+import qualified Pos.DB.GState.Tip as GS
 import           Pos.DB.Txp.Logic.Common (buildUtxo)
 import           Pos.DB.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
                      MonadTxpMem, TxpLocalWorkMode, getLocalTxsMap,

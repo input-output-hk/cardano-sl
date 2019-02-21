@@ -84,6 +84,7 @@ import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, startTimer)
 import           Pos.Util.Trace (Severity (Error), Trace)
+import           Pos.Util.Trace.Named (LogNamed, appendName, named)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 {-# ANN module ("HLint: ignore Use whenJust" :: Text) #-}
@@ -96,7 +97,7 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcLastKnownBlockVersion  :: !BlockVersion
     , fdcConvEstablishTimeout   :: !Microsecond
     , fdcStreamWindow           :: !Word32
-    , fdcTrace                  :: !(Trace IO (Severity, Text))
+    , fdcTrace                  :: !(Trace IO (LogNamed (Severity, Text)))
     }
 
 data RunFullDiffusionInternals = RunFullDiffusionInternals
@@ -126,11 +127,14 @@ diffusionLayerFull
     -> (DiffusionLayer IO -> IO x)
     -> IO x
 diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
+    let -- A trace for the Outbound Queue. We use the one from the
+        -- configuration, and put an outboundqueue suffix on it.
+        oqTrace =appendName "outboundqueue" (fdcTrace fdconf)
     -- Make the outbound queue using network policies.
     oq :: OQ.OutboundQ EnqueuedConversation NodeId Bucket <-
         -- NB: <> it's not Text semigroup append, it's LoggerName append, which
         -- puts a "." in the middle.
-        initQueue networkConfig ("diffusion.outboundqueue") (enmStore <$> mEkgNodeMetrics)
+        initQueue networkConfig oqTrace (enmStore <$> mEkgNodeMetrics)
     let topology = ncTopology networkConfig
         mSubscriptionWorker = topologySubscriptionWorker topology
         mSubscribers = topologySubscribers topology
@@ -140,7 +144,8 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
         -- the configuration at severity 'Error' (when transport has an
         -- exception trying to 'accept' a new connection).
         logTrace :: Trace IO Text
-        logTrace = contramap ((,) Error) (fdcTrace fdconf)
+        logTrace = contramap ((,) Error) $ named $
+            appendName "transport" (fdcTrace fdconf)
     bracketTransportTCP logTrace (fdcConvEstablishTimeout fdconf) (ncTcpAddr networkConfig) $ \transport -> do
         rec (fullDiffusion, internals) <-
                 diffusionLayerFullExposeInternals fdconf
@@ -203,7 +208,7 @@ diffusionLayerFullExposeInternals fdconf
         lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
         streamWindow = fdcStreamWindow fdconf
-        logTrace = fdcTrace fdconf
+        logTrace = named (fdcTrace fdconf)
 
     -- Subscription states.
     subscriptionStates <- emptySubscriptionStates

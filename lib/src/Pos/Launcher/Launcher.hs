@@ -11,6 +11,7 @@ module Pos.Launcher.Launcher
     , actionWithCoreNode
     ) where
 
+import           Data.Functor.Contravariant (contramap)
 import           Universum
 
 import           Ntp.Client (NtpConfiguration)
@@ -33,8 +34,9 @@ import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
 import           Pos.Launcher.Runner (elimRealMode, runRealMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Trace (Trace, fromTypeclassWlog)
 import           Pos.Util.Util (logException)
-import           Pos.Util.Wlog (logInfo)
+import           Pos.Util.Wlog (Severity (Info), logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 import           Pos.WorkMode (EmptyMempoolExt)
 import           UnliftIO.Async (concurrently_)
@@ -58,9 +60,24 @@ launchNode
     -> IO ()
 launchNode nArgs cArgs lArgs action = do
     let confOpts = configurationOptions (commonArgs cArgs)
-    let confKey = cfoKey confOpts
-    let withLogger' = loggerBracket confKey lArgs . logException (lpDefaultName lArgs)
-    let withConfigurations' = withConfigurations
+        confKey = cfoKey confOpts
+        withLogger' = loggerBracket confKey lArgs . logException (lpDefaultName lArgs)
+        -- FIXME
+        -- There is a `Wlog.WithLogger` instance on `IO` defined in
+        -- `Pos.Util.Wlog.Compatibility`. We can get a `Trace` from it, but
+        -- it will `error` if used before logging is initialized by
+        -- `withLogger'`. I cannot complain enough about this. Somebody chose
+        -- global uninitialized mutable state, just because they wanted to be
+        -- able to magically log in any `IO`. But the use of `error`s in that
+        -- instance makes it obvious that it's all a lie: you can't log anytime
+        -- anywhere, so why claim that you can? Just to avoid passing a
+        -- parameter? To "write less code"?
+        logTrace :: Trace IO (Severity, Text)
+        logTrace = fromTypeclassWlog
+        traceInfo :: Trace IO Text
+        traceInfo = contramap ((,) Info) logTrace
+        withConfigurations' = withConfigurations
+            traceInfo
             (AssetLockPath <$> cnaAssetLockPath cArgs)
             (cnaDumpGenesisDataPath cArgs)
             (cnaDumpConfiguration cArgs)
@@ -68,6 +85,7 @@ launchNode nArgs cArgs lArgs action = do
 
     withLogger' $ withConfigurations' $ \genesisConfig walletConfig txpConfig ntpConfig -> do
         (nodeParams, Just sscParams) <- getNodeParams
+            logTrace
             (lpDefaultName lArgs)
             cArgs
             nArgs

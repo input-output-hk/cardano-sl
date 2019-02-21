@@ -32,6 +32,7 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..),
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
+import           Pos.Util.Trace (fromTypeclassWlog, noTrace)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
@@ -94,14 +95,16 @@ action opts@AuxxOptions {..} command = do
             ->
                 handle @_ @ConfigurationException (\_ -> runWithoutNode pa)
               . handle @_ @ConfigurationError (\_ -> runWithoutNode pa)
-              $ withConfigurations Nothing
+              $ withConfigurations noTrace
+                                   Nothing
                                    cnaDumpGenesisDataPath
                                    cnaDumpConfiguration
                                    conf
                                    (runWithConfig pa)
         Light
             -> runWithoutNode pa
-        _   -> withConfigurations Nothing
+        _   -> withConfigurations noTrace
+                                  Nothing
                                   cnaDumpGenesisDataPath
                                   cnaDumpConfiguration
                                   conf
@@ -121,6 +124,7 @@ action opts@AuxxOptions {..} command = do
     runWithConfig printAction genesisConfig _walletConfig txpConfig _ntpConfig = do
         printAction "Mode: with-config"
         (nodeParams, tempDbUsed) <- (correctNodeParams opts . fst) =<< CLI.getNodeParams
+            fromTypeclassWlog
             loggerName
             cArgs
             nArgs

@@ -47,7 +47,9 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-import           Pos.Util.Trace (setupTestTrace, wlogTrace)
+import           Pos.Util.Trace (setupTestTrace)
+import           Pos.Util.Trace.Named (appendName, fromTypeclassNamedTraceWlog,
+                     named)
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
@@ -151,7 +153,8 @@ withServer pm transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 2048
-        , fdcTrace = wlogTrace ("server.diffusion")
+        , fdcTrace = appendName "server"
+              (appendName "diffusion" fromTypeclassNamedTraceWlog)
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -167,8 +170,8 @@ withClient
 withClient pm streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
-    oq <- OQ.new
-                 (wlogTrace ("client.outboundqueue"))
+    oq <- OQ.new (named $ appendName "client" (appendName "outboundqueue"
+                    fromTypeclassNamedTraceWlog))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -198,7 +201,8 @@ withClient pm streamWindow transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = streamWindow
-        , fdcTrace = wlogTrace ("client.diffusion")
+        , fdcTrace = appendName "client"
+              (appendName "diffusion" fromTypeclassNamedTraceWlog)
         }
 
 

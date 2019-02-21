@@ -92,15 +92,24 @@ instance CanLog m => CanLog (StateT s m)
 instance CanLog m => CanLog (StateLazy.StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
+-- FIXME this is awful.
+-- It may be ostensibly convenient, but it's just wrong, and in fact very
+-- inconvenient because it brings about global mutable (and uninitialized!)
+-- state. So much for pure functional programming.
 instance CanLog IO where
     dispatchMessage name severity msg = do
         lh <- readMVar loggingHandler
         mayEnv <- Internal.getLogEnv lh
         case mayEnv of
+            -- FIXME
+            -- If you need a resource in order to do logging, use a lambda.
             Nothing -> error "logging not yet initialized. Abort."
             Just env -> do
                 mayConfig <- Internal.getConfig lh
                 case mayConfig of
+                    -- FIXME
+                    -- If you need configuration in order to do logging, use
+                    -- a lambda.
                     Nothing -> error "no logging configuration. Abort."
                     Just lc -> when (severity >= lc ^. lcLoggerTree ^. ltMinSeverity)
                                  $ Log.logItem' ()

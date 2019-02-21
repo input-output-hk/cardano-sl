@@ -3,13 +3,14 @@
 module Main (main) where
 
 import qualified Data.Text as T
+import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret
 import           Universum
 
 main :: IO ()
 main = do
   [ path ] <- getArgs
-  originalKey <- readUserSecret path
+  originalKey <- readUserSecret fromTypeclassWlog path
   let
     zero :: Int
     zero = 0

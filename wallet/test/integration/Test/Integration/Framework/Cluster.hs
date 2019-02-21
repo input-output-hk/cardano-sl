@@ -36,6 +36,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurations)
 import           Pos.Node.API (ForceNtpCheck (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Wlog.Compatibility (usingNamedPureLogger)
 
 
@@ -194,7 +195,7 @@ getGenesisKeys stateDir configOpts = do
     getGeneratedSecrets :: ConfigurationOptions -> IO GeneratedSecrets
     getGeneratedSecrets opts = fst <$>
         ( usingNamedPureLogger "_"
-            $ withConfigurations Nothing Nothing False opts
+            $ withConfigurations noTrace Nothing Nothing False opts
             $ \config _ _ _ -> configGeneratedSecretsThrow config
         )
 

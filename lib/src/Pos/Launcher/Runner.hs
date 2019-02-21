@@ -56,6 +56,7 @@ import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace.Named (appendName, fromTypeclassNamedTraceWlog)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
@@ -128,6 +129,8 @@ elimRealMode uc pm NodeResources {..} diffusion action = do
         { prpServers         = npReportServers
         , prpLoggerConfig    = ncLoggerConfig
         , prpCompileTimeInfo = compileInfo
+        -- Careful: this uses a CanLog IO instance from Wlog.Compatibility
+        -- which assumes you have set up some global logging state.
         , prpTrace           = wlogTrace "reporter"
         , prpProtocolMagic   = pm
         }
@@ -181,7 +184,8 @@ runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic ac
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion uc
         , fdcConvEstablishTimeout = networkConnectionTimeout
-        , fdcTrace = wlogTrace "diffusion"
+        -- Use the Wlog.Compatibility name trace (magic CanLog IO instance)
+        , fdcTrace = appendName "diffusion" fromTypeclassNamedTraceWlog
         , fdcStreamWindow = streamWindow
         }
     exitOnShutdown action = do

@@ -2,9 +2,9 @@
 
 # usage: ./stack-test test4.2
 
-set -e
-set -x
+set -e -u
 
+export SCRIPT=$1
 
 unameOut="$(uname -s)"
 case "${unameOut}" in
@@ -16,34 +16,54 @@ case "${unameOut}" in
 esac
 echo "We are on a ${machine} machine"
 
-if [ "${machine}" == "Darwin" ]; then
+if test "${machine}" == "Darwin" ; then
   EXTRA_GHC_OPTIONS="--ghc-options=-optl-Wl,-dead_strip_dylibs"
 else
   EXTRA_GHC_OPTIONS=""
 fi
+
+kill_cardano_nodes () {
+  # Use a shorter name here (Linux ps only prints this much).
+  targets=$(ps | grep -v grep | grep cardano-node-si | sed 's/^[ ]*//;s/ .*//')
+  if test -n "${targets}" ; then
+    kill -INT ${targets}
+  fi
+
+}
+
+# Kill all existing cardano-node-simple processes. If there are processes
+# still running from previous runs of this script, the test will fail if
+# we don't kill them first.
+kill_cardano_nodes
 
 pushd ..
 stack build $EXTRA_GHC_OPTIONS cardano-sl-script-runner cardano-sl-node cardano-sl-tools
 export PATH=$(realpath $(stack path --local-install-root)/bin):$PATH
 popd
 
-export SCRIPT=$1
-
 CFG=$(realpath ../lib/configuration.yaml)
 LOGCFG=$(realpath ./log-config.yaml)
 TOPO=$(realpath ./topology-local.yaml)
 POLFILE=$(realpath ../scripts/policies/policy_script-runner.yaml)
 
-if [ "${machine}" == "Darwin" ]; then
-  T=$(mktemp -d -t testrun)
+if test "${machine}" == "Darwin" ; then
+  tmpdir=$(mktemp -d -t testrun)
 else
-  T=$(mktemp -d -p . testrun-XXXXXX)
+  tmpdir=$(mktemp -d -p . testrun-XXXXXX)
 fi
 
-echo "Temp directory: $T"
-cd $T
-mkdir poc-state
+echo "Temp directory: $tmpdir"
+cd $tmpdir
+mkdir test-state
 
-testcases --configuration-file $CFG --log-console-off --db-path poc-state/db --keyfile secret.key --log-config $LOGCFG --logs-prefix poc-state/logs --topology $TOPO --no-brickui --policies $POLFILE
+testcases --log-console-off --no-brickui --configuration-file $CFG \
+  --db-path test-state/db --keyfile secret.key --log-config $LOGCFG \
+  --logs-prefix test-state/logs --topology $TOPO --policies $POLFILE
 
-egrep -r --color=always "Processing of proposal|We'll request data for key Tagged|Ignoring data|Proposal .* is confirmed" poc-state/relay-stdout-0
+kill_cardano_nodes
+
+egrep --color=always \
+  "Processing of proposal|We'll request data for key Tagged|Ignoring data|Proposal .* is confirmed" \
+  test-state/relay-stdout-0
+
+

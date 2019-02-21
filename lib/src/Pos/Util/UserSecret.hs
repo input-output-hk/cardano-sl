@@ -1,6 +1,10 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards #-}
 
+-- Due to CPP, there are unused matches on Windows. Rather than fix this with
+-- CPP, I think it's cleaner and simpler to make an exception for this module.
+{-# OPTIONS_GHC "-fno-warn-unused-matches" #-}
+
 -- | Secret key file storage and management functions based on file
 -- locking.
 

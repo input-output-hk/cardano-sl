@@ -265,6 +265,7 @@
 - Improve readability and execution of various integration tests
     - [CO-398](https://iohk.myjetbrains.com/youtrack/issue/CO-398), [#3678](https://github.com/input-output-hk/cardano-sl/pull/3678)
     - [CO-400](https://iohk.myjetbrains.com/youtrack/issue/CO-400), [#3680](https://github.com/input-output-hk/cardano-sl/pull/3680)
+    - [CO-424](https://iohk.myjetbrains.com/youtrack/issue/CO-424), [#3751](https://github.com/input-output-hk/cardano-sl/pull/3751), [#3780](https://github.com/input-output-hk/cardano-sl/pull/3780)
     - [CO-436](https://iohk.myjetbrains.com/youtrack/issue/CO-436), [#3791](https://github.com/input-output-hk/cardano-sl/pull/3791)
     - [CBR-408](https://iohk.myjetbrains.com/youtrack/issue/CBR-408), [#3571](https://github.com/input-output-hk/cardano-sl/pull/3571)
     - [CBR-417](https://iohk.myjetbrains.com/youtrack/issue/CBR-417), [#3568](https://github.com/input-output-hk/cardano-sl/pull/3568)

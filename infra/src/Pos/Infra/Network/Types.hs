@@ -70,9 +70,9 @@ import qualified Pos.Infra.Network.DnsDomains as DnsDomains
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace (Trace, Severity)
+import           Pos.Util.Trace.Named (LogNamed, appendName, named)
 import           Pos.Util.Util (HasLens', lensOf)
-import           Pos.Util.Wlog (LoggerName)
 
 {-------------------------------------------------------------------------------
   Network configuration
@@ -448,14 +448,14 @@ data Bucket =
 --
 -- This will use the log-warper trace for logging from the outbound queue.
 -- You can choose what name to give it.
-initQueue :: (MonadIO m, FormatMsg msg)
+initQueue :: (FormatMsg msg)
           => NetworkConfig kademlia
-          -> LoggerName
+          -> Trace IO (LogNamed (Severity, Text))
           -> Maybe Monitoring.Store -- ^ EKG store (if used)
-          -> m (OutboundQ msg NodeId Bucket)
-initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
+          -> IO (OutboundQ msg NodeId Bucket)
+initQueue NetworkConfig{..} logTrace mStore = liftIO $ do
     let NodeName selfName = fromMaybe (NodeName "self") ncSelfName
-        oqTrace           = wlogTrace (loggerName <> "." <> selfName)
+        oqTrace = named (appendName selfName logTrace)
     oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy
@@ -465,7 +465,7 @@ initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
 
     case mStore of
       Nothing    -> return () -- EKG store not used
-      Just store -> liftIO $ OQ.registerQueueMetrics (Just (toString cardanoNamespace)) oq store
+      Just store -> OQ.registerQueueMetrics (Just (toString cardanoNamespace)) oq store
 
     case ncTopology of
       TopologyAuxx peers -> do

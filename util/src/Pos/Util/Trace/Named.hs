@@ -11,6 +11,7 @@ module Pos.Util.Trace.Named
     , setupLogging
     , namedTrace
     , appendName
+    , fromTypeclassNamedTraceWlog
     -- * rexports
     , natTrace
     -- * log functions
@@ -25,6 +26,7 @@ module Pos.Util.Trace.Named
 import           Universum
 
 import           Data.Functor.Contravariant (Op (..), contramap)
+import qualified Data.Text as Text
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.LoggerConfig (LogSecurityLevel (..))
 import           Pos.Util.Log.LogSafe (SecuredText, logMCond, logMessageUnsafeP,
@@ -32,6 +34,7 @@ import           Pos.Util.Log.LogSafe (SecuredText, logMCond, logMessageUnsafeP,
 import           Pos.Util.Trace (Trace (..), natTrace, traceWith)
 import qualified Pos.Util.Trace.Unstructured as TrU (LogItem (..),
                      LogPrivacy (..))
+import qualified Pos.Util.Wlog as Wlog
 
 type TraceNamed m = Trace m (LogNamed TrU.LogItem)
 
@@ -96,13 +99,13 @@ logErrorUnsafeP logTrace   = traceNamedItem logTrace TrU.PublicUnsafe Log.Error
 
 modifyName
     :: ([Log.LoggerName] -> [Log.LoggerName])
-    -> TraceNamed m
-    -> TraceNamed m
+    -> Trace m (LogNamed i)
+    -> Trace m (LogNamed i)
 modifyName k = contramap f
   where
     f (LogNamed name item) = LogNamed (k name) item
 
-appendName :: Log.LoggerName -> TraceNamed m -> TraceNamed m
+appendName :: Log.LoggerName -> Trace m (LogNamed i) -> Trace m (LogNamed i)
 appendName lname = modifyName (\e -> [lname] <> e)
 
 named :: Trace m (LogNamed i) -> Trace m i
@@ -116,6 +119,16 @@ setupLogging cfoKey lc ln = do
     lh <- liftIO $ Log.setupLogging cfoKey lc
     let nt = namedTrace lh
     return $ appendName ln nt
+
+-- | Use the magic CanLog IO instance from Wlog.Compatibility to conjure a
+-- trace. Not recommended for further use.
+fromTypeclassNamedTraceWlog
+    :: ( Wlog.CanLog m )
+    => Trace m (LogNamed (Wlog.Severity, Text))
+fromTypeclassNamedTraceWlog = Trace $ Op $ \namedI ->
+    let name       = Text.intercalate (Text.pack ".") (lnName namedI)
+        (sev, txt) = lnItem namedI
+    in  Wlog.dispatchMessage name sev txt
 
 namedTrace
     :: MonadIO m => Log.LoggingHandler -> TraceNamed m

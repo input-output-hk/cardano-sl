@@ -180,7 +180,9 @@ let
           cp ${./log-configs/daedalus.yaml} log-config-prod.yaml
           cp ${./lib/configuration.yaml} configuration.yaml
           cp ${./lib}/*genesis*.json .
+          # this comes from cardano-sl.cabal, via an inherit in default.nix
           echo ${cardano.rev} > commit-id
+          echo ${iohkPkgs.version} > version
           ${pkgs.zip}/bin/zip -9 $out/CardanoSL.zip *
 
           # add CardanoSL.zip to the hydra-build-products to make

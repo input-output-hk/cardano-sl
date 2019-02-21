@@ -199,6 +199,7 @@
             (hsPkgs.universum)
             (hsPkgs.text)
             (hsPkgs.cardano-sl)
+            (hsPkgs.cardano-sl-util)
           ];
         };
       };

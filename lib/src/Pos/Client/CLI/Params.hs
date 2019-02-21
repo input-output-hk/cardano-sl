@@ -27,7 +27,7 @@ import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
-import           Pos.Util.Trace (Trace, Severity (Info), contramap)
+import           Pos.Util.Trace (Severity (Info), Trace, contramap)
 import           Pos.Util.UserSecret (peekUserSecret, usVss)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Util.Wlog (LoggerName)

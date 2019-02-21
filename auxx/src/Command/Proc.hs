@@ -34,9 +34,9 @@ import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic,
                      unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret,
                      usKeys, usPrimKey, usWallet, userSecret)
-import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logInfo,
                      logWarning)

@@ -3,8 +3,8 @@
 module Main (main) where
 
 import qualified Data.Text as T
-import           Pos.Util.UserSecret
 import           Pos.Util.Trace (fromTypeclassWlog)
+import           Pos.Util.UserSecret
 import           Universum
 
 main :: IO ()

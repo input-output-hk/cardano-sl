@@ -11,8 +11,8 @@ module Pos.Launcher.Launcher
     , actionWithCoreNode
     ) where
 
-import           Universum
 import           Data.Functor.Contravariant (contramap)
+import           Universum
 
 import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Genesis as Genesis (Config (..))

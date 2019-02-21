@@ -70,7 +70,7 @@ import qualified Pos.Infra.Network.DnsDomains as DnsDomains
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.Util.Trace (Trace, Severity)
+import           Pos.Util.Trace (Severity, Trace)
 import           Pos.Util.Trace.Named (LogNamed, appendName, named)
 import           Pos.Util.Util (HasLens', lensOf)
 

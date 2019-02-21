@@ -52,7 +52,7 @@ import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.OptParse (fromParsec)
-import           Pos.Util.Trace (Trace, Severity (Error, Notice), traceWith)
+import           Pos.Util.Trace (Severity (Error, Notice), Trace, traceWith)
 
 #ifdef POSIX
 import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)

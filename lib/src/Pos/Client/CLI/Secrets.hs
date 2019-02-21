@@ -15,9 +15,9 @@ import           Crypto.Random (MonadRandom)
 import           Pos.Chain.Genesis (GeneratedSecrets (..), RichSecrets (..))
 import           Pos.Crypto (SecretKey, VssKeyPair, keyGen, runSecureRandom,
                      vssKeyGen)
+import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss,
                      writeUserSecret)
-import           Pos.Util.Trace (Trace, traceWith)
 
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 

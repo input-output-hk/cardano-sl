@@ -48,8 +48,8 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
 import           Pos.Util.Trace (setupTestTrace)
-import           Pos.Util.Trace.Named (appendName, named,
-                     fromTypeclassNamedTraceWlog)
+import           Pos.Util.Trace.Named (appendName, fromTypeclassNamedTraceWlog,
+                     named)
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 

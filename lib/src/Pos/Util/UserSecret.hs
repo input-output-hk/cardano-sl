@@ -67,10 +67,10 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
 import           Pos.Core (Address, accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair,
                      encToPublic)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           Pos.Util.UserKeyError (KeyError (..), UserKeyError (..),
                      UserKeyType (..))
 import           Test.Pos.Crypto.Arbitrary ()
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 #ifdef POSIX
 import           Formatting (oct, sformat)
 import qualified System.Posix.Files as PSX

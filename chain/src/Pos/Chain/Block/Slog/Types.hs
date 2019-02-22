@@ -63,10 +63,19 @@ type LastBlkSlots = OldestFirst [] LastSlotInfo
 noLastBlkSlots :: LastBlkSlots
 noLastBlkSlots = OldestFirst []
 
-data ConsensusEraLeaders = OriginalLeaders SlotLeaders
-                         | ObftStrictLeaders SlotLeaders
-                         | ObftLenientLeaders (Set StakeholderId) BlockCount LastBlkSlots
-                         deriving (Eq, Show, Generic)
+-- | This data type is used for block verification. It specifies which slot
+-- leader verification algorithm to use and the parameters required to do so.
+data ConsensusEraLeaders
+    -- | A follow-the-satoshi slot leader schedule for some epoch.
+    = OriginalLeaders SlotLeaders
+    -- | An OBFT round-robin slot leader schedule for some epoch.
+    | ObftStrictLeaders SlotLeaders
+    -- | A 'Set' of acceptable slot leaders for some epoch, the value of k,
+    -- and the last k blocks which have been minted.
+    -- We need to specify k since it's not guaranteed that 'LastBlkSlots' is
+    -- of length k.
+    | ObftLenientLeaders (Set StakeholderId) BlockCount LastBlkSlots
+    deriving (Eq, Show, Generic)
 
 instance NFData ConsensusEraLeaders
 

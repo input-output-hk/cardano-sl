@@ -153,6 +153,8 @@ onNewSlotDo epochSlots withLogging expectedSlotId onsp action = do
     curSlot <- waitUntilExpectedSlot
 
     let nextSlot = slotIdSucc epochSlots curSlot
+    logDebug $ sformat ("onNewSlotDo: curSlot = "%shown) curSlot
+    logDebug $ sformat ("onNewSlotDo: nextSlot = "%shown) nextSlot
     Timestamp curTime <- currentTimeSlotting
     Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
     let timeToWait = nextSlotStart - curTime

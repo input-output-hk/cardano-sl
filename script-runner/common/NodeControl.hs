@@ -94,13 +94,13 @@ commonNodeParams :: NodeInfo -> [ String ]
 commonNodeParams (NodeInfo idx typ stateRoot topoPath cfg) = [
     "--configuration-file", cfg ^. CLI.configurationOptions_L . cfoFilePath_L
   , "--topology", T.unpack topoPath
-  , "--db-path", (T.unpack stateRoot) <> "/poc-state/" <> (typeToString typ) <> (show idx) <> "-db"
+  , "--db-path", (T.unpack stateRoot) <> "/test-state/" <> (typeToString typ) <> (show idx) <> "-db"
   , "--node-id", (typeToString typ) <> "-" <> (show idx)
   , "--node-api-address", "127.0.0.1:" <> show (startingPortOffset typ + 8083 + idx)
   , "--no-tls"
   , "--node-doc-address", "127.0.0.1:" <> show (startingPortOffset typ + 8180 + idx)
-  , "--json-log", "poc-state/" <> typeToString typ <> show idx <> ".json"
-  , "--logs-prefix", "poc-state/logs-" <> typeToString typ <> show idx
+  , "--json-log", "test-state/" <> typeToString typ <> show idx <> ".json"
+  , "--logs-prefix", "test-state/logs-" <> typeToString typ <> show idx
   ] <> (maybeSystemStart $ cfg ^. CLI.configurationOptions_L . cfoSystemStart_L)
   <> (maybeLogConfig $ cfg ^. CLI.logConfig_L)
 
@@ -119,7 +119,7 @@ commonNodeStart :: String -> [ String ] -> Types.NodeType -> Integer -> PocMode 
 commonNodeStart prog args typ idx = do
   let
     typename = typeToString typ
-  childStdout <- openFile ("poc-state/" <> typename <> "-stdout-" <> show idx) AppendMode
+  childStdout <- openFile ("test-state/" <> typename <> "-stdout-" <> show idx) AppendMode
   let
     pc :: CreateProcess
     pc = (proc prog args) { std_out = UseHandle childStdout }

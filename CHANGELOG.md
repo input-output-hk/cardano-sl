@@ -42,6 +42,8 @@
     - Disable SSC during OBFT. ([CBR-490](https://iohk.myjetbrains.com/youtrack/issue/CBR-490) [#4026](https://github.com/input-output-hk/cardano-sl/pull/4026))
     - Implement OBFT block validation ([CBR-481](https://iohk.myjetbrains.com/youtrack/issue/CBR-481) [#4018](https://github.com/input-output-hk/cardano-sl/pull/4018) [#4029](https://github.com/input-output-hk/cardano-sl/pull/4029) [#4059](https://github.com/input-output-hk/cardano-sl/pull/4059))
     - Add cluster-level tests for OBFT using `script-runner` ([CBR-503](https://iohk.myjetbrains.com/youtrack/issue/CBR-503): [#4061](https://github.com/input-output-hk/cardano-sl/pull/4061) [#4073](https://github.com/input-output-hk/cardano-sl/pull/4073))
+    - Improve block validation tests ([CBR-504](https://iohk.myjetbrains.com/youtrack/issue/CBR-504) [#4081](https://github.com/input-output-hk/cardano-sl/pull/4081))
+    - Implement OBFT block creation ([CBR-482](https://iohk.myjetbrains.com/youtrack/issue/CBR-481) [#4077](https://github.com/input-output-hk/cardano-sl/pull/4077))
 
 ### Improvements
 

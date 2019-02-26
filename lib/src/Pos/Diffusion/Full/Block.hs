@@ -284,6 +284,7 @@ streamBlocks
        Trace IO (Severity, Text)
     -> Maybe DiffusionHealth
     -> Logic IO
+    -> Word32 -- ^ Size of batches of blocks (deliver to StreamBlocks).
     -> Word32 -- ^ Size of stream window. 0 implies 'Nothing' is returned.
     -> EnqueueMsg
     -> NodeId
@@ -291,13 +292,11 @@ streamBlocks
     -> [HeaderHash]
     -> StreamBlocks Block IO t
     -> IO (Maybe t)
-streamBlocks _        _   _     0            _       _      _         _           _ =
+streamBlocks _        _   _     _         0            _       _      _         _           _ =
     return Nothing -- Fallback to batch mode
-streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints streamBlocksK =
+streamBlocks logTrace smM logic batchSize streamWindow enqueue nodeId tipHeader checkpoints streamBlocksK =
     requestBlocks >>= Async.wait
   where
-
-    batchSize = min 64 streamWindow
 
     mkStreamStart :: [HeaderHash] -> HeaderHash -> MsgStream
     mkStreamStart chain wantedBlock =

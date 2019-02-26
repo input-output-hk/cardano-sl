@@ -151,6 +151,7 @@ withServer pm transport logic k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcBatchSize = 64
         , fdcStreamWindow = 2048
         , fdcTrace = appendName "server"
               (appendName "diffusion" fromTypeclassNamedTraceWlog)
@@ -199,6 +200,7 @@ withClient pm streamWindow transport logic serverAddress@(Node.NodeId _) k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcBatchSize = 64
         , fdcStreamWindow = streamWindow
         , fdcTrace = appendName "client"
               (appendName "diffusion" fromTypeclassNamedTraceWlog)

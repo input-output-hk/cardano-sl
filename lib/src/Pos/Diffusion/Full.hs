@@ -96,7 +96,10 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcRecoveryHeadersMessage :: !Word
     , fdcLastKnownBlockVersion  :: !BlockVersion
     , fdcConvEstablishTimeout   :: !Microsecond
+    , fdcBatchSize              :: !Word32
+      -- ^ Size of batches of blocks to process when streaming.
     , fdcStreamWindow           :: !Word32
+      -- ^ Size of window for block streaming.
     , fdcTrace                  :: !(Trace IO (LogNamed (Severity, Text)))
     }
 
@@ -207,6 +210,7 @@ diffusionLayerFullExposeInternals fdconf
         protocolConstants = fdcProtocolConstants fdconf
         lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
+        batchSize    = fdcBatchSize    fdconf
         streamWindow = fdcStreamWindow fdconf
         logTrace = named (fdcTrace fdconf)
 
@@ -379,7 +383,7 @@ diffusionLayerFullExposeInternals fdconf
                      -> [HeaderHash]
                      -> StreamBlocks Block IO t
                      -> IO (Maybe t)
-        streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
+        streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic batchSize streamWindow enqueue
 
         announceBlockHeader :: MainBlockHeader -> IO ()
         announceBlockHeader = void . Diffusion.Block.announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue

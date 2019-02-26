@@ -151,6 +151,7 @@ withServer transport logic k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcBatchSize = 64
         , fdcStreamWindow = 65536
         , fdcTrace = noTrace
         }
@@ -195,6 +196,7 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcBatchSize = 64
         , fdcStreamWindow = 65536
         , fdcTrace = noTrace
         }

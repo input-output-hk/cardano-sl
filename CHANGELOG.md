@@ -69,6 +69,8 @@
 - Rewritten and redesigned integration tests framework ([CO-356](https://iohk.myjetbrains.com/youtrack/issue/CO-356) [#4047](https://github.com/input-output-hk/cardano-sl/pull/4047))
 - Simplify prefixing of transaction to account for foreign transactions in inputs rather than process them from outputs ([CO-432](https://iohk.myjetbrains.com/youtrack/issue/CO-432) [#3768](https://github.com/input-output-hk/cardano-sl/pull/3768))
 
+- Implement validation rule that limits the `Attributes` size in a `Tx` ([CDEC-643](https://iohk.myjetbrains.com/youtrack/issue/CDEC-643): [#3878](https://github.com/input-output-hk/cardano-sl/pull/3878))
+
 ### Documentation
 
 - Remove redundant [] in backupPhrase doc example ([#4038](https://github.com/input-output-hk/cardano-sl/pull/4038))
@@ -272,6 +274,10 @@
     - [CO-357](https://iohk.myjetbrains.com/youtrack/issue/CO-357), [#3573](https://github.com/input-output-hk/cardano-sl/pull/3573), [#3639](https://github.com/input-output-hk/cardano-sl/pull/3639)
 
 - Add integration tests to test redemption of certificates ([CBR-398](https://iohk.myjetbrains.com/youtrack/issue/CBR-398), [#3525](https://github.com/input-output-hk/cardano-sl/pull/3525))
+
+- Removal of partial field accessors from `HandlerSpec`, `InductiveValidationError`, `InvariantViolation` and `ValidationResult` data types.([CDEC-403](https://iohk.myjetbrains.com/youtrack/issue/CDEC-403): [#3263](https://github.com/input-output-hk/cardano-sl/pull/3263))
+
+- Remove partial field accessors for `FakeTxsHistory` data type ([CDEC-285](https://iohk.myjetbrains.com/youtrack/issue/CDEC-285): [#3168](https://github.com/input-output-hk/cardano-sl/pull/3168))
 
 - Review implementation of the BIP39 (Mnemonic Words) implementation
     - [CBR-288](https://iohk.myjetbrains.com/youtrack/issue/CBR-288) [#3128](https://github.com/input-output-hk/cardano-sl/pull/3128)

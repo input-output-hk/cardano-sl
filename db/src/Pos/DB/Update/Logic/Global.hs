@@ -214,17 +214,14 @@ verifyBlock genesisConfig verifyAllIsKnown (ComponentBlockMain header payload) =
         -- be adopted during OBFT.
         initialEra <- getConsensusEra
         initialBV  <- getAdoptedBV
-        logDebug $ "usVerifyBlocks: era '" <> show initialEra <> "'"
         case initialEra of
             OBFT _ -> do
-                logDebug $ "usVerifyBlocks OBFT: Checking whether we're"
-                    <> " on epoch boundary and should attempt update"
                 let slotId     = header ^. headerSlotL
                     epochIndex = siEpoch slotId
                 tipHeader <- DB.getTipHeader
-                whenEpochBoundaryObft epochIndex tipHeader (\ei -> do
+                whenEpochBoundaryObft epochIndex tipHeader $ \ei -> do
                     logDebug $ "usVerifyBlocks OBFT: We're on epoch boundary. Running processGenesisBlock"
-                    processGenesisBlock genesisConfig ei)
+                    processGenesisBlock genesisConfig ei
                 getAdoptedBV
 
             Original -> pure initialBV

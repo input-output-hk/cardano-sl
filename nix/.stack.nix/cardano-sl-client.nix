@@ -11,7 +11,7 @@
       specVersion = "1.10";
       identifier = {
         name = "cardano-sl-client";
-        version = "2.1.0";
+        version = "3.0.0";
       };
       license = "MIT";
       copyright = "2017 IOHK";

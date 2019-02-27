@@ -50,17 +50,17 @@ import           Universum
 import           Control.Lens (lens, to)
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
                      askUnliftIO, unliftIO, withUnliftIO)
-import           Control.Monad.STM (orElse, retry)
+import           Control.Monad.STM (orElse)
 import           Data.Conduit (mapOutputMaybe, runConduitRes, (.|))
 import qualified Data.Conduit.List as Conduit
 import           Data.SafeCopy (base, deriveSafeCopy)
-import           Data.Time.Units (Millisecond, fromMicroseconds, toMicroseconds)
+import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
 import           Ntp.Client (NtpStatus (..))
-import           Ntp.Packet (NtpOffset)
 import           Serokell.Data.Memory.Units (Byte)
 
+import           Cardano.Node.API (defaultGetNtpDrift)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel.Util.Core as Util
 import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
@@ -486,61 +486,6 @@ waitForUpdate = liftIO . takeMVar =<< asks l
     l :: Res -> MVar ConfirmedProposalState
     l = ucDownloadedUpdate . view lensOf'
 
-
--- | Get the difference between NTP time and local system time, nothing if the
--- NTP server couldn't be reached in the last 30min.
---
--- Note that one can force a new query to the NTP server in which case, it may
--- take up to 30s to resolve.
-defaultGetNtpDrift
-    :: MonadIO m
-    => TVar NtpStatus
-    -> V1.ForceNtpCheck
-    -> m V1.TimeInfo
-defaultGetNtpDrift tvar ntpCheckBehavior = liftIO $ mkTimeInfo <$>
-    if (ntpCheckBehavior == V1.ForceNtpCheck) then
-        forceNtpCheck >> getNtpOffset blockingLookupNtpOffset
-    else
-        getNtpOffset nonBlockingLookupNtpOffset
-  where
-    forceNtpCheck :: MonadIO m => m ()
-    forceNtpCheck =
-        atomically $ writeTVar tvar NtpSyncPending
-
-    getNtpOffset :: MonadIO m => (NtpStatus -> STM (Maybe NtpOffset)) -> m (Maybe NtpOffset)
-    getNtpOffset lookupNtpOffset =
-        atomically $ (readTVar tvar >>= lookupNtpOffset)
-
-    mkTimeInfo :: Maybe NtpOffset -> V1.TimeInfo
-    mkTimeInfo =
-        V1.TimeInfo . fmap (V1.mkLocalTimeDifference . toMicroseconds)
-
-
--- Lookup NtpOffset from an NTPStatus in a non-blocking manner
---
--- i.e. Returns immediately with 'Nothing' if the NtpSync is pending.
-nonBlockingLookupNtpOffset
-    :: NtpStatus
-    -> STM (Maybe NtpOffset)
-nonBlockingLookupNtpOffset = \case
-    NtpSyncPending     -> pure Nothing
-    NtpDrift offset    -> pure (Just offset)
-    NtpSyncUnavailable -> pure Nothing
-
-
--- Lookup NtpOffset from an NTPStatus in a blocking manner, this usually
--- take ~100ms
---
--- i.e. Wait (at most 30s) for the NtpSync to resolve if pending
-blockingLookupNtpOffset
-    :: NtpStatus
-    -> STM (Maybe NtpOffset)
-blockingLookupNtpOffset = \case
-    NtpSyncPending     -> retry
-    NtpDrift offset    -> pure (Just offset)
-    NtpSyncUnavailable -> pure Nothing
-
-
 -- | Get the most recent main block starting at the specified header
 --
 -- Returns nothing if there are no (regular) blocks on the blockchain yet.
@@ -665,7 +610,7 @@ defMockNodeStateParams =
         , mockNodeStateNextEpochSlotDuration = notDefined "mockNodeStateNextEpochSlotDuration"
         , mockNodeStateSyncProgress          = notDefined "mockNodeStateSyncProgress"
         , mockNodeStateSecurityParameter     = SecurityParameter 2160
-        , mockNodeStateNtpDrift              = const (V1.TimeInfo Nothing)
+        , mockNodeStateNtpDrift              = const V1.TimeInfoUnavailable
         , mockNodeStateCreationTimestamp     = getSomeTimestamp
         }
   where

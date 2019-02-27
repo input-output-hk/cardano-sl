@@ -25,7 +25,6 @@ import           Cardano.Node.NodeStateAdaptor (NodeStateAdaptor, getFeePolicy,
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
-import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import qualified Pos.Chain.Genesis as Genesis
 import           Pos.Chain.Ssc (SscContext)
@@ -424,46 +423,50 @@ v1SyncPercentage nodeHeight walletHeight =
                 / max 1.0 (fromIntegral nd)
                 ) * 100.0
 
+
 -- | Get the difference between NTP time and local system time, nothing if the
 -- NTP server couldn't be reached in the last 30min.
 --
 -- Note that one can force a new query to the NTP server in which case, it may
 -- take up to 30s to resolve.
---
--- Copied from Cardano.Wallet.Kernel.NodeStateAdapter
 defaultGetNtpDrift
-    :: TVar NtpStatus
+    :: MonadIO m
+    => TVar NtpStatus
     -> ForceNtpCheck
-    -> IO TimeInfo
-defaultGetNtpDrift tvar ntpCheck = mkTimeInfo <$> case ntpCheck of
-    ForceNtpCheck -> do
-        forceNtpCheck
-        getNtpOffset blockingLookupNtpOffset
-    NoNtpCheck ->
+    -> m TimeInfo
+defaultGetNtpDrift tvar ntpCheckBehavior =
+    if (ntpCheckBehavior == ForceNtpCheck) then
+        forceNtpCheck >> getNtpOffset blockingLookupNtpOffset
+    else
         getNtpOffset nonBlockingLookupNtpOffset
   where
+    forceNtpCheck :: MonadIO m => m ()
     forceNtpCheck =
         atomically $ writeTVar tvar NtpSyncPending
 
+    getNtpOffset :: MonadIO m => (NtpStatus -> STM TimeInfo) -> m TimeInfo
     getNtpOffset lookupNtpOffset =
-        atomically (readTVar tvar >>= lookupNtpOffset)
+        atomically $ (readTVar tvar >>= lookupNtpOffset)
 
-    mkTimeInfo :: Maybe NtpOffset -> TimeInfo
-    mkTimeInfo =
-        TimeInfo . fmap (mkLocalTimeDifference . toMicroseconds)
-
-    blockingLookupNtpOffset
-        :: NtpStatus
-        -> STM (Maybe NtpOffset)
-    blockingLookupNtpOffset = \case
-        NtpSyncPending     -> retry
-        NtpDrift offset    -> pure (Just offset)
-        NtpSyncUnavailable -> pure Nothing
-
+    -- Lookup NtpOffset from an NTPStatus in a non-blocking manner
+    --
+    -- i.e. Returns immediately if the NtpSync is pending (or available)
     nonBlockingLookupNtpOffset
         :: NtpStatus
-        -> STM (Maybe NtpOffset)
+        -> STM TimeInfo
     nonBlockingLookupNtpOffset = \case
-        NtpSyncPending     -> pure Nothing
-        NtpDrift offset    -> pure (Just offset)
-        NtpSyncUnavailable -> pure Nothing
+        NtpSyncPending     -> pure TimeInfoPending
+        NtpDrift offset    -> pure $ TimeInfoAvailable $ mkLocalTimeDifference $ toMicroseconds offset
+        NtpSyncUnavailable -> pure TimeInfoUnavailable
+
+    -- Lookup NtpOffset from an NTPStatus in a blocking manner, this usually
+    -- take ~100ms
+    --
+    -- i.e. Wait (at most 30s) for the NtpSync to resolve if pending
+    blockingLookupNtpOffset
+        :: NtpStatus
+        -> STM TimeInfo
+    blockingLookupNtpOffset = \case
+        NtpSyncPending     -> retry
+        NtpDrift offset    -> pure $ TimeInfoAvailable $ mkLocalTimeDifference $ toMicroseconds offset
+        NtpSyncUnavailable -> pure TimeInfoUnavailable

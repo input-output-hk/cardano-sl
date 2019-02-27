@@ -394,7 +394,7 @@ nodeStParams1 =
       , mockNodeStateSlotStart = const $ Right getSomeTimestamp
       , mockNodeStateSecurityParameter = SecurityParameter 2160
       , mockNodeStateNextEpochSlotDuration = fromMicroseconds 200
-      , mockNodeStateNtpDrift = const (V1.TimeInfo Nothing)
+      , mockNodeStateNtpDrift = const V1.TimeInfoUnavailable
       , mockNodeStateSyncProgress = (Just 100, 100)
       , mockNodeStateCreationTimestamp = getSomeTimestamp
       }
@@ -408,7 +408,7 @@ nodeStParams2 =
       , mockNodeStateSlotStart = const $ Right getSomeTimestamp
       , mockNodeStateSecurityParameter = SecurityParameter 2160
       , mockNodeStateNextEpochSlotDuration = fromMicroseconds 200
-      , mockNodeStateNtpDrift = const (V1.TimeInfo Nothing)
+      , mockNodeStateNtpDrift = const V1.TimeInfoUnavailable
       , mockNodeStateSyncProgress = (Just 100, 100)
       , mockNodeStateCreationTimestamp = getSomeTimestamp
       }

@@ -668,13 +668,13 @@ instance BuildableSafeGen NodeSettings where
 type SettingsAPI =
     Tag "Settings" 'NoTagDescription
         :> "node-settings"
-        :> Summary "Retrieves the static settings for this node."
+        :> Summary "Retrieve the static settings for this node."
         :> Get '[ValidJSON] (APIResponse NodeSettings)
 
 type InfoAPI =
         Tag "Info" 'NoTagDescription
             :> "node-info"
-            :> Summary "Retrieves the dynamic information for this node."
+            :> Summary "Retrieve the dynamic information for this node."
             :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
             :> Get '[ValidJSON] (APIResponse NodeInfo)
 

@@ -140,31 +140,53 @@ instance ToSchema LocalTimeDifference where
         NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Microseconds Integer)
         pure $ NamedSchema (Just "LocalTimeDifference") s
 
-newtype TimeInfo
-    = TimeInfo
-    { timeDifferenceFromNtpServer :: Maybe LocalTimeDifference
-    } deriving (Eq, Show, Generic)
+data TimeInfo
+    = TimeInfoUnavailable
+    | TimeInfoPending
+    | TimeInfoAvailable { localTimeDifference :: LocalTimeDifference }
+    deriving (Eq, Show, Generic)
 
 instance ToSchema TimeInfo where
-    declareNamedSchema = genericSchemaDroppingPrefix "time" $ \(--^) p -> p &
-        "differenceFromNtpServer"
-        --^ ("The difference in microseconds between the node time and the NTP "
-          <> "server. This value will be null if the NTP server is "
-          <> "unavailable.")
+    declareNamedSchema _ = do
+        NamedSchema _ localTimeSchema <- declareNamedSchema (Proxy @LocalTimeDifference)
+        pure $ NamedSchema (Just "TimeInfo") $ mempty
+            & type_ .~ SwaggerObject
+            & description .~ Just
+                "When 'available', returns an extra 'localTimeDifference' about \
+                \the difference in microseconds between the node time and the \
+                \NTP server."
+            & required .~ ["status"]
+            & properties .~ (mempty
+                & at "status" ?~ Inline (mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ [String "unavailable", String "pending", String "available"]
+                )
+                & at "localTimeDifference" ?~ Inline localTimeSchema
+            )
 
 instance Arbitrary TimeInfo where
-    arbitrary = TimeInfo <$> arbitrary
+    arbitrary = oneof
+        [ pure TimeInfoUnavailable
+        , pure TimeInfoPending
+        , TimeInfoAvailable <$> arbitrary
+        ]
 
 instance Example TimeInfo
 
 deriveSafeBuildable ''TimeInfo
 instance BuildableSafeGen TimeInfo where
-    buildSafeGen _ TimeInfo{..} = bprint ("{"
-        %" differenceFromNtpServer="%build
-        %" }")
-        timeDifferenceFromNtpServer
+    buildSafeGen _ = \case
+        TimeInfoUnavailable -> "unavailable"
+        TimeInfoPending -> "pending"
+        TimeInfoAvailable localTimeDifference -> bprint ("{"
+            %" differenceFromNtpServer="%build
+            %" }")
+            localTimeDifference
 
-deriveJSON Aeson.defaultOptions ''TimeInfo
+deriveJSON (A.defaultOptions
+    { A.constructorTagModifier = (\(h:q) -> C.toLower h : q) . drop 8
+    , A.sumEncoding            = A.TaggedObject "status" "_"
+    }) ''TimeInfo
 
 data Percent -- No concrete type needed, this is just for the Swagger schema
 
@@ -241,7 +263,8 @@ instance ToSchema NodeInfo where
             & ("localBlockchainHeight"
                 --^ "Local blockchain height, in number of blocks.")
             & ("localTimeInformation"
-                --^ "Information about the clock on this node.")
+                --^ "Information about the clock on this node. The field \
+                \'localTimeDifference' is only defined when the status is 'available'")
             & ("subscriptionStatus"
                 --^ "Is the node connected to the network?")
         )

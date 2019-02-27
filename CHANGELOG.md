@@ -45,6 +45,9 @@
     - Improve block validation tests ([CBR-504](https://iohk.myjetbrains.com/youtrack/issue/CBR-504) [#4081](https://github.com/input-output-hk/cardano-sl/pull/4081))
     - Implement OBFT block creation ([CBR-482](https://iohk.myjetbrains.com/youtrack/issue/CBR-481) [#4077](https://github.com/input-output-hk/cardano-sl/pull/4077))
 
+- Review node-info 'localTimeInfo' API to include pending statuses ([CBR-505](https://iohk.myjetbrains.com/youtrack/issue/CBR-505) [#4099](https://github.com/input-output-hk/cardano-sl/pull/4099))
+
+
 ### Improvements
 
 - Removal of V0 API & Legacy Data Layer ([CO-372](https://iohk.myjetbrains.com/youtrack/issue/CO-372))

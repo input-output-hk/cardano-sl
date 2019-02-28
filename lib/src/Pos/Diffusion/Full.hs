@@ -15,7 +15,7 @@ module Pos.Diffusion.Full
 
 import           Universum
 
-import           Control.Concurrent.Async (Concurrently (..))
+import           Control.Concurrent.Async (Concurrently (..), race)
 import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Control.Concurrent.STM as STM
 import           Data.Functor.Contravariant (contramap)
@@ -96,7 +96,10 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcRecoveryHeadersMessage :: !Word
     , fdcLastKnownBlockVersion  :: !BlockVersion
     , fdcConvEstablishTimeout   :: !Microsecond
+    , fdcBatchSize              :: !Word32
+      -- ^ Size of batches of blocks to process when streaming.
     , fdcStreamWindow           :: !Word32
+      -- ^ Size of window for block streaming.
     , fdcTrace                  :: !(Trace IO (LogNamed (Severity, Text)))
     }
 
@@ -207,6 +210,7 @@ diffusionLayerFullExposeInternals fdconf
         protocolConstants = fdcProtocolConstants fdconf
         lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
+        batchSize    = fdcBatchSize    fdconf
         streamWindow = fdcStreamWindow fdconf
         logTrace = named (fdcTrace fdconf)
 
@@ -379,7 +383,7 @@ diffusionLayerFullExposeInternals fdconf
                      -> [HeaderHash]
                      -> StreamBlocks Block IO t
                      -> IO (Maybe t)
-        streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
+        streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic batchSize streamWindow enqueue
 
         announceBlockHeader :: MainBlockHeader -> IO ()
         announceBlockHeader = void . Diffusion.Block.announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue
@@ -455,13 +459,32 @@ runDiffusionLayerFull logTrace
                       listeners
                       k =
     maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
-        timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
+        timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse -> do
             -- Concurrently run the dequeue thread, subscription thread, and
             -- main action.
             let sendActions :: SendActions
                 sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
                 dequeueDaemon = OQ.dequeueThread oq (sendMsgFromConverse converse)
-                subscriptionDaemon = subscriptionThread (fst <$> mKademlia) sendActions
+                -- If there's no subscription thread, the main action with
+                -- outbound queue is all we need, but if there is a subscription
+                -- thread, we run it forever and race it with the others. This
+                -- ensures that
+                -- 1) The subscription system never stops trying.
+                -- 2) The subscription system is incapable of stopping shutdown
+                --    (unless it uninterruptible masks exceptions indefinitely).
+                -- FIXME perhaps it's better to let the subscription thread
+                -- decide if it should go forever or not. Or, demand it does,
+                -- by choosing `forall x . IO x` as the result.
+                withSubscriptionDaemon :: IO a -> IO (Either x a)
+                withSubscriptionDaemon =
+                    case mSubscriptionThread (fst <$> mKademlia) sendActions of
+                        Nothing -> fmap Right
+                        Just subscriptionThread -> \other ->
+                          -- A subscription worker can finish normally (without
+                          -- exception). But we don't want that, so we'll run it
+                          -- forever.
+                          let subForever = subscriptionThread >> subForever
+                          in  race subForever other
                 mainAction = do
                     maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
                     maybe (pure ()) (joinKademlia logTrace) mKademlia
@@ -477,11 +500,12 @@ runDiffusionLayerFull logTrace
                     OQ.waitShutdown oq
                     pure t
 
-                action = Concurrently dequeueDaemon
-                      *> Concurrently subscriptionDaemon
-                      *> Concurrently mainAction
+                action = Concurrently dequeueDaemon *> Concurrently mainAction
 
-            in  runConcurrently action
+            outcome <- withSubscriptionDaemon (runConcurrently action)
+            case outcome of
+              Left  impossible -> pure impossible
+              Right t          -> pure t
   where
     oqEnqueue :: Msg
               -> (NodeId -> VerInfo -> Conversation PackingType t)
@@ -489,15 +513,25 @@ runDiffusionLayerFull logTrace
     oqEnqueue msgType l = do
         itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, l))
         return (M.fromList itList)
-    subscriptionThread mKademliaInst sactions = case mSubscriptionWorker of
-        Just (SubscriptionWorkerBehindNAT dnsDomains) ->
+    mSubscriptionThread :: Maybe KademliaDHTInstance
+                        -> SendActions
+                        -> Maybe (IO ())
+    mSubscriptionThread mKademliaInst sactions = case mSubscriptionWorker of
+        Just (SubscriptionWorkerBehindNAT dnsDomains) -> Just $
             dnsSubscriptionWorker logTrace oq defaultPort dnsDomains keepaliveTimerVar slotDuration subscriptionStates sactions
         Just (SubscriptionWorkerKademlia nodeType valency fallbacks) -> case mKademliaInst of
             -- Caller wanted a DHT subscription worker, but not a Kademlia
             -- instance. Shouldn't be allowed, but oh well FIXME later.
-            Nothing -> pure ()
-            Just kInst -> dhtSubscriptionWorker logTrace oq kInst nodeType valency fallbacks sactions
-        Nothing -> pure ()
+            Nothing -> Nothing
+            Just kInst -> Just $ dhtSubscriptionWorker
+                logTrace
+                oq
+                kInst
+                nodeType
+                valency
+                fallbacks
+                sactions
+        Nothing -> Nothing
 
 sendMsgFromConverse
     :: Converse PackingType PeerData

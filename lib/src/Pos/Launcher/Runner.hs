@@ -182,6 +182,8 @@ runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic ac
         -- Use the Wlog.Compatibility name trace (magic CanLog IO instance)
         , fdcTrace = appendName "diffusion" fromTypeclassNamedTraceWlog
         , fdcStreamWindow = streamWindow
+        -- TODO should be configurable
+        , fdcBatchSize    = 64
         }
     exitOnShutdown action = do
         result <- race (waitForShutdown shdnContext) action

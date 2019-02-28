@@ -103,7 +103,7 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
           pure (NewestFirst (reverse headers), OldestFirst [])
     , getTip = pure arbitraryBlock
     , Logic.streamBlocks = \_ -> do
-          bs <-  readIORef streamIORef
+          bs <- readIORef streamIORef
           yieldMany $ map serializedBlock bs
     }
 
@@ -168,8 +168,6 @@ withClient
     -> (Diffusion IO -> IO t)
     -> IO t
 withClient pm streamWindow transport logic serverAddress@(Node.NodeId _) k = do
-    -- Morally, the server shouldn't need an outbound queue, but we have to
-    -- give one.
     oq <- OQ.new (named $ appendName "client" (appendName "outboundqueue"
                     fromTypeclassNamedTraceWlog))
                  Policy.defaultEnqueuePolicyRelay
@@ -218,9 +216,12 @@ blockDownloadBatch serverAddress ~(blockHeader, checkpoints) client =  do
 blockDownloadStream :: NodeId -> IORef Bool -> IORef [Block] -> (Int -> IO ()) -> (HeaderHash, [HeaderHash]) -> Diffusion IO-> IO ()
 blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef ~(blockHeader, checkpoints) client = do
     setStreamIORef 1
+    -- TODO no IORef is necessay. We can just return the received blocks.
     recvIORef <- newIORef []
     _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (streamBlocksK recvIORef)
 
+    -- TODO shouldn't need an IORef for the expected blocks either...
+    -- very weird.
     expectedBlocks <- readIORef streamIORef
     recvBlocks <- readIORef recvIORef
     writeIORef resultIORef $ expectedBlocks == reverse recvBlocks

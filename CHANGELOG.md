@@ -8,10 +8,11 @@
 
 - Fix incoherent To/FromJSON instances in `core`, `chain`, `lib`. Alter `TxValidationRules` datatype. ([CBR-502](https://iohk.myjetbrains.com/youtrack/issue/CBR-502) [#4037](https://github.com/input-output-hk/cardano-sl/pull/4037))
 
+- Fix target name to correct integration tests ([CO-437](https://iohk.myjetbrains.com/youtrack/issue/CO-437) [#3794](https://github.com/input-output-hk/cardano-sl/pull/3794))
 
 ### Features
 
-- Support for (unused) addresses batch import ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
+- Support for (unused) addresses batch import ([CO-447](https://iohk.myjetbrains.com/youtrack/issue/CO-447) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
 
 - Add `script-runner` tool to automate cluster-level testing ([DEVOPS-1131](https://iohk.myjetbrains.com/youtrack/v2/issue/devops-1131): [#3916](https://github.com/input-output-hk/cardano-sl/pull/3916) [#4057](https://github.com/input-output-hk/cardano-sl/pull/4057))
 
@@ -37,6 +38,7 @@
     - `securityParameter`: The consensus security parameter (usually referred as `k` in the papers)
 
 - Implement block creation and validation for the OBFT `ConsensusEra`.
+    - Implement hard fork mechanism ([CDEC-610](https://iohk.myjetbrains.com/youtrack/issue/CDEC-610): [#3822](https://github.com/input-output-hk/cardano-sl/pull/3822))
     - Adapt epoch consolidation functionality for OBFT ([CBR-497](https://iohk.myjetbrains.com/youtrack/issue/CBR-497) [#3966](https://github.com/input-output-hk/cardano-sl/pull/3966))
     - Extend `LastBlkSlots` data type and storage for OBFT ([CBR-499](https://iohk.myjetbrains.com/youtrack/issue/CBR-499) [#4003](https://github.com/input-output-hk/cardano-sl/pull/4003) [#4052](https://github.com/input-output-hk/cardano-sl/pull/4052))
     - Disable SSC during OBFT. ([CBR-490](https://iohk.myjetbrains.com/youtrack/issue/CBR-490) [#4026](https://github.com/input-output-hk/cardano-sl/pull/4026))
@@ -70,13 +72,15 @@
   - Remove `wallet` from cardano-sl codebase ([CO-443](https://iohk.myjetbrains.com/youtrack/issue/CO-443) [#3837](https://github.com/input-output-hk/cardano-sl/pull/3837))
 
 - Rewritten and redesigned integration tests framework ([CO-356](https://iohk.myjetbrains.com/youtrack/issue/CO-356) [#4047](https://github.com/input-output-hk/cardano-sl/pull/4047))
+- Simplify prefixing of transaction to account for foreign transactions in inputs rather than process them from outputs ([CO-432](https://iohk.myjetbrains.com/youtrack/issue/CO-432) [#3768](https://github.com/input-output-hk/cardano-sl/pull/3768))
+- Implement validation rule that limits the `Attributes` size in a `Tx` ([CDEC-643](https://iohk.myjetbrains.com/youtrack/issue/CDEC-643): [#3878](https://github.com/input-output-hk/cardano-sl/pull/3878))
 - Add proper mapping of kernel addresses to API errors when batch import of addresses ([CO-447](https://iohk.myjetbrains.com/youtrack/issue/CO-447) [#4084](https://github.com/input-output-hk/cardano-sl/pull/4084))
 
 ### Documentation
 
 - Remove redundant [] in backupPhrase doc example ([#4038](https://github.com/input-output-hk/cardano-sl/pull/4038))
 
-- New "common use-case" entry the API doc about importing addresses ([CO-448](https://iohk.myjetbrains.com/youtrack/issue/CO-448) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
+- New "common use-case" entry the API doc about importing addresses ([CO-447](https://iohk.myjetbrains.com/youtrack/issue/CO-447) [#4040](https://github.com/input-output-hk/cardano-sl/pull/4040))
 
 - Links to specific sections of the API doc now work [#4064](https://github.com/input-output-hk/cardano-sl/pull/4064)
 
@@ -268,12 +272,17 @@
 - Improve readability and execution of various integration tests
     - [CO-398](https://iohk.myjetbrains.com/youtrack/issue/CO-398), [#3678](https://github.com/input-output-hk/cardano-sl/pull/3678)
     - [CO-400](https://iohk.myjetbrains.com/youtrack/issue/CO-400), [#3680](https://github.com/input-output-hk/cardano-sl/pull/3680)
+    - [CO-424](https://iohk.myjetbrains.com/youtrack/issue/CO-424), [#3751](https://github.com/input-output-hk/cardano-sl/pull/3751), [#3780](https://github.com/input-output-hk/cardano-sl/pull/3780)
     - [CO-436](https://iohk.myjetbrains.com/youtrack/issue/CO-436), [#3791](https://github.com/input-output-hk/cardano-sl/pull/3791)
     - [CBR-408](https://iohk.myjetbrains.com/youtrack/issue/CBR-408), [#3571](https://github.com/input-output-hk/cardano-sl/pull/3571)
     - [CBR-417](https://iohk.myjetbrains.com/youtrack/issue/CBR-417), [#3568](https://github.com/input-output-hk/cardano-sl/pull/3568)
     - [CO-357](https://iohk.myjetbrains.com/youtrack/issue/CO-357), [#3573](https://github.com/input-output-hk/cardano-sl/pull/3573), [#3639](https://github.com/input-output-hk/cardano-sl/pull/3639)
 
 - Add integration tests to test redemption of certificates ([CBR-398](https://iohk.myjetbrains.com/youtrack/issue/CBR-398), [#3525](https://github.com/input-output-hk/cardano-sl/pull/3525))
+
+- Removal of partial field accessors from `HandlerSpec`, `InductiveValidationError`, `InvariantViolation` and `ValidationResult` data types.([CDEC-403](https://iohk.myjetbrains.com/youtrack/issue/CDEC-403): [#3263](https://github.com/input-output-hk/cardano-sl/pull/3263))
+
+- Remove partial field accessors for `FakeTxsHistory` data type ([CDEC-285](https://iohk.myjetbrains.com/youtrack/issue/CDEC-285): [#3168](https://github.com/input-output-hk/cardano-sl/pull/3168))
 
 - Review implementation of the BIP39 (Mnemonic Words) implementation
     - [CBR-288](https://iohk.myjetbrains.com/youtrack/issue/CBR-288) [#3128](https://github.com/input-output-hk/cardano-sl/pull/3128)

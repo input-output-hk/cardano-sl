@@ -34,6 +34,7 @@ import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic,
                      unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret,
                      usKeys, usPrimKey, usWallet, userSecret)
 import           Pos.Util.Util (eitherToThrow)
@@ -461,7 +462,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         akpPrimary <- getArg tyBool "primary"
         return AddKeyParams {..}
     , cpExec = \AddKeyParams {..} -> do
-        secret <- readUserSecret akpFile
+        secret <- readUserSecret fromTypeclassWlog akpFile
         if akpPrimary then do
             let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
             addSecretKey $ noPassEncrypt primSk

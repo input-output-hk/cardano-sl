@@ -51,7 +51,7 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
@@ -103,7 +103,6 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
     , getTip = pure arbitraryBlock
-    , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
           yieldMany $ map serializedBlock bs
@@ -125,7 +124,7 @@ withServer transport logic k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
-                 (wlogTrace ("server.outboundqueue"))
+                 noTrace
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -152,8 +151,9 @@ withServer transport logic k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcBatchSize = 64
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("server.diffusion")
+        , fdcTrace = noTrace
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -167,8 +167,7 @@ withClient
 withClient transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
-    oq <- OQ.new
-                 (wlogTrace ("client.outboundqueue"))
+    oq <- OQ.new noTrace
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -197,8 +196,9 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcBatchSize = 64
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("client.diffusion")
+        , fdcTrace = noTrace
         }
 
 

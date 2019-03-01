@@ -46,7 +46,6 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
-import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Infra.Communication.Listener (listenerConv)
@@ -58,7 +57,6 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
 import           Pos.Infra.Diffusion.Types (DiffusionHealth (..),
                      StreamBlocks (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Infra.Util.TimeWarp (nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
 import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
@@ -66,9 +64,6 @@ import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
                      MsgSerializedBlock (..), MsgStream (..),
                      MsgStreamBlock (..), MsgStreamStart (..),
                      MsgStreamUpdate (..))
--- Dubious having this security stuff in here.
-import           Pos.Chain.Security (AttackTarget (..), AttackType (..),
-                     NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
@@ -289,6 +284,7 @@ streamBlocks
        Trace IO (Severity, Text)
     -> Maybe DiffusionHealth
     -> Logic IO
+    -> Word32 -- ^ Size of batches of blocks (deliver to StreamBlocks).
     -> Word32 -- ^ Size of stream window. 0 implies 'Nothing' is returned.
     -> EnqueueMsg
     -> NodeId
@@ -296,13 +292,21 @@ streamBlocks
     -> [HeaderHash]
     -> StreamBlocks Block IO t
     -> IO (Maybe t)
-streamBlocks _        _   _     0            _       _      _         _           _ =
+streamBlocks _        _   _     _         0            _       _      _         _           _ =
     return Nothing -- Fallback to batch mode
-streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints streamBlocksK =
-    requestBlocks >>= Async.wait
+streamBlocks logTrace smM logic batchSize streamWindow enqueue nodeId tipHeader checkpoints streamBlocksK =
+    -- An exception in this thread will always terminate the sub-thread that
+    -- deals with the streaming. An exception in the sub thread will be
+    -- re-thrown in this one by way of `Async.await`.
+    --
+    -- If `streamBlocks` is killed by an async exception, we must guarantee
+    -- that the thread which does the streaming will also be killed, or
+    -- never begun in case it hasn't yet been dequeued.
+    -- So it's not just a simple bracket: even the acquiring part must do
+    -- something like a bracket via mask/restore, so that if any exception
+    -- comes in before the thing is dequeued, it aborts.
+    bracket requestBlocks Async.cancel Async.wait
   where
-
-    batchSize = min 64 streamWindow
 
     mkStreamStart :: [HeaderHash] -> HeaderHash -> MsgStream
     mkStreamStart chain wantedBlock =
@@ -312,32 +316,42 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         , mssWindow = streamWindow
         }
 
-    -- Enqueue a conversation which will attempt to stream.
-    -- This returns when the conversation is dequeued, or throws an exception
-    -- in case it's aborted or is not enqueued.
+    -- Enqueue the request blocks conversation and then
+    -- - if exception, abort it or kill it
+    -- - if no exception, return it
+    -- the `bracket` on the RHS of `streamBlocks` will kill it if this
+    -- thread is killed, and it also awaits the sub-thread so will be
+    -- killed if the sub thread dies.
     requestBlocks :: IO (Async.Async (Maybe t))
-    requestBlocks = do
+    requestBlocks = mask $ \restore -> do
         convMap <- enqueue
-          (MsgRequestBlocks (S.singleton nodeId))
-          (\_ _ ->  (Conversation $ streamBlocksConversation) :|
-                   [(Conversation $ batchConversation)]
-          )
-        -- Outbound queue guarantees that the map is either size 0 or 1, since
-        -- 'S.singleton nodeId' was given to the enqueue.
-        case M.lookup nodeId convMap of
-            Just tvar -> atomically $ do
-                pStatus <- Conc.readTVar tvar
-                case pStatus of
-                    OQ.PacketEnqueued -> Conc.retry
-                    -- Somebody else arborted our call; nothing to do but
-                    -- throw.
-                    OQ.PacketAborted  -> Conc.throwSTM $ DialogUnexpected $ "streamBlocks: aborted"
-                    OQ.PacketDequeued streamThread -> pure streamThread
-            -- FIXME shouldn't have to deal with this.
-            -- One possible solution: do the block request in response to an
-            -- unsolicited header, so that's it's all done in one conversation,
-            -- and so there's no need to even track the 'nodeId'.
-            Nothing   -> throwIO $ DialogUnexpected $ "streamBlocks: did not contact given peer"
+            (MsgRequestBlocks (S.singleton nodeId))
+            (\_ _ ->  (Conversation $ streamBlocksConversation) :|
+                     [(Conversation $ batchConversation)]
+            )
+        let waitForDequeue = case M.lookup nodeId convMap of
+                Just tvar -> atomically $ do
+                    pStatus <- Conc.readTVar tvar
+                    case pStatus of
+                        OQ.PacketEnqueued -> Conc.retry
+                        OQ.PacketAborted -> Conc.throwSTM $ DialogUnexpected $ "streamBlocks: aborted"
+                        OQ.PacketDequeued streamThread -> pure streamThread
+                Nothing -> throwIO $ DialogUnexpected $ "streamBlocks: did not contact given peer"
+            -- Abort the conversation if it's not yet enqueued, or cancel
+            -- it if is enqueued.
+            abortOrCancel = case M.lookup nodeId convMap of
+                Just tvar -> join $ atomically $ do
+                    pStatus <- Conc.readTVar tvar
+                    case pStatus of
+                        OQ.PacketEnqueued -> do
+                            Conc.writeTVar tvar OQ.PacketAborted
+                            pure (pure ())
+                        OQ.PacketAborted  ->
+                            pure (pure ())
+                        OQ.PacketDequeued streamThread ->
+                            pure (Async.cancel streamThread)
+                Nothing -> pure ()
+        restore waitForDequeue `onException` abortOrCancel
 
     -- The peer doesn't support streaming, we need to fall back to batching but
     -- the current conversation is unusable since there is no way for us to learn
@@ -490,25 +504,6 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
     waitForDequeues <$> enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
-        -- TODO figure out what this security stuff is doing and judge whether
-        -- it needs to change / be removed.
-        let sparams = Logic.securityParams logic
-        -- Copied from Pos.Chain.Security but made pure. The existing
-        -- implementation was tied to a reader rather than taking a
-        -- SecurityParams value as a function argument.
-            shouldIgnoreAddress :: NetworkAddress -> Bool
-            shouldIgnoreAddress addr = and
-                [ AttackNoBlocks `elem` spAttackTypes sparams
-                , NetworkAddressTarget addr `elem` spAttackTargets sparams
-                ]
-            throwOnIgnored :: NodeId -> IO ()
-            throwOnIgnored nId =
-                whenJust (nodeIdToAddress nId) $ \addr ->
-                    when (shouldIgnoreAddress addr) $
-                        throwIO AttackNoBlocksTriggered
-        -- TODO the when condition is not necessary, as it's a part of the
-        -- conjunction in shouldIgnoreAddress
-        when (AttackNoBlocks `elem` spAttackTypes sparams) (throwOnIgnored nodeId)
         traceWith logTrace (Debug,
             sformat
                 ("Announcing block "%shortHashF%" to "%build)

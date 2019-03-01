@@ -21,7 +21,6 @@ import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import           System.Exit (ExitCode (..))
 
-import           Pos.Behavior (bcSecurityParams)
 import           Pos.Binary ()
 import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
                      streamWindow)
@@ -32,9 +31,8 @@ import           Pos.Chain.Update (UpdateConfiguration, lastKnownBlockVersion,
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
-import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.JsonLog (jsonLog)
-import           Pos.Crypto (ProtocolMagic, toPublic)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Txp (MonadTxpLocal)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)
@@ -56,6 +54,7 @@ import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace.Named (appendName, fromTypeclassNamedTraceWlog)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
@@ -93,11 +92,8 @@ runRealMode uc genesisConfig txpConfig nr@NodeResources {..} act =
   where
     NodeContext {..} = nrContext
     NodeParams {..}  = ncNodeParams
-    securityParams   = bcSecurityParams npBehaviorConfig
-    ourStakeholderId :: StakeholderId
-    ourStakeholderId = addressHash (toPublic npSecretKey)
     logic :: Logic (RealMode ext)
-    logic = logicFull genesisConfig txpConfig ourStakeholderId securityParams jsonLog
+    logic = logicFull genesisConfig txpConfig jsonLog
     pm = configProtocolMagic genesisConfig
     makeLogicIO :: Diffusion IO -> Logic IO
     makeLogicIO diffusion = hoistLogic (elimRealMode uc pm nr diffusion) logic
@@ -128,6 +124,8 @@ elimRealMode uc pm NodeResources {..} diffusion action = do
         { prpServers         = npReportServers
         , prpLoggerConfig    = ncLoggerConfig
         , prpCompileTimeInfo = compileInfo
+        -- Careful: this uses a CanLog IO instance from Wlog.Compatibility
+        -- which assumes you have set up some global logging state.
         , prpTrace           = wlogTrace "reporter"
         , prpProtocolMagic   = pm
         }
@@ -181,8 +179,11 @@ runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic ac
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion uc
         , fdcConvEstablishTimeout = networkConnectionTimeout
-        , fdcTrace = wlogTrace "diffusion"
+        -- Use the Wlog.Compatibility name trace (magic CanLog IO instance)
+        , fdcTrace = appendName "diffusion" fromTypeclassNamedTraceWlog
         , fdcStreamWindow = streamWindow
+        -- TODO should be configurable
+        , fdcBatchSize    = 64
         }
     exitOnShutdown action = do
         result <- race (waitForShutdown shdnContext) action

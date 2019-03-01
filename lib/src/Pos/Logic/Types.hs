@@ -13,12 +13,10 @@ module Pos.Logic.Types
 import           Universum
 
 import           Data.Conduit (ConduitT, transPipe)
-import           Data.Default (def)
 import           Data.Tagged (Tagged)
 
 import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Chain.Delegation (ProxySKHeavy)
-import           Pos.Chain.Security (SecurityParams (..))
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 import           Pos.Chain.Txp (TxId, TxMsgContents)
@@ -33,10 +31,8 @@ import           Pos.DB.Class (SerializedBlock)
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
 data Logic m = Logic
-    { -- | The stakeholder id of our node.
-      ourStakeholderId   :: StakeholderId
-      -- | Get serialized block, perhaps from a database.
-    , getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
+    { -- | Get serialized block, perhaps from a database.
+      getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
     , streamBlocks       :: HeaderHash -> ConduitT () SerializedBlock m ()
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
@@ -61,8 +57,6 @@ data Logic m = Logic
                          -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
       -- | Get the current tip of chain.
     , getTip             :: m Block
-      -- | Cheaper version of 'headerHash <$> getTip'.
-    , getTipHeader       :: m BlockHeader
       -- | Get state of last adopted BlockVersion. Related to update system.
     , getAdoptedBVData   :: m BlockVersionData
 
@@ -97,8 +91,6 @@ data Logic m = Logic
       -- Recovery mode related stuff.
       -- TODO get rid of this eventually.
     , recoveryInProgress :: m Bool
-
-    , securityParams     :: SecurityParams
     }
 
 -- | The Monad constraint arises due to `transPipe` from Conduit.
@@ -115,7 +107,6 @@ hoistLogic nat logic = logic
     , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
     , getLcaMainChain = nat . getLcaMainChain logic
     , getTip = nat $ getTip logic
-    , getTipHeader = nat $ getTipHeader logic
     , getAdoptedBVData = nat $ getAdoptedBVData logic
     , postBlockHeader = \a b -> nat (postBlockHeader logic a b)
     , postTx = hoistKeyVal nat (postTx logic)
@@ -185,15 +176,13 @@ dummyKeyVal = KeyVal
 -- | A diffusion layer that does nothing, and probably crashes the program.
 dummyLogic :: Monad m => Logic m
 dummyLogic = Logic
-    { ourStakeholderId   = error "dummy: no stakeholder id"
-    , getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
+    { getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
     , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
     , getLcaMainChain    = \_ -> pure (NewestFirst [], OldestFirst [])
     , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
     , getTip             = pure (error "dummy: can't get tip")
-    , getTipHeader       = pure (error "dummy: can't get tip header")
     , getAdoptedBVData   = pure (error "dummy: can't get block version data")
     , postBlockHeader    = \_ _ -> pure ()
     , postPskHeavy       = \_ -> pure False
@@ -205,5 +194,4 @@ dummyLogic = Logic
     , postSscShares      = dummyKeyVal
     , postSscVssCert     = dummyKeyVal
     , recoveryInProgress = pure False
-    , securityParams     = def
     }

@@ -28,10 +28,11 @@ import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
 import           Pos.Launcher (dumpGenesisData, withConfigurations)
 import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace (contramap, fromTypeclassWlog)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease,
                      wusRootKey)
-import           Pos.Util.Wlog (Severity (Debug), WithLogger, logInfo,
+import           Pos.Util.Wlog (Severity (Debug, Info), WithLogger, logInfo,
                      setupLogging', usingLoggerName)
 
 import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
@@ -45,7 +46,7 @@ import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
 
 rearrangeKeyfile :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
-    us <- takeUserSecret fp
+    us <- takeUserSecret fromTypeclassWlog fp
     let sk = maybeToList $ us ^. usPrimKey
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
@@ -73,7 +74,7 @@ genPrimaryKey path = do
 
 readKey :: (MonadIO m, WithLogger m) => FilePath -> m ()
 readKey path = do
-    us <- readUserSecret path
+    us <- readUserSecret fromTypeclassWlog path
     logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
@@ -135,7 +136,7 @@ genVssCert
     -> FilePath
     -> m ()
 genVssCert genesisConfig path = do
-    us <- readUserSecret path
+    us <- readUserSecret fromTypeclassWlog path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
@@ -158,8 +159,9 @@ main :: IO ()
 main = do
     KeygenOptions {..} <- getKeygenOptions
     lh <- setupLogging' "keygen" $ defaultInteractiveConfiguration Debug
+    let infoLog = contramap ((,) Info) fromTypeclassWlog
     usingLoggerName "keygen"
-        $ withConfigurations Nothing Nothing False koConfigurationOptions
+        $ withConfigurations infoLog Nothing Nothing False koConfigurationOptions
         $ \genesisConfig _ _ _ -> do
               logInfo "Processing command"
               case koCommand of
@@ -172,6 +174,7 @@ main = do
                       generatedSecrets <- configGeneratedSecretsThrow genesisConfig
                       generateKeysByGenesis generatedSecrets gkbg
                   DumpGenesisData dgdPath dgdCanonical -> dumpGenesisData
+                      infoLog
                       (configGenesisData genesisConfig)
                       dgdCanonical
                       dgdPath

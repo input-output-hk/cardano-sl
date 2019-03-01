@@ -93,6 +93,7 @@ import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
                      LogSecurityLevel (..), defaultInteractiveConfiguration,
                      lcBasePath, lcLoggerTree, ltHandlers, ltMinSeverity,
                      retrieveLogFiles)
+import           Pos.Util.Trace (Trace, contramap, fromTypeclassWlog)
 import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Info), logError,
                      logInfo, logNotice, logWarning, removeAllHandlers,
                      setupLogging', usingLoggerName)
@@ -147,7 +148,7 @@ instance FromJSON LauncherOptions where
                 ]
 
 -- | The concrete monad where everything happens
-type M a = LoggerNameBox IO a
+type M = LoggerNameBox IO
 
 data Executable = EWallet | ENode | EUpdater | ECertGen
 
@@ -323,8 +324,10 @@ main =
                                                       , _lhMinSeverity=Just Info
                                                       , _lhSecurityLevel=Just PublicLogLevel} : xs)) .
                     set ltMinSeverity Info
+    let traceInfo :: Trace M Text
+        traceInfo = contramap ((,) Info) fromTypeclassWlog
     logException loggerName . usingLoggerName loggerName $
-        withConfigurations Nothing Nothing False loConfiguration $ \genesisConfig _ _ _ -> do
+        withConfigurations traceInfo Nothing Nothing False loConfiguration $ \genesisConfig _ _ _ -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath

@@ -97,10 +97,11 @@ sscWorkers
   :: ( SscMode ctx m
      , HasMisbehaviorMetrics ctx
      )
-  => Genesis.Config
+  => StakeholderId
+  -> Genesis.Config
   -> [ (Text, Diffusion m -> m ()) ]
-sscWorkers genesisConfig =
-    [ ("ssc on new slot", onNewSlotSsc genesisConfig)
+sscWorkers sid genesisConfig =
+    [ ("ssc on new slot", onNewSlotSsc sid genesisConfig)
     , ("ssc check for ignored", checkForIgnoredCommitmentsWorker genesisConfig)
     ]
 
@@ -129,19 +130,20 @@ shouldParticipate genesisBvd epoch = do
 -- #checkNSendOurCert
 onNewSlotSsc
     :: SscMode ctx m
-    => Genesis.Config
+    => StakeholderId
+    -> Genesis.Config
     -> Diffusion m
     -> m ()
-onNewSlotSsc genesisConfig diffusion = onNewSlot (configEpochSlots genesisConfig) defaultOnNewSlotParams $ \slotId ->
+onNewSlotSsc sid genesisConfig diffusion = onNewSlot (configEpochSlots genesisConfig) defaultOnNewSlotParams $ \slotId ->
     recoveryCommGuard (configBlkSecurityParam genesisConfig) "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate (configBlockVersionData genesisConfig) $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
                 (readTVarIO . scBehavior)
-            checkNSendOurCert genesisConfig (sendSscCert diffusion)
-            onNewSlotCommitment genesisConfig slotId (sendSscCommitment diffusion)
-            onNewSlotOpening genesisConfig (sbSendOpening behavior) slotId (sendSscOpening diffusion)
-            onNewSlotShares genesisConfig (sbSendShares behavior) slotId (sendSscShares diffusion)
+            checkNSendOurCert genesisConfig (sendSscCert diffusion sid)
+            onNewSlotCommitment genesisConfig slotId (sendSscCommitment diffusion sid)
+            onNewSlotOpening genesisConfig (sbSendOpening behavior) slotId (sendSscOpening diffusion sid)
+            onNewSlotShares genesisConfig (sbSendShares behavior) slotId (sendSscShares diffusion sid)
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced

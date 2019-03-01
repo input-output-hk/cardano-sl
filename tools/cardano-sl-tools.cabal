@@ -1,5 +1,5 @@
 name:                cardano-sl-tools
-version:             2.0.0
+version:             3.0.0
 synopsis:            Cardano SL - Tools
 description:         Cardano SL - Tools
 license:             MIT
@@ -386,6 +386,7 @@ executable wallet-extractor
                      , universum
                      , text
                      , cardano-sl
+                     , cardano-sl-util
 
 test-suite cardano-sl-tools-test
   main-is:             Test.hs

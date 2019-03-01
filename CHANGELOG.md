@@ -44,6 +44,11 @@
     - Disable SSC during OBFT. ([CBR-490](https://iohk.myjetbrains.com/youtrack/issue/CBR-490) [#4026](https://github.com/input-output-hk/cardano-sl/pull/4026))
     - Implement OBFT block validation ([CBR-481](https://iohk.myjetbrains.com/youtrack/issue/CBR-481) [#4018](https://github.com/input-output-hk/cardano-sl/pull/4018) [#4029](https://github.com/input-output-hk/cardano-sl/pull/4029) [#4059](https://github.com/input-output-hk/cardano-sl/pull/4059))
     - Add cluster-level tests for OBFT using `script-runner` ([CBR-503](https://iohk.myjetbrains.com/youtrack/issue/CBR-503): [#4061](https://github.com/input-output-hk/cardano-sl/pull/4061) [#4073](https://github.com/input-output-hk/cardano-sl/pull/4073))
+    - Improve block validation tests ([CBR-504](https://iohk.myjetbrains.com/youtrack/issue/CBR-504) [#4081](https://github.com/input-output-hk/cardano-sl/pull/4081))
+    - Implement OBFT block creation ([CBR-482](https://iohk.myjetbrains.com/youtrack/issue/CBR-481) [#4077](https://github.com/input-output-hk/cardano-sl/pull/4077))
+
+- Review node-info 'localTimeInfo' API to include pending statuses ([CBR-505](https://iohk.myjetbrains.com/youtrack/issue/CBR-505) [#4099](https://github.com/input-output-hk/cardano-sl/pull/4099))
+
 
 ### Improvements
 
@@ -68,8 +73,8 @@
 
 - Rewritten and redesigned integration tests framework ([CO-356](https://iohk.myjetbrains.com/youtrack/issue/CO-356) [#4047](https://github.com/input-output-hk/cardano-sl/pull/4047))
 - Simplify prefixing of transaction to account for foreign transactions in inputs rather than process them from outputs ([CO-432](https://iohk.myjetbrains.com/youtrack/issue/CO-432) [#3768](https://github.com/input-output-hk/cardano-sl/pull/3768))
-
 - Implement validation rule that limits the `Attributes` size in a `Tx` ([CDEC-643](https://iohk.myjetbrains.com/youtrack/issue/CDEC-643): [#3878](https://github.com/input-output-hk/cardano-sl/pull/3878))
+- Add proper mapping of kernel addresses to API errors when batch import of addresses ([CO-447](https://iohk.myjetbrains.com/youtrack/issue/CO-447) [#4084](https://github.com/input-output-hk/cardano-sl/pull/4084))
 
 ### Documentation
 

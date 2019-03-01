@@ -1,5 +1,5 @@
 name:                cardano-sl-script-runner
-version:             2.0.0
+version:             3.0.0
 synopsis:            Cardano SL - Script Runner
 description:         Cardano SL - ScriptRunner
 license:             MIT

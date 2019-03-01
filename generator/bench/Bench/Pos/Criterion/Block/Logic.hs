@@ -43,8 +43,9 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace (contramap, fromTypeclassWlog)
 import           Pos.Util.Util (realTime)
-import           Pos.Util.Wlog (Severity (Debug), removeAllHandlers,
+import           Pos.Util.Wlog (Severity (Debug, Info), removeAllHandlers,
                      setupLogging')
 
 import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
@@ -240,8 +241,9 @@ runBenchmark = do
             , cfoKey = "bench-validation"
             , cfoSystemStart = Just (Timestamp startTime)
             }
+        traceInfo = contramap ((,) Info) fromTypeclassWlog
     withCompileInfo
-        $ withConfigurations Nothing Nothing False cfo
+        $ withConfigurations traceInfo Nothing Nothing False cfo
         $ \genesisConfig _ txpConfig _ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)

@@ -13,7 +13,7 @@
       specVersion = "1.10";
       identifier = {
         name = "cardano-sl-tools";
-        version = "2.0.0";
+        version = "3.0.0";
       };
       license = "MIT";
       copyright = "2016 IOHK";
@@ -199,6 +199,7 @@
             (hsPkgs.universum)
             (hsPkgs.text)
             (hsPkgs.cardano-sl)
+            (hsPkgs.cardano-sl-util)
           ];
         };
       };

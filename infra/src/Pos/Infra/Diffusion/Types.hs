@@ -25,6 +25,7 @@ import           Pos.Chain.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
 import           Pos.Chain.Txp (TxAux)
 import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote)
+import           Pos.Core (StakeholderId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
@@ -86,16 +87,16 @@ data Diffusion m = Diffusion
     , sendVote           :: UpdateVote -> m ()
       -- | SSC: send our certificate (diffusion layer takes care of relaying
       -- certs for other stakeholders).
-    , sendSscCert        :: VssCertificate -> m ()
+    , sendSscCert        :: StakeholderId -> VssCertificate -> m ()
       -- | SSC: send our opening (diffusion layer takes care of relaying openings
       -- for other stakeholders).
-    , sendSscOpening     :: Opening -> m ()
+    , sendSscOpening     :: StakeholderId -> Opening -> m ()
       -- | SSC: send our shares (diffusion layer takes care of relaying shares
       -- for other stakeholders).
-    , sendSscShares      :: InnerSharesMap -> m ()
+    , sendSscShares      :: StakeholderId -> InnerSharesMap -> m ()
       -- | SSC: send our commitment (diffusion layer takes care of relaying
       -- commitments for other stakeholders).
-    , sendSscCommitment  :: SignedCommitment -> m ()
+    , sendSscCommitment  :: StakeholderId -> SignedCommitment -> m ()
       -- | Delegation: send a heavy certificate.
     , sendPskHeavy       :: ProxySKHeavy -> m ()
 
@@ -134,10 +135,10 @@ hoistDiffusion nat rnat orig = Diffusion
     , sendTx = nat . sendTx orig
     , sendUpdateProposal = \upid upp upvs -> nat $ sendUpdateProposal orig upid upp upvs
     , sendVote = nat . sendVote orig
-    , sendSscCert = nat . sendSscCert orig
-    , sendSscOpening = nat . sendSscOpening orig
-    , sendSscShares = nat . sendSscShares orig
-    , sendSscCommitment = nat . sendSscCommitment orig
+    , sendSscCert = \sid -> nat . sendSscCert orig sid
+    , sendSscOpening = \sid -> nat . sendSscOpening orig sid
+    , sendSscShares = \sid -> nat . sendSscShares orig sid
+    , sendSscCommitment = \sid -> nat . sendSscCommitment orig sid
     , sendPskHeavy = nat . sendPskHeavy orig
     , healthStatus = nat $ healthStatus orig
     , formatStatus = \fmt -> nat $ formatStatus orig fmt
@@ -162,10 +163,10 @@ dummyDiffusionLayer = do
         , sendTx             = \_ -> pure True
         , sendUpdateProposal = \_ _ _ -> pure ()
         , sendVote           = \_ -> pure ()
-        , sendSscCert        = \_ -> pure ()
-        , sendSscOpening     = \_ -> pure ()
-        , sendSscShares      = \_ -> pure ()
-        , sendSscCommitment  = \_ -> pure ()
+        , sendSscCert        = \_ _ -> pure ()
+        , sendSscOpening     = \_ _ -> pure ()
+        , sendSscShares      = \_ _ -> pure ()
+        , sendSscCommitment  = \_ _ -> pure ()
         , sendPskHeavy       = \_ -> pure ()
         , healthStatus       = pure (HSUnhealthy "I'm a dummy")
         , formatStatus       = \fmt -> pure (fmt stext "")

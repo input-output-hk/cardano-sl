@@ -27,9 +27,10 @@ import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
+import           Pos.Util.Trace (Severity (Info), Trace, contramap)
 import           Pos.Util.UserSecret (peekUserSecret, usVss)
 import           Pos.Util.Util (eitherToThrow)
-import           Pos.Util.Wlog (LoggerName, WithLogger)
+import           Pos.Util.Wlog (LoggerName)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams defaultName CommonNodeArgs{..} =
@@ -58,20 +59,21 @@ getKeyfilePath CommonNodeArgs {..}
           Nothing -> keyfilePath
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
 
-getNodeParams ::
-       ( MonadIO m
-       , WithLogger m
-       , MonadCatch m
-       )
-    => LoggerName
+getNodeParams
+    :: Trace IO (Severity, Text)
+    -- ^ Must give a `Trace` because some things in here do logging. Yes
+    -- that's weird because you also give a `LoggerName` which seems to imply
+    -- logging depends upon the params returned.
+    -> LoggerName
     -> CommonNodeArgs
     -> NodeArgs
     -> Maybe GeneratedSecrets
-    -> m (NodeParams, Maybe SscParams)
-getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGeneratedSecrets = do
-    (primarySK, userSecret) <- prepareUserSecret cArgs mGeneratedSecrets
-        =<< peekUserSecret (getKeyfilePath cArgs)
-    npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
+    -> IO (NodeParams, Maybe SscParams)
+getNodeParams logTrace defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGeneratedSecrets = do
+    let logTraceInfo = contramap ((,) Info) logTrace
+    (primarySK, userSecret) <- prepareUserSecret logTraceInfo cArgs mGeneratedSecrets
+        =<< peekUserSecret logTrace (getKeyfilePath cArgs)
+    npNetworkConfig <- intNetworkConfigOpts logTrace networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)

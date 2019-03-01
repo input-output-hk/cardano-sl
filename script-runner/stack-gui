@@ -55,7 +55,7 @@ CFG=$(realpath ../lib/configuration.yaml)
 LOGCFG=$(realpath ./log-config.yaml)
 TOPO=$(realpath ./topology-${NAME}.yaml)
 
-mkdir -pv states/poc-state-${NAME}
-cd states/poc-state-${NAME}
+mkdir -pv states/test-state-${NAME}
+cd states/test-state-${NAME}
 
 SCRIPT=none testcases --configuration-file $CFG --configuration-key "$KEY" --log-console-off --db-path db --keyfile secret.key --log-config $LOGCFG --logs-prefix logs --topology $TOPO

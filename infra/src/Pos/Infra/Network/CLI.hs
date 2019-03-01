@@ -28,6 +28,7 @@ module Pos.Infra.Network.CLI
 import           Universum
 
 import           Control.Concurrent (Chan, newChan, readChan, writeChan)
+import           Control.Exception (throwIO)
 import           Control.Exception.Safe (try)
 import qualified Data.ByteString.Char8 as BS.C8
 import           Data.IP (IPv4)
@@ -51,8 +52,7 @@ import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.OptParse (fromParsec)
-import           Pos.Util.Wlog (LoggerNameBox, WithLogger, askLoggerName,
-                     logError, logNotice, usingLoggerName)
+import           Pos.Util.Trace (Severity (Error, Notice), Trace, traceWith)
 
 #ifdef POSIX
 import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)
@@ -180,61 +180,61 @@ data MonitorEvent
 
 -- | Monitor for changes to the static config
 monitorStaticConfig ::
-       NetworkConfigOpts
+       Trace IO (Severity, Text)
+    -> NetworkConfigOpts
     -> NodeMetadata -- ^ Original metadata (at startup)
     -> Peers NodeId -- ^ Initial value
-    -> LoggerNameBox IO T.StaticPeers
-monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
-    lname <- askLoggerName
-    events :: Chan MonitorEvent <- liftIO newChan
+    -> IO T.StaticPeers
+monitorStaticConfig logTrace cfg@NetworkConfigOpts{..} origMetadata initPeers = do
+    events :: Chan MonitorEvent <- newChan
 
 #ifdef POSIX
-    liftIO $ installHandler SigHUP $ writeChan events MonitorSIGHUP
+    installHandler SigHUP $ writeChan events MonitorSIGHUP
 #endif
 
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
-      , T.staticPeersMonitoring = usingLoggerName lname $ loop events initPeers []
+      , T.staticPeersMonitoring = loop events initPeers []
       }
   where
     loop :: Chan MonitorEvent
          -> Peers NodeId
          -> [Peers NodeId -> IO ()]
-         -> LoggerNameBox IO ()
-    loop events peers handlers = liftIO (readChan events) >>= \case
+         -> IO ()
+    loop events peers handlers = readChan events >>= \case
         MonitorRegister handler -> do
             runHandler peers handler -- Call new handler with current value
             loop events peers (handler:handlers)
         MonitorSIGHUP -> do
             let fp = fromJust ncoTopology
-            mParsedTopology <- try $ liftIO $ readTopology fp
+            mParsedTopology <- try $ readTopology fp
             case mParsedTopology of
               Right (Y.TopologyStatic allPeers) -> do
                 (newMetadata, newPeers, _) <-
-                    liftIO $ fromPovOf cfg allPeers
+                    fromPovOf cfg allPeers
 
                 unless (nmType newMetadata == nmType origMetadata) $
-                    logError $ changedType fp
+                    traceWith logTrace (Error, changedType fp)
                 unless (nmKademlia newMetadata == nmKademlia origMetadata) $
-                    logError $ changedKademlia fp
+                    traceWith logTrace (Error, changedKademlia fp)
                 unless (nmMaxSubscrs newMetadata == nmMaxSubscrs origMetadata) $
-                    logError $ changedMaxSubscrs fp
+                    traceWith logTrace (Error, changedMaxSubscrs fp)
 
                 mapM_ (runHandler newPeers) handlers
-                logNotice $ sformat "SIGHUP: Re-read topology"
+                traceWith logTrace (Notice, sformat "SIGHUP: Re-read topology")
                 loop events newPeers handlers
               Right _otherTopology -> do
-                logError $ changedFormat fp
+                traceWith logTrace (Error, changedFormat fp)
                 loop events peers handlers
               Left ex -> do
-                logError $ readFailed fp ex
+                traceWith logTrace (Error, readFailed fp ex)
                 loop events peers handlers
 
-    runHandler :: forall t . t -> (t -> IO ()) -> LoggerNameBox IO ()
+    runHandler :: forall t . t -> (t -> IO ()) -> IO ()
     runHandler it handler = do
-        mu <- liftIO $ try (handler it)
+        mu <- try (handler it)
         case mu of
-          Left  ex -> logError $ handlerError ex
+          Left  ex -> traceWith logTrace (Error, handlerError ex)
           Right () -> return ()
 
     changedFormat, changedType, changedKademlia :: FilePath -> Text
@@ -267,19 +267,15 @@ launchStaticConfigMonitoring topology = liftIO action
 ----------------------------------------------------------------------------
 
 -- | Interpreter for the network config opts
-intNetworkConfigOpts ::
-       forall m.
-       ( WithLogger m
-       , MonadIO m
-       , MonadCatch m
-       )
-    => NetworkConfigOpts
-    -> m (T.NetworkConfig DHT.KademliaParams)
-intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
+intNetworkConfigOpts
+    :: Trace IO (Severity, Text)
+    -> NetworkConfigOpts
+    -> IO (T.NetworkConfig DHT.KademliaParams)
+intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
     parsedTopology <-
         case ncoTopology of
             Nothing -> pure defaultTopology
-            Just fp -> liftIO $ readTopology fp
+            Just fp -> readTopology fp
     (ourTopology, tcpAddr) <- case parsedTopology of
         Y.TopologyStatic topologyAllPeers -> do
             (md@(NodeMetadata
@@ -293,27 +289,24 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                      nmKademlia
                      _
                      nmMaxSubscrs), initPeers, kademliaPeers) <-
-                liftIO $ fromPovOf cfg topologyAllPeers
-            loggerName <- askLoggerName
-            topologyStaticPeers <-
-                liftIO . usingLoggerName loggerName $
-                monitorStaticConfig cfg md initPeers
+                fromPovOf cfg topologyAllPeers
+            topologyStaticPeers <- monitorStaticConfig logTrace cfg md initPeers
             -- If kademlia is enabled here then we'll try to read the configuration
             -- file. However it's not necessary that the file exists. If it doesn't,
             -- we can fill in some sensible defaults using the static routing and
             -- kademlia flags for other nodes.
             topologyOptKademlia <-
                 if nmKademlia
-                then liftIO getKademliaParamsFromFile >>= \case
+                then getKademliaParamsFromFile >>= \case
                     Right kparams -> return $ Just kparams
                     Left MissingKademliaConfig ->
                         let ekparams' = getKademliaParamsFromStatic kademliaPeers
-                        in  either (throwM . CannotParseKademliaConfig . Left)
+                        in  either (throwIO . CannotParseKademliaConfig . Left)
                                    (return . Just)
                                    ekparams'
-                    Left err -> throwM err
+                    Left err -> throwIO err
                 else do when (isJust ncoKademlia) $
-                            throwM $ RedundantCliParameter $
+                            throwIO $ RedundantCliParameter $
                             "TopologyStatic doesn't require kademlia, but it was passed"
                         pure Nothing
             topology <- case nmType of
@@ -326,7 +319,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                                  topologyOptKademlia,
                                  topologyMaxSubscrs = nmMaxSubscrs
                                }
-                T.NodeEdge  -> throwM NetworkConfigSelfEdge
+                T.NodeEdge  -> throwIO NetworkConfigSelfEdge
             tcpAddr <- createTcpAddr topologyOptKademlia
             pure (topology, tcpAddr)
         Y.TopologyBehindNAT
@@ -337,19 +330,19 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
           -- throws an exception if the --listen parameter is given, to avoid
           -- confusion: if a user gives a --listen parameter then they probably
           -- think the program will bind a socket.
-          whenJust ncoKademlia $ const $ throwM $
+          whenJust ncoKademlia $ const $ throwIO $
               RedundantCliParameter
               "BehindNAT topology is used, so no kademlia config is expected"
-          when (isJust ncoBindAddress) $ throwM $ RedundantCliParameter $
+          when (isJust ncoBindAddress) $ throwIO $ RedundantCliParameter $
               "BehindNAT topology is used, no bind address is expected"
-          when (isJust ncoExternalAddress) $ throwM $ RedundantCliParameter $
+          when (isJust ncoExternalAddress) $ throwIO $ RedundantCliParameter $
               "BehindNAT topology is used, no external address is expected"
           pure (T.TopologyBehindNAT{..}, TCP.Unaddressable)
         Y.TopologyP2P
               topologyValency
               topologyFallbacks
               topologyMaxSubscrs -> do
-          kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
+          kparams <- either throwIO return =<< getKademliaParamsFromFile
           tcpAddr <- createTcpAddr (Just kparams)
           pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
                , tcpAddr )
@@ -357,7 +350,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
               topologyValency
               topologyFallbacks
               topologyMaxSubscrs -> do
-              kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
+              kparams <- either throwIO return =<< getKademliaParamsFromFile
               tcpAddr <- createTcpAddr (Just kparams)
               pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}
                    , tcpAddr )
@@ -372,7 +365,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
             )
         -- A policy file is given: the topology-derived defaults are ignored
         -- and we take the complete policy description from the file.
-        Just fp -> liftIO $ Y.fromStaticPolicies <$> readPolicies fp
+        Just fp -> Y.fromStaticPolicies <$> readPolicies fp
 
     let networkConfig = T.NetworkConfig
             { ncTopology      = ourTopology
@@ -389,15 +382,15 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
     -- Creates transport params out of config. If kademlia config is
     -- specified, kademlia external address should match external
     -- address of transport (which will be checked in this function).
-    createTcpAddr :: Maybe DHT.KademliaParams -> m TCP.TCPAddr
+    createTcpAddr :: Maybe DHT.KademliaParams -> IO TCP.TCPAddr
     createTcpAddr kademliaBind = do
         let kademliaExternal :: Maybe NetworkAddress
             kademliaExternal = DHT.kpExternalAddress =<< kademliaBind
         bindAddr@(bindHost, bindPort) <-
-            maybe (throwM MissingBindAddress) pure ncoBindAddress
+            maybe (throwIO MissingBindAddress) pure ncoBindAddress
         whenJust ((,) <$> kademliaExternal <*> ncoExternalAddress) $ \(kademliaEx::NetworkAddress,paramEx::NetworkAddress) ->
             when (kademliaEx /= paramEx) $
-            throwM $ InconsistentParameters $
+            throwIO $ InconsistentParameters $
             sformat ("Kademlia network address is "%build%
                      " but external address passed in cli is "%build%
                      ". They must be the same")
@@ -450,7 +443,7 @@ fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
           -> IO (NodeMetadata, Peers NodeId, [Y.KademliaAddress])
 fromPovOf cfg@NetworkConfigOpts{..} allPeers = case ncoSelf of
-    Nothing   -> throwM NetworkConfigSelfUnknown
+    Nothing   -> throwIO NetworkConfigSelfUnknown
     Just self -> T.initDnsOnUse $ \resolve -> do
         selfMetadata <- metadataFor allPeers self
         resolved     <- resolvePeers resolve (Y.allStaticallyKnownPeers allPeers)
@@ -499,7 +492,7 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers = case ncoSelf of
     mkRoutes directory (Y.NodeRoutes routes) = mapM (mkAlts directory) routes
 
     mkAlts :: Map NodeName (T.NodeType, NodeId) -> Alts NodeName -> IO (T.NodeType, Alts NodeId)
-    mkAlts _ [] = throwM $ EmptyListOfAltsFor (fromJust ncoSelf)
+    mkAlts _ [] = throwIO $ EmptyListOfAltsFor (fromJust ncoSelf)
     mkAlts directory names@(name:_) = do
       -- Use the type associated to the first name, and assume all alts have
       -- same type.
@@ -514,7 +507,7 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers = case ncoSelf of
 
     resolveName :: Map NodeName t -> NodeName -> IO t
     resolveName directory name = case M.lookup name directory of
-      Nothing -> throwM $ UndefinedNodeName name
+      Nothing -> throwIO $ UndefinedNodeName name
       Just t  -> return t
 
 
@@ -545,9 +538,9 @@ resolveNodeAddr cfg resolve (name, NodeAddrDNS mHost mPort) = do
 
     mAddrs <- resolve host
     case mAddrs of
-      Left err            -> throwM $ NetworkConfigDnsError host err
-      Right []            -> throwM $ CannotResolve name
-      Right addrs@(_:_:_) -> throwM $ NoUniqueResolution name addrs
+      Left err            -> throwIO $ NetworkConfigDnsError host err
+      Right []            -> throwIO $ CannotResolve name
+      Right addrs@(_:_:_) -> throwIO $ NoUniqueResolution name addrs
       Right [addr]        -> return $ ipv4ToNetworkAddress addr port
   where
     nameToDomain :: NodeName -> DNS.Domain
@@ -559,22 +552,22 @@ ipv4ToNetworkAddress addr port = (BS.C8.pack (show addr), port)
 metadataFor :: Y.AllStaticallyKnownPeers -> NodeName -> IO Y.NodeMetadata
 metadataFor (Y.AllStaticallyKnownPeers allPeers) node =
     case M.lookup node allPeers of
-        Nothing       -> throwM $ UndefinedNodeName node
+        Nothing       -> throwIO $ UndefinedNodeName node
         Just metadata -> return metadata
 
 readTopology :: FilePath -> IO Y.Topology
 readTopology fp = Yaml.decodeFileEither fp >>= \case
-    Left  err      -> throwM $ CannotParseNetworkConfig err
+    Left  err      -> throwIO $ CannotParseNetworkConfig err
     Right topology -> return topology
 
 readPolicies :: FilePath -> IO Y.StaticPolicies
 readPolicies fp = Yaml.decodeFileEither fp >>= \case
-    Left  err            -> throwM $ CannotParsePolicies err
+    Left  err            -> throwIO $ CannotParsePolicies err
     Right staticPolicies -> return staticPolicies
 
 parseKademlia :: FilePath -> IO Y.KademliaParams
 parseKademlia fp = Yaml.decodeFileEither fp >>= \case
-    Left  err      -> throwM $ CannotParseKademliaConfig (Right err)
+    Left  err      -> throwIO $ CannotParseKademliaConfig (Right err)
     Right kademlia -> return kademlia
 
 ----------------------------------------------------------------------------

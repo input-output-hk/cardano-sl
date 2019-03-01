@@ -11,7 +11,7 @@
       specVersion = "1.10";
       identifier = {
         name = "cardano-sl-binary";
-        version = "2.0.0";
+        version = "3.0.0";
       };
       license = "MIT";
       copyright = "2016 IOHK";
@@ -39,7 +39,7 @@
           (hsPkgs.formatting)
           (hsPkgs.hashable)
           (hsPkgs.lens)
-          (hsPkgs.micro-recursion-schemes)
+          (hsPkgs.recursion-schemes)
           (hsPkgs.safecopy)
           (hsPkgs.safe-exceptions)
           (hsPkgs.serokell-util)

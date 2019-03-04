@@ -25,7 +25,7 @@
     };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.ansi-terminal)
           (hsPkgs.async)
@@ -55,7 +55,7 @@
       };
       tests = {
         "test" = {
-          depends  = [
+          depends = [
             (hsPkgs.hedgehog)
             (hsPkgs.base)
             (hsPkgs.containers)
@@ -70,8 +70,8 @@
   } // {
     src = pkgs.fetchgit {
       url = "https://github.com/input-output-hk/haskell-hedgehog.git";
-      rev = "2e741bb53afb085741807018948ae17d956c53af";
-      sha256 = "0l0d1n2b68m0628j4yi214q5fy6pz777qfj1bc1lrra8scs5gcxh";
+      rev = "e63fb354bfbad07f3befdd43b382c655944218be";
+      sha256 = "1p2yzlaiqj34pkk26cgg0dkvkm1zwjpgx1zk95md5xj0cijb34gj";
     };
     postUnpack = "sourceRoot+=/hedgehog; echo source root reset to \$sourceRoot";
   }

@@ -160,7 +160,7 @@ packages:
 # https://github.com/hedgehogqa/haskell-hedgehog/compare/master...input-output-hk:master
 - location:
     git: https://github.com/input-output-hk/haskell-hedgehog.git
-    commit: 2e741bb53afb085741807018948ae17d956c53af
+    commit: e63fb354bfbad07f3befdd43b382c655944218be
   subdirs:
     - hedgehog
   extra-dep: true

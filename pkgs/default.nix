@@ -38560,8 +38560,8 @@ version = "0.6.1";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/haskell-hedgehog.git";
-sha256 = "0l0d1n2b68m0628j4yi214q5fy6pz777qfj1bc1lrra8scs5gcxh";
-rev = "2e741bb53afb085741807018948ae17d956c53af";
+sha256 = "1hf7awm2b33nb4r38bmqdggbkzdhkhhsp15dsqm5rfk424zzyb75";
+rev = "9b297f6d2fd17390c687ce513a12455e5f7304b5";
 
 };
 postUnpack = "sourceRoot+=/hedgehog; echo source root reset to $sourceRoot";

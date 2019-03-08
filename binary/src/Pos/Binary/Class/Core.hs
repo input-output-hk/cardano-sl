@@ -156,8 +156,10 @@ defaultEncodeList xs = E.encodeListLenIndef
 -- | Default @'D.Decoder'@ for list types.
 defaultDecodeList :: Bi a => D.Decoder s [a]
 defaultDecodeList = do
-    D.decodeListLenIndef
-    D.decodeSequenceLenIndef (flip (:)) [] reverse decode
+  maybeLength <- D.decodeListLenOrIndef
+  case maybeLength of
+    Nothing  -> D.decodeSequenceLenIndef (flip (:)) [] reverse decode
+    Just len -> D.decodeSequenceLenN (flip (:)) [] reverse len decode
 
 -- | A type used to represent the length of a value in 'Size' computations.
 newtype LengthOf xs = LengthOf xs deriving Typeable

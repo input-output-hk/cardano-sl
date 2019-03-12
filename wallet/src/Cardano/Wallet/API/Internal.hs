@@ -9,8 +9,9 @@ import           Servant
 
 import           Cardano.Wallet.API.Response (APIResponse, ValidJSON)
 import           Cardano.Wallet.API.Types
-import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, WalletBalance)
-import Pos.Crypto.Signing (EncryptedSecretKey)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletBalance,
+                     WalletImport)
+import           Pos.Crypto.Signing (EncryptedSecretKey)
 
 type API = Tag "Internal" ('TagDescription
     "This section contains endpoints so-called 'Internal'. They are only\

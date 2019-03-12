@@ -8,10 +8,11 @@ import           Pos.Chain.Update (SoftwareVersion)
 
 import qualified Cardano.Wallet.API.Internal as Internal
 import           Cardano.Wallet.API.Response (APIResponse, single)
-import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, WalletBalance)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletBalance,
+                     WalletImport)
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
-import Pos.Crypto.Signing (EncryptedSecretKey)
+import           Pos.Crypto.Signing (EncryptedSecretKey)
 
 handlers :: PassiveWalletLayer IO -> ServerT Internal.API Handler
 handlers w = nextUpdate       w

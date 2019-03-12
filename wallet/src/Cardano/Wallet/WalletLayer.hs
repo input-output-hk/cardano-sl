@@ -50,8 +50,8 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      ForceNtpCheck, NewAccount, NewAddress, NewWallet,
                      NodeInfo, NodeSettings, PasswordUpdate, Payment,
                      Redemption, SpendingPassword, Transaction, V1 (..),
-                     Wallet, WalletAddress, WalletId, WalletImport,
-                     WalletBalance, WalletUpdate)
+                     Wallet, WalletAddress, WalletBalance, WalletId,
+                     WalletImport, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric

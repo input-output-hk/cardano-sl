@@ -161,18 +161,19 @@ import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
 
 import           Cardano.Mnemonic (Mnemonic)
+import           Pos.Binary.Class (decodeFull')
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as Core
 import qualified Pos.Core as Core
-import           Pos.Crypto (PublicKey (..), decodeHash, hashHexF, EncryptedSecretKey)
+import           Pos.Crypto (EncryptedSecretKey, PublicKey (..), decodeHash,
+                     hashHexF)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
-import Pos.Binary.Class (decodeFull')
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), buildSafe,
-                     buildSafeList, buildSafeMaybe, deriveSafeBuildable,
-                     plainOrSecureF, SecureLog)
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog,
+                     buildSafe, buildSafeList, buildSafeMaybe,
+                     deriveSafeBuildable, plainOrSecureF)
 import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties
@@ -1636,7 +1637,7 @@ mkEncryptedSecretKey eskhex = join $
 
 instance FromJSON EncryptedSecretKey where
   parseJSON (String eskhex) = case mkEncryptedSecretKey eskhex of
-      Left e -> fail (toString e)
+      Left e    -> fail (toString e)
       Right esk -> pure esk
   parseJSON x = typeMismatch "parseJSON failed for EncryptedSecretKey" x
 

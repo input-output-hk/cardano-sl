@@ -3,15 +3,16 @@
 
 module Main (main) where
 
+import           Cardano.Crypto.Wallet (unXPrv)
+import qualified Data.ByteString as BS
+import qualified Data.Text.Lazy.Builder as T
+import           Formatting (Format, bprint, fprint, hex, later, shown, (%))
+import           Formatting.Internal.Raw (left)
+import           Pos.Crypto (EncryptedSecretKey (eskHash, eskPayload),
+                     getEncryptedPass)
 import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret
 import           Universum
-import           Pos.Crypto (EncryptedSecretKey(eskPayload, eskHash), getEncryptedPass)
-import Cardano.Crypto.Wallet (unXPrv)
-import           Formatting (bprint, hex, shown, (%), fprint, Format, later)
-import qualified Data.ByteString as BS
-import qualified Data.Text.Lazy.Builder as T
-import Formatting.Internal.Raw (left)
 
 hexString :: Format r (ByteString -> r)
 hexString = later f

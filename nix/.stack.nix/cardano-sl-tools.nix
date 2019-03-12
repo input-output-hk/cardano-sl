@@ -196,11 +196,14 @@
         "wallet-extractor" = {
           depends = [
             (hsPkgs.base)
-            (hsPkgs.universum)
-            (hsPkgs.text)
+            (hsPkgs.bytestring)
+            (hsPkgs.cardano-crypto)
             (hsPkgs.cardano-sl)
-            (hsPkgs.cardano-sl-util)
             (hsPkgs.cardano-sl-crypto)
+            (hsPkgs.cardano-sl-util)
+            (hsPkgs.formatting)
+            (hsPkgs.text)
+            (hsPkgs.universum)
           ];
         };
       };

@@ -383,10 +383,14 @@ executable wallet-extractor
                        -Wall
                        -O2
   build-depends:       base
-                     , universum
-                     , text
+                     , bytestring
+                     , cardano-crypto
                      , cardano-sl
+                     , cardano-sl-crypto
                      , cardano-sl-util
+                     , formatting
+                     , text
+                     , universum
 
 test-suite cardano-sl-tools-test
   main-is:             Test.hs

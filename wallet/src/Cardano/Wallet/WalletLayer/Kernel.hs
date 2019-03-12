@@ -26,8 +26,7 @@ import           Pos.Chain.Txp (TxIn, TxOutAux)
 import           Pos.Chain.Txp (toaOut, txOutAddress, txOutValue)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Common (Address, Coin, addrToBase58, mkCoin,
-                     unsafeAddCoin)
+import           Pos.Core.Common (Coin, addrToBase58, mkCoin, unsafeAddCoin)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic)
 import           Pos.Infra.InjectFail (FInjects)
@@ -39,13 +38,14 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId, getHdRootId,
-                     hdAccountRestorationState, hdRootId, hdWalletsRoots)
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdRootId, eskToHdRootId,
+                     getHdRootId, hdAccountRestorationState, hdRootId,
+                     hdWalletsRoots, isOurs)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials,
-                     decryptAddress, eskToWalletDecrCredentials)
+                     eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Internal (walletNode,
                      walletProtocolMagic)
@@ -170,17 +170,11 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
         invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
         invokeIO = liftIO . STM.atomically . invoke
 
--- a variant of isOurs, that accepts a pre-derived WalletDecrCredentials, to save cpu cycles
-fastIsOurs :: WalletDecrCredentials -> Address -> Bool
-fastIsOurs wdc addr = case decryptAddress wdc addr of
-  Just _  -> True
-  Nothing -> False
-
 -- takes a WalletDecrCredentials and transaction, and returns the Coin output, if its ours
-maybeReadcoin :: WalletDecrCredentials -> (TxIn, TxOutAux) -> Maybe Coin
-maybeReadcoin wdc (_, txout) = case fastIsOurs wdc (txOutAddress . toaOut $ txout) of
-  True  -> Just $ (txOutValue . toaOut) txout
-  False -> Nothing
+maybeReadcoin :: (HdRootId, WalletDecrCredentials) -> (TxIn, TxOutAux) -> Maybe Coin
+maybeReadcoin wkey (_, txout) = case isOurs (txOutAddress . toaOut $ txout) [wkey] of
+  (Just _, _)  -> Just $ (txOutValue . toaOut) txout
+  (Nothing, _)-> Nothing
 
 -- take a EncryptedSecretKey and return the sum of all utxo in the state, and the walletid
 xqueryWalletBalance :: Kernel.PassiveWallet -> EncryptedSecretKey -> IO WalletBalance
@@ -192,7 +186,7 @@ xqueryWalletBalance w esk = do
     wdc = eskToWalletDecrCredentials nm esk
   let
     withNode :: (HasCompileInfo, HasUpdateConfiguration) => Lock (WithNodeState IO) -> WithNodeState IO [Coin]
-    withNode _lock = filterUtxo (maybeReadcoin wdc)
+    withNode _lock = filterUtxo (maybeReadcoin (rootid, wdc))
   my_coins <- withNodeState (w ^. walletNode) withNode
   let
     balance :: Coin

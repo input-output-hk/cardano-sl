@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE RankNTypes   #-}
 
 module Cardano.Wallet.WalletLayer.Kernel
     ( bracketPassiveWallet
@@ -12,6 +13,7 @@ import           Universum hiding (for_)
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M (toList)
 
 import           Data.Foldable (for_)
 import           Formatting ((%))
@@ -20,16 +22,27 @@ import qualified Formatting as F
 import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Crypto (ProtocolMagic, EncryptedSecretKey)
 import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Util.Wlog (Severity (Debug, Warning))
+import Pos.Core.Common (Coin, unsafeAddCoin, mkCoin)
+import Pos.Chain.Txp (TxOutAux, TxIn)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import Pos.DB.Txp.Utxo (getAllPotentiallyHugeUtxo)
+import Pos.Chain.Txp (Utxo, toaOut, txOutAddress, txOutValue)
+import           Pos.Chain.Update (HasUpdateConfiguration)
+import Pos.Util.CompileInfo(HasCompileInfo)
 
+import           Cardano.Wallet.Kernel.Internal (walletProtocolMagic, walletNode)
 import qualified Cardano.Wallet.Kernel as Kernel
+import Cardano.Wallet.Kernel.PrefilterTx (WalletKey, filterOurs)
+import Cardano.Wallet.Kernel.Decrypt (eskToWalletDecrCredentials)
+import           Cardano.Wallet.Kernel.Types (WalletId(WalletIdHdRnd))
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.HdWallet (hdAccountRestorationState,
-                     hdRootId, hdWalletsRoots)
+                     hdRootId, hdWalletsRoots, eskToHdRootId, HdAddressId)
 import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -47,6 +60,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Internal as Internal
 import qualified Cardano.Wallet.WalletLayer.Kernel.Settings as Settings
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
+import Cardano.Wallet.API.V1.Types (WalletBalance(..), V1(V1))
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -144,6 +158,7 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
         , getTransactions      = Transactions.getTransactions w
         , getTxFromMeta        = Transactions.toTransaction w
         , getNodeSettings      = Settings.getNodeSettings w
+        , queryWalletBalance   = xqueryWalletBalance w
         }
       where
         -- Read-only operations
@@ -152,6 +167,26 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
 
         invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
         invokeIO = liftIO . STM.atomically . invoke
+
+xqueryWalletBalance :: Kernel.PassiveWallet -> EncryptedSecretKey -> IO WalletBalance
+xqueryWalletBalance w esk = do
+  let
+    nm = makeNetworkMagic (w ^. walletProtocolMagic)
+    wId    = WalletIdHdRnd (eskToHdRootId nm esk)
+    wKey :: WalletKey
+    wKey = (wId, eskToWalletDecrCredentials nm esk)
+    withNode :: (HasCompileInfo, HasUpdateConfiguration) => Lock (WithNodeState IO) -> WithNodeState IO Utxo
+    withNode _lock = getAllPotentiallyHugeUtxo
+  --print wKey
+  all_utxo <- withNodeState (w ^. walletNode) withNode
+  --mapM_ print all_utxo
+  let
+    my_utxo = filterOurs wKey (txOutAddress . toaOut . snd) (M.toList all_utxo)
+    sumUtxo :: Coin -> ((TxIn, TxOutAux), HdAddressId) -> Coin
+    sumUtxo a b = unsafeAddCoin a ((txOutValue . toaOut . snd . fst) b)
+    balance :: Coin
+    balance = foldl' sumUtxo (mkCoin 0) my_utxo
+  pure $ WalletBalance $ V1 balance
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed to send transactions, as it has the full

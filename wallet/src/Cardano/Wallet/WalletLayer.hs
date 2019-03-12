@@ -51,7 +51,7 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      NodeInfo, NodeSettings, PasswordUpdate, Payment,
                      Redemption, SpendingPassword, Transaction, V1 (..),
                      Wallet, WalletAddress, WalletId, WalletImport,
-                     WalletUpdate)
+                     WalletBalance, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -482,6 +482,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , postponeUpdate       :: m ()
     , resetWalletState     :: m ()
     , importWallet         :: WalletImport -> m (Either ImportWalletError Wallet)
+    , queryWalletBalance   :: EncryptedSecretKey -> IO WalletBalance
 
     -- updates
     , waitForUpdate        :: m ConfirmedProposalState

@@ -18,6 +18,6 @@ main = withCompileInfo $ do
     let lArgs = loggingParams "node" cArgs
     let nArgs = NodeArgs { behaviorConfigPath = Nothing }
 
-    putText "Wallet is starting..."
+    putText "Wallet is starting...\n"
 
     launchNode nArgs cArgs lArgs (actionWithWallet wArgs)

@@ -68,6 +68,8 @@ module Cardano.Wallet.API.V1.Types (
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
+  -- wallet balance
+  , WalletBalance (..)
   -- * Importing a wallet from a backup
   , WalletImport (..)
   -- * Settings
@@ -162,14 +164,15 @@ import           Cardano.Mnemonic (Mnemonic)
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as Core
 import qualified Pos.Core as Core
-import           Pos.Crypto (PublicKey (..), decodeHash, hashHexF)
+import           Pos.Crypto (PublicKey (..), decodeHash, hashHexF, EncryptedSecretKey)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
+import Pos.Binary.Class (decodeFull')
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), buildSafe,
                      buildSafeList, buildSafeMaybe, deriveSafeBuildable,
-                     plainOrSecureF)
+                     plainOrSecureF, SecureLog)
 import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties
@@ -1592,6 +1595,53 @@ instance BuildableSafeGen WalletSoftwareUpdate where
         updSoftwareVersion
         updBlockchainVersion
         updScriptVersion
+
+data WalletBalance = WalletBalance
+  { wbBalance :: V1 (Core.Coin)
+  } deriving (Show, Eq, Generic)
+deriveJSON Aeson.defaultOptions ''WalletBalance
+
+instance ToSchema WalletBalance where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "wb" (\(--^) props -> props
+            & "balance"
+            --^ "the balance of a given public key"
+        )
+
+instance Example WalletBalance
+instance Arbitrary WalletBalance where
+    arbitrary = WalletBalance <$> arbitrary
+
+instance Buildable WalletBalance where
+    build (WalletBalance bal) = "WalletBalance { ballence = " <> (show bal) <> " }"
+
+instance ToSchema EncryptedSecretKey where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "EncryptedSecretKey") $ mempty
+            & type_ .~ SwaggerString
+            & format ?~ "hex|base16"
+
+instance ToJSON EncryptedSecretKey where
+  toJSON _esk = "todo"
+
+mkEncryptedSecretKey :: Text -> Either Text EncryptedSecretKey
+mkEncryptedSecretKey eskhex = join $
+  case Base16.decode eskhex of
+    Left e -> Left e
+    Right bs -> do
+      let
+        esk :: Either Text EncryptedSecretKey
+        esk = decodeFull' bs
+      pure esk
+
+instance FromJSON EncryptedSecretKey where
+  parseJSON (String eskhex) = case mkEncryptedSecretKey eskhex of
+      Left e -> fail (toString e)
+      Right esk -> pure esk
+  parseJSON x = typeMismatch "parseJSON failed for EncryptedSecretKey" x
+
+instance Buildable (SecureLog EncryptedSecretKey) where
+  build _ = "todo"
 
 -- | A type encapsulating enough information to import a wallet from a
 -- backup file.

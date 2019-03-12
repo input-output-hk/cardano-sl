@@ -108,6 +108,7 @@ mkHttpClient baseUrl manager = WalletClient
 
     , importWallet
         = run . importWalletR
+    , queryBalance = run . queryBalanceR
     }
 
   where
@@ -162,6 +163,7 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> postponeUpdateR
         :<|> resetWalletStateR
         :<|> importWalletR
+        :<|> queryBalanceR
         = internalAPI
 
     addressesAPI

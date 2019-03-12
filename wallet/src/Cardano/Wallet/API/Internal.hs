@@ -9,7 +9,8 @@ import           Servant
 
 import           Cardano.Wallet.API.Response (APIResponse, ValidJSON)
 import           Cardano.Wallet.API.Types
-import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, WalletBalance)
+import Pos.Crypto.Signing (EncryptedSecretKey)
 
 type API = Tag "Internal" ('TagDescription
     "This section contains endpoints so-called 'Internal'. They are only\
@@ -37,4 +38,8 @@ type API = Tag "Internal" ('TagDescription
         :> Summary "Import a Wallet from disk."
         :> ReqBody '[ValidJSON] WalletImport
         :> Post '[ValidJSON] (APIResponse Wallet)
+    :<|> "query-balance"
+        :> Summary "query the balance from a pubkey"
+        :> ReqBody '[ValidJSON] EncryptedSecretKey
+        :> Post '[ValidJSON] (APIResponse WalletBalance)
     )

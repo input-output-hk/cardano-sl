@@ -8,9 +8,10 @@ import           Pos.Chain.Update (SoftwareVersion)
 
 import qualified Cardano.Wallet.API.Internal as Internal
 import           Cardano.Wallet.API.Response (APIResponse, single)
-import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, WalletBalance)
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
+import Pos.Crypto.Signing (EncryptedSecretKey)
 
 handlers :: PassiveWalletLayer IO -> ServerT Internal.API Handler
 handlers w = nextUpdate       w
@@ -18,6 +19,7 @@ handlers w = nextUpdate       w
         :<|> postponeUpdate   w
         :<|> resetWalletState w
         :<|> importWallet     w
+        :<|> queryWalletBalance w
 
 nextUpdate :: PassiveWalletLayer IO -> Handler (APIResponse (V1 SoftwareVersion))
 nextUpdate w = do
@@ -42,3 +44,8 @@ importWallet w walletImport = do
     case res of
          Left e               -> throwM e
          Right importedWallet -> pure $ single importedWallet
+
+queryWalletBalance :: PassiveWalletLayer IO -> EncryptedSecretKey -> Handler (APIResponse WalletBalance)
+queryWalletBalance w esk = do
+  balance <- liftIO (WalletLayer.queryWalletBalance w esk)
+  pure $ single balance

@@ -44,6 +44,7 @@ import           Servant.Client (GenResponse (..), Response, ServantError (..))
 import qualified Pos.Chain.Txp as Core
 import           Pos.Chain.Update (SoftwareVersion)
 import qualified Pos.Core as Core
+import           Pos.Crypto (EncryptedSecretKey)
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
@@ -155,6 +156,7 @@ data WalletClient m
         :: m (Either ClientError ())
     , importWallet
         :: WalletImport -> Resp m Wallet
+    , queryBalance :: EncryptedSecretKey -> Resp m WalletBalance
     } deriving Generic
 
 data WalletDocClient m = WalletDocClient
@@ -286,6 +288,7 @@ natMapClient phi f wc = WalletClient
         f $ phi $ resetWalletState wc
     , importWallet =
         f . phi . importWallet wc
+    , queryBalance = f . phi . queryBalance wc
     }
 
 -- | Run the given natural transformation over the 'WalletClient'.

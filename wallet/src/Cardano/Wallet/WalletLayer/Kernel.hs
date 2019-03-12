@@ -12,8 +12,10 @@ import           Universum hiding (for_)
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M (toList)
+import qualified Data.Text as T
 
 import           Data.Foldable (for_)
 import           Formatting ((%))
@@ -25,7 +27,7 @@ import           Pos.Chain.Txp (TxIn, TxOutAux)
 import           Pos.Chain.Txp (Utxo, toaOut, txOutAddress, txOutValue)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Common (Coin, mkCoin, unsafeAddCoin)
+import           Pos.Core.Common (Coin, addrToBase58, mkCoin, unsafeAddCoin)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic)
 import           Pos.DB.Txp.Utxo (getAllPotentiallyHugeUtxo)
@@ -39,7 +41,9 @@ import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAddressId, eskToHdRootId,
-                     hdAccountRestorationState, hdRootId, hdWalletsRoots)
+                     getHdRootId, hdAccountRestorationState, hdRootId,
+                     hdWalletsRoots)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Decrypt (eskToWalletDecrCredentials)
@@ -187,7 +191,8 @@ xqueryWalletBalance w esk = do
     sumUtxo a b = unsafeAddCoin a ((txOutValue . toaOut . snd . fst) b)
     balance :: Coin
     balance = foldl' sumUtxo (mkCoin 0) my_utxo
-  pure $ WalletBalance $ V1 balance
+    walletid = addrToBase58 $ view fromDb (getHdRootId $ eskToHdRootId nm esk)
+  pure $ WalletBalance (V1 balance) (T.pack $ BS.unpack walletid)
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed to send transactions, as it has the full

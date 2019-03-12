@@ -200,6 +200,7 @@
             (hsPkgs.text)
             (hsPkgs.cardano-sl)
             (hsPkgs.cardano-sl-util)
+            (hsPkgs.cardano-sl-crypto)
           ];
         };
       };

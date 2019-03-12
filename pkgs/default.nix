@@ -16419,6 +16419,7 @@ license = stdenv.lib.licenses.mit;
 , base58-bytestring
 , bytestring
 , canonical-json
+, cardano-crypto
 , cardano-report-server
 , cardano-sl
 , cardano-sl-binary
@@ -16498,6 +16499,7 @@ base
 base58-bytestring
 bytestring
 canonical-json
+cardano-crypto
 cardano-report-server
 cardano-sl
 cardano-sl-binary

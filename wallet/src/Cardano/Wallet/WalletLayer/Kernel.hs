@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE RankNTypes   #-}
 
 module Cardano.Wallet.WalletLayer.Kernel
     ( bracketPassiveWallet
@@ -21,35 +21,37 @@ import qualified Formatting as F
 
 import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
-import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (ProtocolMagic, EncryptedSecretKey)
-import           Pos.Infra.InjectFail (FInjects)
-import           Pos.Util.Wlog (Severity (Debug, Warning))
-import Pos.Core.Common (Coin, unsafeAddCoin, mkCoin)
-import Pos.Chain.Txp (TxOutAux, TxIn)
-import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import Pos.DB.Txp.Utxo (getAllPotentiallyHugeUtxo)
-import Pos.Chain.Txp (Utxo, toaOut, txOutAddress, txOutValue)
+import           Pos.Chain.Txp (TxIn, TxOutAux)
+import           Pos.Chain.Txp (Utxo, toaOut, txOutAddress, txOutValue)
 import           Pos.Chain.Update (HasUpdateConfiguration)
-import Pos.Util.CompileInfo(HasCompileInfo)
+import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Core.Common (Coin, mkCoin, unsafeAddCoin)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic)
+import           Pos.DB.Txp.Utxo (getAllPotentiallyHugeUtxo)
+import           Pos.Infra.InjectFail (FInjects)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Wlog (Severity (Debug, Warning))
 
-import           Cardano.Wallet.Kernel.Internal (walletProtocolMagic, walletNode)
+import           Cardano.Wallet.API.V1.Types (V1 (V1), WalletBalance (..))
 import qualified Cardano.Wallet.Kernel as Kernel
-import Cardano.Wallet.Kernel.PrefilterTx (WalletKey, filterOurs)
-import Cardano.Wallet.Kernel.Decrypt (eskToWalletDecrCredentials)
-import           Cardano.Wallet.Kernel.Types (WalletId(WalletIdHdRnd))
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.HdWallet (hdAccountRestorationState,
-                     hdRootId, hdWalletsRoots, eskToHdRootId, HdAddressId)
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdAddressId, eskToHdRootId,
+                     hdAccountRestorationState, hdRootId, hdWalletsRoots)
 import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.Decrypt (eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.Internal (walletNode,
+                     walletProtocolMagic)
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
+import           Cardano.Wallet.Kernel.PrefilterTx (WalletKey, filterOurs)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Restore as Kernel
+import           Cardano.Wallet.Kernel.Types (WalletId (WalletIdHdRnd))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
@@ -60,7 +62,6 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Internal as Internal
 import qualified Cardano.Wallet.WalletLayer.Kernel.Settings as Settings
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
-import Cardano.Wallet.API.V1.Types (WalletBalance(..), V1(V1))
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.

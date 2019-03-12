@@ -14,7 +14,6 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M (toList)
 import qualified Data.Text as T
 
 import           Data.Foldable (for_)
@@ -24,13 +23,13 @@ import qualified Formatting as F
 import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxIn, TxOutAux)
-import           Pos.Chain.Txp (Utxo, toaOut, txOutAddress, txOutValue)
+import           Pos.Chain.Txp (toaOut, txOutAddress, txOutValue)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Common (Coin, addrToBase58, mkCoin, unsafeAddCoin)
+import           Pos.Core.Common (Address, Coin, addrToBase58, mkCoin,
+                     unsafeAddCoin)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic)
-import           Pos.DB.Txp.Utxo (getAllPotentiallyHugeUtxo)
 import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Wlog (Severity (Debug, Warning))
@@ -40,22 +39,20 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdAddressId, eskToHdRootId,
-                     getHdRootId, hdAccountRestorationState, hdRootId,
-                     hdWalletsRoots)
+import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId, getHdRootId,
+                     hdAccountRestorationState, hdRootId, hdWalletsRoots)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import           Cardano.Wallet.Kernel.Decrypt (eskToWalletDecrCredentials)
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials,
+                     decryptAddress, eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Internal (walletNode,
                      walletProtocolMagic)
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
-import           Cardano.Wallet.Kernel.PrefilterTx (WalletKey, filterOurs)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Restore as Kernel
-import           Cardano.Wallet.Kernel.Types (WalletId (WalletIdHdRnd))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
@@ -173,25 +170,34 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
         invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
         invokeIO = liftIO . STM.atomically . invoke
 
+-- a variant of isOurs, that accepts a pre-derived WalletDecrCredentials, to save cpu cycles
+fastIsOurs :: WalletDecrCredentials -> Address -> Bool
+fastIsOurs wdc addr = case decryptAddress wdc addr of
+  Just _  -> True
+  Nothing -> False
+
+-- takes a WalletDecrCredentials and transaction, and returns the Coin output, if its ours
+maybeReadcoin :: WalletDecrCredentials -> (TxIn, TxOutAux) -> Maybe Coin
+maybeReadcoin wdc (_, txout) = case fastIsOurs wdc (txOutAddress . toaOut $ txout) of
+  True  -> Just $ (txOutValue . toaOut) txout
+  False -> Nothing
+
+-- take a EncryptedSecretKey and return the sum of all utxo in the state, and the walletid
 xqueryWalletBalance :: Kernel.PassiveWallet -> EncryptedSecretKey -> IO WalletBalance
 xqueryWalletBalance w esk = do
   let
     nm = makeNetworkMagic (w ^. walletProtocolMagic)
-    wId    = WalletIdHdRnd (eskToHdRootId nm esk)
-    wKey :: WalletKey
-    wKey = (wId, eskToWalletDecrCredentials nm esk)
-    withNode :: (HasCompileInfo, HasUpdateConfiguration) => Lock (WithNodeState IO) -> WithNodeState IO Utxo
-    withNode _lock = getAllPotentiallyHugeUtxo
-  --print wKey
-  all_utxo <- withNodeState (w ^. walletNode) withNode
-  --mapM_ print all_utxo
   let
-    my_utxo = filterOurs wKey (txOutAddress . toaOut . snd) (M.toList all_utxo)
-    sumUtxo :: Coin -> ((TxIn, TxOutAux), HdAddressId) -> Coin
-    sumUtxo a b = unsafeAddCoin a ((txOutValue . toaOut . snd . fst) b)
+    rootid = eskToHdRootId nm esk
+    wdc = eskToWalletDecrCredentials nm esk
+  let
+    withNode :: (HasCompileInfo, HasUpdateConfiguration) => Lock (WithNodeState IO) -> WithNodeState IO [Coin]
+    withNode _lock = filterUtxo (maybeReadcoin wdc)
+  my_coins <- withNodeState (w ^. walletNode) withNode
+  let
     balance :: Coin
-    balance = foldl' sumUtxo (mkCoin 0) my_utxo
-    walletid = addrToBase58 $ view fromDb (getHdRootId $ eskToHdRootId nm esk)
+    balance = foldl' unsafeAddCoin (mkCoin 0) my_coins
+    walletid = addrToBase58 $ view fromDb (getHdRootId rootid)
   pure $ WalletBalance (V1 balance) (T.pack $ BS.unpack walletid)
 
 -- | Initialize the active wallet.

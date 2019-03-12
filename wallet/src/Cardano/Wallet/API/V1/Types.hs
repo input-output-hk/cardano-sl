@@ -1598,7 +1598,8 @@ instance BuildableSafeGen WalletSoftwareUpdate where
         updScriptVersion
 
 data WalletBalance = WalletBalance
-  { wbBalance :: V1 (Core.Coin)
+  { wbBalance  :: V1 (Core.Coin)
+  , wbWalletId :: Text
   } deriving (Show, Eq, Generic)
 deriveJSON Aeson.defaultOptions ''WalletBalance
 
@@ -1611,10 +1612,10 @@ instance ToSchema WalletBalance where
 
 instance Example WalletBalance
 instance Arbitrary WalletBalance where
-    arbitrary = WalletBalance <$> arbitrary
+    arbitrary = WalletBalance <$> arbitrary <*> arbitrary
 
 instance Buildable WalletBalance where
-    build (WalletBalance bal) = "WalletBalance { ballence = " <> (show bal) <> " }"
+    build (WalletBalance bal walid) = "WalletBalance { ballence = " <> (show bal) <> ", walletid = " <> show walid <> " }"
 
 instance ToSchema EncryptedSecretKey where
     declareNamedSchema _ =

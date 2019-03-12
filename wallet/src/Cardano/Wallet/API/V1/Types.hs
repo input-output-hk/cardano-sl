@@ -1608,6 +1608,8 @@ instance ToSchema WalletBalance where
         genericSchemaDroppingPrefix "wb" (\(--^) props -> props
             & "balance"
             --^ "the balance of a given public key"
+            & "walletId"
+            --^ "the walletid of the given public key"
         )
 
 instance Example WalletBalance
@@ -1615,7 +1617,7 @@ instance Arbitrary WalletBalance where
     arbitrary = WalletBalance <$> arbitrary <*> arbitrary
 
 instance Buildable WalletBalance where
-    build (WalletBalance bal walid) = "WalletBalance { ballence = " <> (show bal) <> ", walletid = " <> show walid <> " }"
+    build (WalletBalance bal walid) = "WalletBalance { balence = " <> (show bal) <> ", walletId = " <> show walid <> " }"
 
 instance ToSchema EncryptedSecretKey where
     declareNamedSchema _ =
@@ -1624,17 +1626,12 @@ instance ToSchema EncryptedSecretKey where
             & format ?~ "hex|base16"
 
 instance ToJSON EncryptedSecretKey where
-  toJSON _esk = "todo"
+  toJSON _esk = "<encrypted secret>"
 
 mkEncryptedSecretKey :: Text -> Either Text EncryptedSecretKey
-mkEncryptedSecretKey eskhex = join $
-  case Base16.decode eskhex of
-    Left e -> Left e
-    Right bs -> do
-      let
-        esk :: Either Text EncryptedSecretKey
-        esk = decodeFull' bs
-      pure esk
+mkEncryptedSecretKey eskhex = case Base16.decode eskhex of
+    Left e   -> Left e
+    Right bs -> decodeFull' bs
 
 instance FromJSON EncryptedSecretKey where
   parseJSON (String eskhex) = case mkEncryptedSecretKey eskhex of
@@ -1643,7 +1640,7 @@ instance FromJSON EncryptedSecretKey where
   parseJSON x = typeMismatch "parseJSON failed for EncryptedSecretKey" x
 
 instance Buildable (SecureLog EncryptedSecretKey) where
-  build _ = "todo"
+  build _ = "<encrypted secret>"
 
 -- | A type encapsulating enough information to import a wallet from a
 -- backup file.

@@ -22,8 +22,8 @@ import qualified Formatting as F
 
 import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
-import           Pos.Chain.Txp (TxIn, TxOutAux)
-import           Pos.Chain.Txp (toaOut, txOutAddress, txOutValue)
+import           Pos.Chain.Txp (TxIn, TxOutAux, toaOut, txOutAddress,
+                     txOutValue)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (Coin, addrToBase58, mkCoin, unsafeAddCoin)

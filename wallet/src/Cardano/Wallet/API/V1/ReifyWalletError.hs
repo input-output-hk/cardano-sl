@@ -206,6 +206,9 @@ importWalletError e = case e of
     ex@(ImportWalletNoWalletFoundInBackup _file) ->
         V1.UnknownError (sformat build ex)
 
+    ex@(ImportWalletMissingField) ->
+        V1.UnknownError (sformat build ex)
+
     (ImportWalletCreationFailed e') ->
         createWalletError e'
 

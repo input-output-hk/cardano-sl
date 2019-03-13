@@ -159,14 +159,16 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
+import qualified Pos.Crypto as S
 
 import           Cardano.Mnemonic (Mnemonic)
 import           Pos.Binary.Class (decodeFull')
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as Core
 import qualified Pos.Core as Core
-import           Pos.Crypto (EncryptedSecretKey, PublicKey (..), decodeHash,
-                     hashHexF)
+import           Pos.Crypto (EncryptedSecretKey,
+                     EncryptedSecretKey (EncryptedSecretKey), PublicKey (..),
+                     decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
 import           Pos.Infra.Diffusion.Subscription.Status
@@ -1646,8 +1648,9 @@ instance Buildable (SecureLog EncryptedSecretKey) where
 -- backup file.
 data WalletImport = WalletImport
   { wiSpendingPassword :: !(Maybe SpendingPassword)
-  , wiFilePath         :: !FilePath
-  } deriving (Show, Eq, Generic)
+  , wiFilePath         :: !(Maybe FilePath)
+  , wiRawSecret        :: !(Maybe EncryptedSecretKey)
+  } deriving (Show, Generic)
 
 deriveJSON Aeson.defaultOptions ''WalletImport
 
@@ -1660,6 +1663,7 @@ instance ToSchema WalletImport where
 
 instance Arbitrary WalletImport where
   arbitrary = WalletImport <$> arbitrary
+                           <*> arbitrary
                            <*> arbitrary
 
 deriveSafeBuildable ''WalletImport
@@ -1882,7 +1886,13 @@ instance Example Redemption where
 
 instance Example WalletImport where
     example = WalletImport <$> example
-                           <*> pure "/Users/foo/Documents/wallet_to_import.key"
+                           <*> (pure $ Just "/Users/foo/Documents/wallet_to_import.key")
+                           <*> (pure $ Just $ EncryptedSecretKey (CC.generate dummyKey dummyPassphrase) passphrase)
+      where
+        dummyPassphrase :: ByteString
+        dummyPassphrase = "passphrase"
+        Right dummyKey = Base16.decode "0000000000000000000000000000000000000000000000000000000000000000"
+        passphrase = S.encryptPassWithSalt S.passScryptParam S.emptySalt dummyPassphrase
 
 --
 -- Wallet Errors

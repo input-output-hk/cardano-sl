@@ -22,6 +22,7 @@ let
 
     dist/build/cardano-node/cardano-node --configuration-file ${cfgFiles}/configuration.yaml --configuration-key ${cfg.key} \
         --db-path states/${cfg.name}/DB --keyfile states/${cfg.name}/secret.key \
+        --wallet-db-path states/${cfg.name}/Wallet
         --logs-prefix states/${cfg.name}/logs --topology ${../script-runner/. + "/topology-${cfg.name}.yaml"} \
         --tlscert $STATE/tls/server/server.crt --tlskey $STATE/tls/server/server.key \
         --tlsca $STATE/tls/server/ca.crt \

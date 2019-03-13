@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Cardano.Wallet.WalletLayer.Kernel.Internal (
     nextUpdate
   , applyUpdate
@@ -110,18 +112,26 @@ importWallet :: MonadIO m
              => Kernel.PassiveWallet
              -> WalletImport
              -> m (Either ImportWalletError Wallet)
-importWallet pw WalletImport{..} = liftIO $ do
-    secretE <- try $ Keystore.readWalletSecret wiFilePath
-    case secretE of
-         Left e ->
-             if isDoesNotExistError e
-                 then return (Left $ ImportWalletFileNotFound wiFilePath)
-                 else throwM e
-         Right mbEsk -> do
-             case mbEsk of
-                 Nothing  -> return (Left $ ImportWalletNoWalletFoundInBackup wiFilePath)
-                 Just esk -> do
-                     res <- liftIO $ createWallet pw (ImportWalletFromESK esk wiSpendingPassword)
-                     return $ case res of
-                          Left e               -> Left (ImportWalletCreationFailed e)
-                          Right importedWallet -> Right importedWallet
+importWallet pw WalletImport{wiSpendingPassword,wiFilePath,wiRawSecret} = liftIO $ do
+    eskE <- case (wiFilePath, wiRawSecret) of
+      (Nothing, Nothing) -> return $ Left ImportWalletMissingField
+      (Just _, Just _) -> return $ Left ImportWalletMissingField
+      (Just filePath, Nothing) -> do
+        secretE <- try $ Keystore.readWalletSecret filePath
+        case secretE of
+          Left e ->
+            if isDoesNotExistError e
+              then return (Left $ ImportWalletFileNotFound filePath)
+              else throwM e
+          Right mbEsk -> do
+            case mbEsk of
+              Nothing  -> return (Left $ ImportWalletNoWalletFoundInBackup filePath)
+              Just esk -> return $ Right esk
+      (Nothing, Just esk) -> return $ Right esk
+    case eskE of
+      Left err -> return $ Left err
+      Right esk -> do
+        res <- liftIO $ createWallet pw (ImportWalletFromESK esk wiSpendingPassword)
+        return $ case res of
+          Left e               -> Left (ImportWalletCreationFailed e)
+          Right importedWallet -> Right importedWallet

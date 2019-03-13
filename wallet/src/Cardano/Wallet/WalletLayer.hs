@@ -357,6 +357,8 @@ data ImportWalletError =
     -- didn't provide any.
     | ImportWalletCreationFailed CreateWalletError
     -- ^ When trying to import this wallet, the wallet creation failed.
+    | ImportWalletMissingField
+    -- ^ one of FilePath or RawSecret must be specified
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show ImportWalletError where
@@ -371,6 +373,7 @@ instance Buildable ImportWalletError where
         bprint ("ImportWalletNoWalletFoundInBackup " % build) fp
     build (ImportWalletCreationFailed err) =
         bprint ("ImportWalletCreationFailed " % build) err
+    build (ImportWalletMissingField) = "ImportWalletMissingField"
 
 ------------------------------------------------------------
 -- Errors when getting Transactions

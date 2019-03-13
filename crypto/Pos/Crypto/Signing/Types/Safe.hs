@@ -13,6 +13,7 @@ module Pos.Crypto.Signing.Types.Safe
        , encToPublic
        , noPassEncrypt
        , checkPassMatches
+       , passScryptParam
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC

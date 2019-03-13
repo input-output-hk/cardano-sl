@@ -776,7 +776,7 @@ withNextFaucet actionWithFaucet = do
     let acquireFaucet = do
             let (key:rest) = ctx ^. faucets
             put (ctx & faucets .~ rest)
-            successfulRequest $ Client.importWallet $- WalletImport Nothing key
+            successfulRequest $ Client.importWallet $- WalletImport Nothing (Just key) Nothing
 
     let releaseFaucet faucet = do
             successfulRequest (Client.deleteWallet $- walId faucet)

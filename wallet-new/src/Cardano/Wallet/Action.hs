@@ -51,12 +51,16 @@ actionWithWallet
 actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParams _ nodeRes = do
     logInfo "[Attention] Software is built with the wallet backend"
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
+    logInfo "point 1"
     userSecret <- readTVarIO (ncUserSecret $ nrContext nodeRes)
+    logInfo "point 2"
     let nodeState = NodeStateAdaptor.newNodeStateAdaptor
             genesisConfig
             nodeRes
             ntpStatus
+    logInfo "point 3"
     liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
+        logInfo "point 4"
         let dbOptions = getWalletDbOptions params
         let dbPath = walletDbPath dbOptions
         let rebuildDB = walletRebuildDb dbOptions
@@ -66,8 +70,11 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
             , Kernel.dbRebuild       = rebuildDB
             })
         let pm = configProtocolMagic genesisConfig
+        logInfo "point 5"
         WalletLayer.Kernel.bracketPassiveWallet pm dbMode logMessage' keystore nodeState (npFInjects nodeParams) $ \walletLayer passiveWallet -> do
+            logInfo "point 6"
             migrateLegacyDataLayer passiveWallet dbPath (getFullMigrationFlag params)
+            logInfo "point 7"
 
             let plugs = plugins (walletLayer, passiveWallet) dbMode
 

@@ -119,6 +119,7 @@ data WalletHandles = Handles {
 -- and we should rethink if migrateMetaDB should happen here.
 handlesOpen :: DatabaseMode -> IO WalletHandles
 handlesOpen mode =
+    logInfo "point 5.8"
     case mode of
         UseInMemory -> do
             db <- openMemoryState defDB
@@ -126,15 +127,22 @@ handlesOpen mode =
             migrateMetaDB metadb
             return $ Handles db metadb
         UseFilePath (DatabaseOptions acidDb sqliteDb rebuildDB) -> do
+            logInfo "point 5.9"
             let deleteMaybe fp = do
                     when rebuildDB $ do
                         itsHere <- doesPathExist fp
                         when itsHere $ removePathForcibly fp
+            logInfo "point 5.10"
             deleteMaybe acidDb
+            logInfo "point 5.11"
             db <- openLocalStateFrom acidDb defDB
+            logInfo "point 5.12"
             deleteMaybe sqliteDb
+            logInfo "point 5.13"
             metadb <- openMetaDB sqliteDb
+            logInfo "point 5.14"
             migrateMetaDB metadb
+            logInfo "point 5.15"
             return $ Handles db metadb
 
 handlesClose :: DatabaseMode -> WalletHandles -> IO ()

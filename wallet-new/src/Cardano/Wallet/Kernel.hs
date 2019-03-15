@@ -36,7 +36,7 @@ import           System.Directory (doesPathExist, removePathForcibly)
 import           Pos.Chain.Txp (TxAux (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.InjectFail (FInjects)
-import           Pos.Util.Wlog (Severity (..))
+import           Pos.Util.Wlog (Severity (..), logInfo)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB)
 import           Cardano.Wallet.Kernel.DB.Read (pendingByAccount)

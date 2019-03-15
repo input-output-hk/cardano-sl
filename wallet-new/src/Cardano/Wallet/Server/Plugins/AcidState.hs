@@ -45,8 +45,11 @@ createAndArchiveCheckpoints dbRef delay dbMode =
         logInfo "createAndArchiveCheckpoints is starting..."
 
         res <- try $ do
+            logInfo "creating checkpoint"
             liftIO (createCheckpoint dbRef >> createArchive dbRef)
+            logInfo "created checkpoint, pruning"
             pruneAndCompress 3 dbPath
+            logInfo "pruned"
         case res of
              Left (err :: SomeException) -> logError (show err)
              Right ()                    -> return ()

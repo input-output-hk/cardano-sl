@@ -160,8 +160,11 @@ initPassiveWallet :: ProtocolMagic
                   -> FInjects IO
                   -> IO PassiveWallet
 initPassiveWallet pm logMessage keystore handles node fInjects = do
+    logInfo "point 5.1"
     pw <- preparePassiveWallet
+    logInfo "point 5.5"
     initSubmission pw
+    logInfo "point 5.7"
     return pw
     where
         -- | Prepare Passive Wallet for initialisation.
@@ -169,8 +172,11 @@ initPassiveWallet pm logMessage keystore handles node fInjects = do
         -- access to the PassiveWallet state
         preparePassiveWallet :: IO PassiveWallet
         preparePassiveWallet = do
+            logInfo "point 5.2"
             submission <- newMVar emptyWalletSubmission
+            logInfo "point 5.3"
             restore    <- newRestorationTasks
+            logInfo "point 5.4"
             return PassiveWallet {
                   _walletLogMessage      = logMessage
                 , _walletKeystore        = keystore
@@ -187,7 +193,9 @@ initPassiveWallet pm logMessage keystore handles node fInjects = do
         -- the submission layer with all pending transactions present in the wallet state.
         initSubmission :: PassiveWallet -> IO ()
         initSubmission pw_  = do
+            logInfo "point 5.5"
             pendings <- pendingByAccount <$> getWalletSnapshot pw_
+            logInfo "point 5.6"
             Strict.modifyMVar_ (_walletSubmission pw_) $
                 return . addPendings pendings
 

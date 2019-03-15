@@ -11,6 +11,7 @@ import           InputSelection.Evaluation.Options (Command (..), evalCommand,
                      getEvalOptions)
 import           InputSelection.Evaluation.Replot (replot)
 import           Test.Pos.Util.Parallel.Parallelize (parallelizeAllCores)
+import Pos.Util.Wlog.Compatibility (setupTestLogging)
 
 import qualified DeltaCompressionSpecs
 import qualified Test.Spec.Accounts
@@ -33,6 +34,7 @@ import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
 main :: IO ()
 main = do
+    setupTestLogging
     parallelizeAllCores
     mEvalOptions <- getEvalOptions
     case mEvalOptions of

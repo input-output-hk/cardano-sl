@@ -119,7 +119,6 @@ data WalletHandles = Handles {
 -- and we should rethink if migrateMetaDB should happen here.
 handlesOpen :: DatabaseMode -> IO WalletHandles
 handlesOpen mode =
-    logInfo "point 5.8"
     case mode of
         UseInMemory -> do
             db <- openMemoryState defDB

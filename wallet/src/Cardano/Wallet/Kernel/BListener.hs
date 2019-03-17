@@ -24,6 +24,7 @@ import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Block (HeaderHash)
+import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
 import           Pos.Core.Chrono (OldestFirst (..))
@@ -36,6 +37,7 @@ import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      SwitchToForkInternalError (..))
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.HdWallet
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, rbContext)
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
@@ -74,9 +76,12 @@ prefilterBlocks pw bs = do
     let nm = makeNetworkMagic (pw ^. walletProtocolMagic)
     res <- getWalletCredentials pw
     foreignPendings <- foreignPendingByAccount <$> getWalletSnapshot pw
+    let
+      deriveKeys :: (WalletId, EncryptedSecretKey) -> (WalletId, WalletDecrCredentials)
+      deriveKeys (wId, esk) = (wId, eskToWalletDecrCredentials nm esk)
     return $ case res of
          [] -> Nothing
-         xs -> Just $ map (\b -> first (b ^. rbContext,) $ prefilterBlock nm foreignPendings b xs) bs
+         xs -> Just $ map (\b -> first (b ^. rbContext,) $ prefilterBlock foreignPendings b (map deriveKeys xs)) bs
 
 data BackfillFailed
     = SuccessorChanged BlockContext (Maybe BlockContext)

@@ -334,12 +334,11 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
 --
 --   Returns prefiltered blocks indexed by HdAccountId.
 prefilterBlock
-    :: NetworkMagic
-    -> Map HdAccountId Pending
+    :: Map HdAccountId Pending
     -> ResolvedBlock
-    -> [(WalletId, EncryptedSecretKey)]
+    -> [(WalletId, WalletDecrCredentials)]
     -> (Map HdAccountId PrefilteredBlock, [TxMeta])
-prefilterBlock nm foreignPendingByAccount block rawKeys =
+prefilterBlock foreignPendingByAccount block rawKeys =
       (Map.fromList
     $ map (mkPrefBlock (block ^. rbContext) inpAll outAll)
     $ Set.toList accountIds
@@ -364,8 +363,8 @@ prefilterBlock nm foreignPendingByAccount block rawKeys =
 
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
-    toWalletKey :: (WalletId, EncryptedSecretKey) -> WalletKey
-    toWalletKey (wid, esk) = (wid, eskToWalletDecrCredentials nm esk)
+    toWalletKey :: (WalletId, WalletDecrCredentials) -> WalletKey
+    toWalletKey (wid, wdc) = (wid, wdc)
 
     reindexByTransaction :: Map HdAccountId (Set TxIn) -> Map TxIn HdAccountId
     reindexByTransaction byAccount = Map.fromList $ Set.toList $ Set.unions $ Map.elems $ Map.mapWithKey f byAccount

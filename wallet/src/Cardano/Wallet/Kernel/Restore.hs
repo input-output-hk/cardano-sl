@@ -12,7 +12,7 @@ module Cardano.Wallet.Kernel.Restore
 
 import           Universum
 
-import           Control.Concurrent.Async (async, cancel)
+import           Control.Concurrent.Async (async, cancel, Async, wait)
 import           Control.Lens (at, _Just)
 import           Data.Acid (update)
 import           Data.List (unzip3)
@@ -22,6 +22,8 @@ import           Data.Maybe (fromJust)
 import           Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime)
 import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Formatting.Buildable
+import           Control.Concurrent.STM.TBQueue
+import           Control.Monad.Extra (mapMaybeM)
 
 import qualified Prelude
 
@@ -81,7 +83,7 @@ import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
 import           Pos.DB.Class (getBlock)
-import           Pos.Util.Trace (Severity (Error))
+import           Pos.Util.Trace (Severity (Error, Info))
 
 -- | Restore a wallet
 --
@@ -175,7 +177,7 @@ mkPrefilter nm esk wallet wId blund = do
     foreignPendings <- foreignPendingByAccount <$> getWalletSnapshot wallet
     blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
         Nothing -> (M.empty, [])
-        Just rb -> prefilterBlock nm foreignPendings rb [(wId,esk)]
+        Just rb -> prefilterBlock foreignPendings rb [(wId, eskToWalletDecrCredentials nm esk)]
 
 
 -- | Begin a restoration for a wallet that is already known. This is used
@@ -395,42 +397,47 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
         Nothing -> withNode $ getFirstGenesisBlockHash genesisHash
         Just sh -> nextHistoricalHash sh >>= maybe (throwM $ RestorationSuccessorNotFound sh) pure
     let batchSize = 1000
-    restore genesisHash startingPoint batchSize
+    (hashStream, _bgTask) <- headerHashStream startingPoint
+    (batchStream, _bgTask2) <- mkBatchStream hashStream genesisHash batchSize
+    restore genesisHash batchSize batchStream
   where
     wId :: WalletId
     wId = WalletIdHdRnd rootId
 
     -- Process the restoration of the next `batchSize` blocks (or up until the
     -- target hash), starting from the given 'HeaderHash'.
-    restore :: GenesisHash -> HeaderHash -> Int -> IO ()
-    restore genesisHash hh batchSize = do
+    restore :: GenesisHash -> Int -> TBQueue (Maybe (Async [((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId)])) -> IO ()
+    restore genesisHash batchSize batchStream = do
         -- Keep track of timing
         startTime <- getCurrentTime
 
         -- Processing a batch of blocks, flushing to Acid-State only once
-        (updates, hh') <- getBatch genesisHash hh batchSize
+        maybeNextTask <- atomically $ readTBQueue batchStream
+        case maybeNextTask of
+          Nothing -> finish
+          Just asyncUpdates -> do
+            updates <- wait asyncUpdates
 
-        -- Flush to Acid-State & SQLite
-        k <- getSecurityParameter (wallet ^. walletNode)
-        let (blocks, txMetas, slotIds) = unzip3 updates
-        mErr <- update (wallet ^. wallets) (ApplyHistoricalBlocks k rootId blocks)
-        whenLeft mErr (throwM . RestorationApplyHistoricalBlockFailed)
-        forM_ (mconcat txMetas) (putTxMeta (wallet ^. walletMeta))
+            -- Flush to Acid-State & SQLite
+            k <- getSecurityParameter (wallet ^. walletNode)
+            let (blocks, txMetas, slotIds) = unzip3 updates
+            mErr <- update (wallet ^. wallets) (ApplyHistoricalBlocks k rootId blocks)
+            whenLeft mErr (throwM . RestorationApplyHistoricalBlockFailed)
+            forM_ (mconcat txMetas) (putTxMeta (wallet ^. walletMeta))
 
-        -- Update our progress
-        now <- getCurrentTime
-        let rate = Rate (fromIntegral $ length blocks) (now `diffUTCTime` startTime)
-        slotCount <- getSlotCount (wallet ^. walletNode)
-        let flat             = flattenSlotId slotCount
-            blockPerSec      = MeasuredIn $ BlockCount $ perSecond rate
-        unless (null slotIds) $ modifyIORef' progress
-            ( (wrpCurrentSlot .~ flat (Prelude.last slotIds))
-            . (wrpTargetSlot  .~ flat tgtSlot)
-            . set wrpThroughput blockPerSec
-            )
+            -- Update our progress
+            now <- getCurrentTime
+            let rate = Rate (fromIntegral $ length blocks) (now `diffUTCTime` startTime)
+            slotCount <- getSlotCount (wallet ^. walletNode)
+            let flat             = flattenSlotId slotCount
+                blockPerSec      = MeasuredIn $ BlockCount $ perSecond rate
+            unless (null slotIds) $ modifyIORef' progress
+                ( (wrpCurrentSlot .~ flat (Prelude.last slotIds))
+                . (wrpTargetSlot  .~ flat tgtSlot)
+                . set wrpThroughput blockPerSec
+                )
 
-        -- Decide how to proceed.
-        if hh' == tgtHash then finish else restore genesisHash hh' batchSize
+            restore genesisHash batchSize batchStream
 
     -- TODO (@mn): probably should use some kind of bracket to ensure this cleanup happens.
     finish :: IO ()
@@ -477,30 +484,73 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
                 let slotId = mb ^. mainBlockSlot
                 return $ Just ((ctxt, prefilteredBlocks), txMetas, slotId)
 
-    -- Get the next batch of blocks
-    getBatch
-        :: GenesisHash
-        -> HeaderHash
-        -> Int
-        -> IO ([((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId)], HeaderHash)
-    getBatch genesisHash hh batchSize = go [] batchSize hh
-        where
-            go !updates !n !currentHash | n <= 0 =
-                return (reverse updates, currentHash)
+    newGetBatch :: GenesisHash -> [ HeaderHash ] -> IO ([((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId)])
+    newGetBatch genesisHash headerHashes = mapMaybeM (getPrefilteredBlockOrThrow genesisHash) headerHashes
 
-            go !updates _ !currentHash | currentHash == tgtHash =
-                getPrefilteredBlockOrThrow genesisHash currentHash >>= \case
-                    Nothing -> go updates 0 currentHash
-                    Just u  -> go (u : updates) 0 currentHash
+    mkBatchStream :: TBQueue (Maybe HeaderHash) -> GenesisHash -> Int -> IO (TBQueue (Maybe (Async ([((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId)]))), Async ())
+    mkBatchStream hashStream genesisHash batchSize = do
+      batchStream <- newTBQueueIO 10
+      task <- async $ do
+        let
+          readChunk :: [HeaderHash] -> Int -> STM ([HeaderHash], Bool)
+          readChunk hashes 0 = pure (reverse hashes, False)
+          readChunk hashes n = do
+            hash <- readTBQueue hashStream
+            case hash of
+              Just hh -> readChunk (hh : hashes) (n - 1)
+              Nothing -> pure (reverse hashes, True)
+          -- gets batchSize header hashes out of the hashStream
+          -- if it encounters a Nothing (signaling end of stream) it stops early
+          getHeaderHashBatch :: IO ([HeaderHash], Bool)
+          getHeaderHashBatch = do
+            atomically $ readChunk [] batchSize
+          loop :: IO ()
+          loop = do
+            (headerHashBatch, done) <- getHeaderHashBatch
+            task <- async $ newGetBatch genesisHash headerHashBatch
+            atomically $ writeTBQueue batchStream (Just task)
+            if done then do
+                atomically $ writeTBQueue batchStream Nothing
+                pure ()
+              else
+                loop
+        loop
+      pure (batchStream, task)
 
-            go !updates !n !currentHash = do
-                nextHash <- nextHistoricalHash currentHash >>= \case
-                    Nothing  -> throwM (RestorationFinishUnreachable tgtHash currentHash)
-                    Just hh' -> return hh'
-
-                getPrefilteredBlockOrThrow genesisHash currentHash >>= \case
-                    Nothing -> go updates (n - 1) nextHash
-                    Just u  -> go (u : updates) (n - 1) nextHash
+    headerHashStream :: HeaderHash -> IO (TBQueue (Maybe HeaderHash), Async ())
+    headerHashStream startHh = do
+      queue <- newTBQueueIO 10000
+      let batchSize = 1000
+      task <- async $ do
+        let
+          pushHashes :: [ Maybe HeaderHash ] -> STM ()
+          pushHashes [] = pure ()
+          pushHashes (hh : rest) = do
+            writeTBQueue queue hh
+            pushHashes rest
+          addToQueue :: [ Maybe HeaderHash ] -> IO ()
+          addToQueue headers = do
+            (wallet ^. walletLogMessage) Info "adding batch of header hashes"
+            atomically $ pushHashes headers
+            pure ()
+          -- currentHash is always the one that was just added
+          go :: [ Maybe HeaderHash ] -> Int -> HeaderHash -> IO ()
+          go !headerHashes !n !currentHash | n <= 0 = do
+            addToQueue (reverse headerHashes)
+            if (currentHash == tgtHash) then
+                pure ()
+              else
+                go [] batchSize currentHash
+          go !headerHashes _ !currentHash | currentHash == tgtHash = do
+            go (Nothing : headerHashes) 0 currentHash
+          go !headerHashes !n !currentHash = do
+            nextHash <- nextHistoricalHash currentHash >>= \case
+              Nothing -> throwM (RestorationFinishUnreachable tgtHash currentHash)
+              Just hh' -> return hh'
+            go (Just nextHash : headerHashes) (n - 1) nextHash
+        go [ Just startHh ] batchSize startHh
+        pure ()
+      return (queue, task)
 
     withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
     withNode action = withNodeState (wallet ^. walletNode) (\_lock -> action)

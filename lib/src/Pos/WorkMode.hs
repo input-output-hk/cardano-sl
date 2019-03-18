@@ -18,6 +18,7 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
+import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar)
@@ -57,6 +58,7 @@ import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
+import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 data RealModeContext ext = RealModeContext
     { rmcNodeDBs             :: !NodeDBs
@@ -157,12 +159,17 @@ instance MonadSlotsData ctx (RealMode ext) => MonadSlots ctx (RealMode ext) wher
 instance MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
+-- how would i embed this value inside the RealMode structure? (which i would have to turn into a data record?)
+{-# NOINLINE unsafeCache #-}
+unsafeCache :: IndexCache
+unsafeCache = unsafePerformIO $ mkIndexCache 10
+
 instance MonadDBRead (RealMode ext) where
     dbGet         = dbGetDefault
     dbIterSource  = dbIterSourceDefault
-    dbGetSerBlock = dbGetSerBlockRealDefault
-    dbGetSerUndo  = dbGetSerUndoRealDefault
-    dbGetSerBlund  = dbGetSerBlundRealDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault unsafeCache
+    dbGetSerUndo  = dbGetSerUndoRealDefault unsafeCache
+    dbGetSerBlund  = dbGetSerBlundRealDefault unsafeCache
 
 instance MonadDB (RealMode ext) where
     dbPut = dbPutDefault

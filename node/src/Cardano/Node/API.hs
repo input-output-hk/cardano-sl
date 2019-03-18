@@ -18,6 +18,7 @@ import           Network.Wai.Handler.Warp (defaultSettings,
                      setOnExceptionResponse)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
+import           System.IO.Unsafe (unsafePerformIO)
 
 import           Cardano.Node.NodeStateAdaptor (NodeStateAdaptor, getFeePolicy,
                      getMaxTxSize, getSecurityParameter, getSlotCount,
@@ -59,6 +60,7 @@ import           Pos.Util.Servant (APIResponse (..), JsendException (..),
                      UnknownError (..), applicationJson, single)
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
+import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 import           Cardano.Node.API.Swagger (forkDocServer)
 
@@ -108,9 +110,9 @@ instance HasSscContext LegacyCtx where
 instance {-# OVERLAPPING #-} DB.MonadDBRead (ReaderT LegacyCtx IO) where
     dbGet = DB.dbGetDefault
     dbIterSource = DB.dbIterSourceDefault
-    dbGetSerBlock = DB.dbGetSerBlockRealDefault
-    dbGetSerUndo = DB.dbGetSerUndoRealDefault
-    dbGetSerBlund = DB.dbGetSerBlundRealDefault
+    dbGetSerBlock = DB.dbGetSerBlockRealDefault unsafeCache
+    dbGetSerUndo = DB.dbGetSerUndoRealDefault unsafeCache
+    dbGetSerBlund = DB.dbGetSerBlundRealDefault unsafeCache
 
 -- | Prepare a 'Server' for the 'Legacy.NodeApi'. We expose a 'Server' so that
 -- it can be embedded in other APIs, instead of an 'Application', which can only
@@ -380,12 +382,17 @@ instance HasLens LastKnownHeaderTag InfoCtx LastKnownHeader where
     lensOf =
         lens infoCtxLastKnownHeader (\i s -> i { infoCtxLastKnownHeader = s })
 
+-- how would i embed this value inside the InfoCtx structure? (which i would have to turn into a data record?)
+{-# NOINLINE unsafeCache #-}
+unsafeCache :: IndexCache
+unsafeCache = unsafePerformIO $ mkIndexCache 10
+
 instance DB.MonadDBRead (ReaderT InfoCtx IO) where
     dbGet         = DB.dbGetDefault
     dbIterSource  = DB.dbIterSourceDefault
-    dbGetSerBlock = DB.dbGetSerBlockRealDefault
-    dbGetSerUndo  = DB.dbGetSerUndoRealDefault
-    dbGetSerBlund = DB.dbGetSerBlundRealDefault
+    dbGetSerBlock = DB.dbGetSerBlockRealDefault unsafeCache
+    dbGetSerUndo  = DB.dbGetSerUndoRealDefault unsafeCache
+    dbGetSerBlund = DB.dbGetSerBlundRealDefault unsafeCache
 
 getNodeSyncProgress
     ::

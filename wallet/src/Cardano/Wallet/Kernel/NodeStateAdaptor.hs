@@ -59,6 +59,7 @@ import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
 import           Ntp.Client (NtpStatus (..))
 import           Serokell.Data.Memory.Units (Byte)
+import           System.IO.Unsafe (unsafePerformIO)
 
 import           Cardano.Node.API (defaultGetNtpDrift)
 import qualified Cardano.Wallet.API.V1.Types as V1
@@ -98,6 +99,7 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..))
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
+import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 {-------------------------------------------------------------------------------
   Additional types
@@ -345,6 +347,11 @@ instance MonadUnliftIO m => MonadUnliftIO (WithNodeState m) where
   askUnliftIO = Wrap $ withUnliftIO $ \u ->
                   pure $ UnliftIO (unliftIO u . unwrap)
 
+-- how would i embed this value inside the WithNodeState structure? (which i would have to turn into a data record?)
+{-# NOINLINE unsafeCache #-}
+unsafeCache :: IndexCache
+unsafeCache = unsafePerformIO $ mkIndexCache 10
+
 instance ( NodeConstraints
          , MonadThrow m
          , MonadIO    m
@@ -352,9 +359,9 @@ instance ( NodeConstraints
          ) => MonadDBRead (WithNodeState m) where
   dbGet         = dbGetDefault
   dbIterSource  = dbIterSourceDefault
-  dbGetSerBlock = DB.dbGetSerBlockRealDefault
-  dbGetSerUndo  = DB.dbGetSerUndoRealDefault
-  dbGetSerBlund  = DB.dbGetSerBlundRealDefault
+  dbGetSerBlock = DB.dbGetSerBlockRealDefault unsafeCache
+  dbGetSerUndo  = DB.dbGetSerUndoRealDefault unsafeCache
+  dbGetSerBlund  = DB.dbGetSerBlundRealDefault unsafeCache
 
 instance MonadIO m => MonadSlots Res (WithNodeState m) where
   getCurrentSlot           = S.getCurrentSlotSimple

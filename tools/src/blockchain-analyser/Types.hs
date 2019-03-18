@@ -16,6 +16,7 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
+import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.Chain.Block (Block, HeaderHash, prevBlockL)
 import           Pos.DB (MonadDBRead (..))
@@ -23,6 +24,7 @@ import qualified Pos.DB as DB
 import qualified Pos.DB.Block as BDB
 import           Pos.Util (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 type DBFolderStat = (Text, Integer)
 
@@ -52,12 +54,17 @@ initBlockchainAnalyser nodeDBs action = do
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
     lensOf = bicNodeDBs_L
 
+-- how would i embed this value inside the BlockchainInspector structure? (which i would have to turn into a data record?)
+{-# NOINLINE unsafeCache #-}
+unsafeCache :: IndexCache
+unsafeCache = unsafePerformIO $ mkIndexCache 10
+
 instance DB.MonadDBRead BlockchainInspector where
     dbGet         = DB.dbGetDefault
     dbIterSource  = DB.dbIterSourceDefault
-    dbGetSerBlock = BDB.dbGetSerBlockRealDefault
-    dbGetSerUndo  = BDB.dbGetSerUndoRealDefault
-    dbGetSerBlund = BDB.dbGetSerBlundRealDefault
+    dbGetSerBlock = BDB.dbGetSerBlockRealDefault unsafeCache
+    dbGetSerUndo  = BDB.dbGetSerUndoRealDefault unsafeCache
+    dbGetSerBlund = BDB.dbGetSerBlundRealDefault unsafeCache
 
 prevBlock :: Block -> HeaderHash
 prevBlock = view prevBlockL

@@ -26,6 +26,7 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
+import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.Core (Timestamp)
 import           Pos.Core.Slotting (MonadSlotsData)
@@ -45,6 +46,7 @@ import           Pos.Infra.Slotting.Impl (SimpleSlottingStateVar,
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
@@ -75,12 +77,17 @@ instance HasSlottingVar InitModeContext where
     slottingTimestamp = imcSlottingVar_L . _1
     slottingVar = imcSlottingVar_L . _2
 
+-- how would i embed this value inside the InitMode structure? (which i would have to turn into a data record?)
+{-# NOINLINE unsafeCache #-}
+unsafeCache :: IndexCache
+unsafeCache = unsafePerformIO $ mkIndexCache 10
+
 instance MonadDBRead InitMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
-    dbGetSerBlock = dbGetSerBlockRealDefault
-    dbGetSerUndo = dbGetSerUndoRealDefault
-    dbGetSerBlund = dbGetSerBlundRealDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault unsafeCache
+    dbGetSerUndo = dbGetSerUndoRealDefault unsafeCache
+    dbGetSerBlund = dbGetSerBlundRealDefault unsafeCache
 
 instance MonadDB InitMode where
     dbPut = dbPutDefault

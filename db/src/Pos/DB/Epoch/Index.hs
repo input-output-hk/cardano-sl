@@ -4,6 +4,9 @@ module Pos.DB.Epoch.Index
        ( writeEpochIndex
        , getEpochBlundOffset
        , SlotIndexOffset (..)
+       , mkIndexCache
+       , clearIndexCache
+       , IndexCache
        ) where
 
 import           Universum
@@ -12,7 +15,10 @@ import           Data.Binary (Binary, decode, encode)
 import qualified Data.ByteString.Builder as Builder
 import qualified Data.ByteString.Lazy as LBS
 import           Formatting (build, sformat, (%))
-import           System.IO (IOMode (..), SeekMode (..), hSeek, withBinaryFile)
+import           System.IO (IOMode (..), withBinaryFile)
+import qualified Data.Map.Strict as Map
+import Control.Monad.STM (retry)
+import qualified Data.ByteString as BS
 
 import           Pos.Core (LocalSlotIndex (..), SlotCount, localSlotIndices)
 
@@ -35,19 +41,44 @@ import           Pos.Core (LocalSlotIndex (..), SlotCount, localSlotIndices)
 -- in a 'Just'.
 
 
-header :: LBS.ByteString
+header :: BS.ByteString
 header = "Epoch Index v1\n\n"
 
 headerLength :: Num a => a
-headerLength = fromIntegral $ LBS.length header
+headerLength = fromIntegral $ BS.length header
 
-hCheckHeader :: FilePath -> Handle -> IO ()
-hCheckHeader fpath h = do
-    hSeek h AbsoluteSeek 0
-    headerBytes <- LBS.hGet h headerLength
+hCheckHeader :: FilePath -> ByteString -> IO ()
+hCheckHeader fpath body = do
+    -- TODO, this doesnt need IO anymore
+    let headerBytes = BS.take headerLength body
     when (headerBytes /= header) $ error $ sformat
         ("Invalid header in epoch index file " % build)
         fpath
+
+mkIndexCache :: Int -> IO IndexCache
+mkIndexCache maxOpenFiles = do
+    cache <- newTVarIO mempty
+    pure $ IndexCache cache maxOpenFiles
+
+clearIndexCache :: IndexCache -> IO ()
+clearIndexCache indexCache = do
+  let
+    clearCache :: STM ()
+    clearCache = do
+      writeTVar (icCache indexCache) mempty
+      pure ()
+  atomically clearCache
+
+data IndexCache = IndexCache
+    { icCache :: TVar (Map FilePath MaybeCacheEntry)
+    , icMaxOpenFiles :: Int
+    }
+
+data MaybeCacheEntry = Opening | Opened CacheEntry
+
+data CacheEntry = CacheEntry
+    { ceBody :: !ByteString
+    }
 
 data SlotIndexOffset = SlotIndexOffset
     { sioSlotIndex :: !Word16
@@ -64,7 +95,7 @@ writeEpochIndex :: SlotCount -> FilePath -> [SlotIndexOffset] -> IO ()
 writeEpochIndex epochSlots path =
     withBinaryFile path WriteMode
         . flip Builder.hPutBuilder
-        . (Builder.lazyByteString header <>)
+        . (Builder.byteString header <>)
         . foldMap (Builder.lazyByteString . encode . sioOffset)
         . padIndex epochSlots
 
@@ -81,16 +112,61 @@ padIndex epochSlots = go
     go (x : xs) (y : ys) | sioSlotIndex x == sioSlotIndex y = y : go xs ys
                          | otherwise                        = x : go xs (y : ys)
 
-getSlotIndexOffsetN :: FilePath -> LocalSlotIndex -> IO Word64
-getSlotIndexOffsetN fpath (UnsafeLocalSlotIndex i) =
-    withBinaryFile fpath ReadMode $ \h -> do
-        hCheckHeader fpath h
-        hSeek h AbsoluteSeek (headerLength + fromIntegral i * 8)
-        decode <$> LBS.hGet h 8
+getCachedHandle :: IndexCache -> FilePath -> IO CacheEntry
+getCachedHandle indexCache fpath = do
+  let
+    -- check the Map inside the TVar to see if the file is already open
+    -- if it isnt, atomically flag it as Opening
+    checkCache :: STM (Maybe CacheEntry)
+    checkCache = do
+      cache <- readTVar (icCache indexCache)
+      case Map.lookup fpath cache of
+        Just (Opened cacheEntry) -> pure $ Just cacheEntry
+        Just Opening -> retry
+        Nothing -> do
+          writeTVar (icCache indexCache) (Map.insert fpath Opening cache)
+          pure Nothing
+    -- open the file, and update the cache
+    openAndUpdateCache :: IO CacheEntry
+    openAndUpdateCache = do
+      body <- BS.readFile fpath
+      hCheckHeader fpath body
+      let cacheEntry = CacheEntry body
+      atomically $ insertNewHandle cacheEntry
+      pure cacheEntry
+    -- after opening, update the entry to contain the CacheEntry
+    insertNewHandle :: CacheEntry -> STM ()
+    insertNewHandle cacheEntry = do
+      cache <- readTVar (icCache indexCache)
+      let
+        cache' = Map.insert fpath (Opened cacheEntry) cache
+        cache'' = if Map.size cache' > (icMaxOpenFiles indexCache) then
+                      -- TODO, implement an LRU cache, to drop things more inteligently
+                      Map.drop ( (Map.size cache') - (icMaxOpenFiles indexCache) ) cache'
+                    else
+                      cache'
+      writeTVar (icCache indexCache) cache''
+    -- if an exception is caught while opening, cancel the Opening state
+    cancelOpening :: STM ()
+    cancelOpening = do
+      cache <- readTVar (icCache indexCache)
+      writeTVar (icCache indexCache) (Map.delete fpath cache)
+  maybeEntry <- atomically checkCache
+  case maybeEntry of
+    Just cacheEntry -> pure cacheEntry
+    Nothing -> do
+      openAndUpdateCache `onException` atomically cancelOpening
 
-getEpochBlundOffset :: FilePath -> LocalSlotIndex -> IO (Maybe Word64)
-getEpochBlundOffset fpath lsi = do
-    off <- getSlotIndexOffsetN fpath lsi
+getSlotIndexOffsetN :: IndexCache -> FilePath -> LocalSlotIndex -> IO Word64
+getSlotIndexOffsetN indexCache fpath (UnsafeLocalSlotIndex i) = do
+    cacheEntry <- getCachedHandle indexCache fpath
+    let
+      (_, end) = BS.splitAt (headerLength + fromIntegral i * 8) (ceBody cacheEntry)
+    pure $ decode $ LBS.fromStrict $ BS.take 8 end
+
+getEpochBlundOffset :: IndexCache -> FilePath -> LocalSlotIndex -> IO (Maybe Word64)
+getEpochBlundOffset indexCache fpath lsi = do
+    off <- getSlotIndexOffsetN indexCache fpath lsi
     -- 'maxBound' is the sentinel value which means there is no block
     -- in the epoch file for the specified 'LocalSlotIndex'.
     pure $ if off == maxBound then Nothing else Just off

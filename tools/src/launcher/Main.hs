@@ -54,6 +54,7 @@ import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           System.IO.Unsafe (unsafePerformIO)
 
 #ifndef mingw32_HOST_OS
 import           System.Posix.Signals (sigKILL, signalProcess)
@@ -97,6 +98,7 @@ import           Pos.Util.Trace (Trace, contramap, fromTypeclassWlog)
 import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Info), logError,
                      logInfo, logNotice, logWarning, removeAllHandlers,
                      setupLogging', usingLoggerName)
+import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 import           Pos.Tools.Launcher.Environment (substituteEnvVarsValue)
 import           Pos.Tools.Launcher.Logging (reportErrorDefault)
@@ -268,12 +270,17 @@ type LauncherMode = ReaderT LauncherModeContext IO
 instance HasLens NodeDBs LauncherModeContext NodeDBs where
     lensOf = lmcNodeDBs_L
 
+-- how would i embed this value inside the LauncherMode structure? (which i would have to turn into a data record?)
+{-# NOINLINE unsafeCache #-}
+unsafeCache :: IndexCache
+unsafeCache = unsafePerformIO $ mkIndexCache 10
+
 instance MonadDBRead LauncherMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
-    dbGetSerBlock = dbGetSerBlockRealDefault
-    dbGetSerUndo = dbGetSerUndoRealDefault
-    dbGetSerBlund = dbGetSerBlundRealDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault unsafeCache
+    dbGetSerUndo = dbGetSerUndoRealDefault unsafeCache
+    dbGetSerBlund = dbGetSerBlundRealDefault unsafeCache
 
 instance MonadDB LauncherMode where
     dbPut = dbPutDefault

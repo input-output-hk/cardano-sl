@@ -52,8 +52,11 @@ lookupProperty epochSlots = do
         withSystemTempDirectory "index-test" $ \ dirPath -> do
             let indexPath = dirPath </> "test.index"
             writeEpochIndex epochSlots indexPath index
-            traverse (getEpochBlundOffset indexPath)
+            indexCache <- mkIndexCache 10
+            res <- traverse (getEpochBlundOffset indexCache indexPath)
                     $ localSlotIndices epochSlots
+            clearIndexCache indexCache
+            pure res
 
     -- Compare the original set of offsets to the fetched ones
     fetchedOffsets === maybeOffsets

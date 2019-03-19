@@ -698,12 +698,10 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
              -- 'lca' is the newest client-supplied checkpoint that we have.
              -- We need to begin streaming from its child, which is what
              -- 'Logic.streamBlocks' does.
-             lca : _ -> do
-                let producer = do
-                        Logic.streamBlocks logic lca
-                        lift $ send conv MsgStreamEnd
+             lca : _ -> Logic.streamBlocks logic lca $ \conduit ->
+                let producer = conduit >> lift (send conv MsgStreamEnd)
                     consumer = loop nodeId conv window
-                runConduit $ producer .| consumer
+                in  runConduit $ producer .| consumer
 
     loop nodeId conv 0 = do
         lift $ traceWith logTrace (Debug, "handleStreamStart:loop waiting on window update")

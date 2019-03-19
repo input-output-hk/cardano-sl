@@ -103,9 +103,9 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
     , getTip = pure arbitraryBlock
-    , Logic.streamBlocks = \_ -> do
+    , Logic.streamBlocks = \_ k -> do
           bs <-  readIORef streamIORef
-          yieldMany $ map serializedBlock bs
+          k $ yieldMany $ map serializedBlock bs
     }
 
 serializedBlock :: Block -> SerializedBlock

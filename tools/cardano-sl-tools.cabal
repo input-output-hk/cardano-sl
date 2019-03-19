@@ -83,6 +83,7 @@ executable cardano-keygen
                      , serokell-util >= 0.1
                      , text
                      , universum >= 0.1
+                     , cardano-sl-x509 
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

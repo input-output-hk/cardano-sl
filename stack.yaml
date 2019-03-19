@@ -40,7 +40,6 @@ packages:
 - node-ipc
 - faucet
 - acid-state-exts
-- x509
 - cluster
 - mnemonic
 
@@ -190,6 +189,12 @@ packages:
 - location:
     git: https://github.com/primetype/inspector.git
     commit: c975f4329365f0379c04358138e616fb96fb0b79
+  extra-dep: true
+
+# Extracted from cardano-sl since it's quite useful
+- location:
+    git: https://github.com/input-output-hk/cardano-sl-x509.git 
+    commit: 59fca94a054532444c3aaa068d634728c751f754 
   extra-dep: true
 
 nix:

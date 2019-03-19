@@ -28,3 +28,4 @@ https://github.com/input-output-hk/cardano-crypto 59eb60b3a227c615736db9bb1609fd
 https://github.com/input-output-hk/cardano-crypto 45e1a0eafac774c109704be44ca06fd8cae193ba . 1jyzai4sn9hi3p6r97h54f9a7an7vk38lwrbl4mds9zmdsw5f5ad cardano-crypto .stack.nix/cardano-crypto.nix
 https://github.com/avieth/network-transport-tcp 2634e5e32178bb0456d800d133f8664321daa2ef . 03shp9prflhgqzw7pymw1pq2q7s1wf46pyjm2csx8646snrhf35i network-transport-tcp .stack.nix/network-transport-tcp.nix
 https://github.com/input-output-hk/haskell-hedgehog.git e63fb354bfbad07f3befdd43b382c655944218be hedgehog 1p2yzlaiqj34pkk26cgg0dkvkm1zwjpgx1zk95md5xj0cijb34gj hedgehog .stack.nix/hedgehog.nix
+https://github.com/input-output-hk/cardano-sl-x509.git 59fca94a054532444c3aaa068d634728c751f754 . 1cr5mxpy65pgkdy0kxybcr76n6fasymdzps69y2b90d5swz4bckl cardano-sl-x509 .stack.nix/cardano-sl-x509.nix

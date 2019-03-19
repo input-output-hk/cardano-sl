@@ -81,6 +81,7 @@
             (hsPkgs.serokell-util)
             (hsPkgs.text)
             (hsPkgs.universum)
+            (hsPkgs.cardano-sl-x509)
           ];
         };
         "cardano-launcher" = {

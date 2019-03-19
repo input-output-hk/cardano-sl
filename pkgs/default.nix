@@ -16945,15 +16945,13 @@ license = stdenv.lib.licenses.mit;
 , base
 , base64-bytestring
 , bytestring
-, cardano-sl-util-test
 , cryptonite
 , data-default-class
 , directory
+, fetchgit
 , filepath
-, hedgehog
 , hourglass
 , ip
-, QuickCheck
 , stdenv
 , universum
 , unordered-containers
@@ -16966,7 +16964,14 @@ mkDerivation {
 
 pname = "cardano-sl-x509";
 version = "3.0.0";
-src = ./../x509;
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/cardano-sl-x509.git";
+sha256 = "1cr5mxpy65pgkdy0kxybcr76n6fasymdzps69y2b90d5swz4bckl";
+rev = "59fca94a054532444c3aaa068d634728c751f754";
+fetchSubmodules = true;
+
+};
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
 "--ghc-option=-Wall"
@@ -16993,14 +16998,8 @@ x509-store
 x509-validation
 yaml
 ];
-testHaskellDepends = [
-base
-cardano-sl-util-test
-hedgehog
-QuickCheck
-universum
-];
 doHaddock = false;
+doCheck = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";
 description = "Tool-suite for generating x509 certificates specialized for RSA with SHA-256";
 license = stdenv.lib.licenses.mit;

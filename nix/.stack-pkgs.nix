@@ -56,7 +56,6 @@
         cardano-sl-node-ipc = ./.stack.nix/cardano-sl-node-ipc.nix;
         cardano-sl-faucet = ./.stack.nix/cardano-sl-faucet.nix;
         acid-state-exts = ./.stack.nix/acid-state-exts.nix;
-        cardano-sl-x509 = ./.stack.nix/cardano-sl-x509.nix;
         cardano-sl-cluster = ./.stack.nix/cardano-sl-cluster.nix;
         cardano-sl-mnemonic = ./.stack.nix/cardano-sl-mnemonic.nix;
         cardano-report-server = ./.stack.nix/cardano-report-server.nix;
@@ -80,6 +79,7 @@
         universum = ./.stack.nix/universum.nix;
         serokell-util = ./.stack.nix/serokell-util.nix;
         inspector = ./.stack.nix/inspector.nix;
+        cardano-sl-x509 = ./.stack.nix/cardano-sl-x509.nix;
       };
     };
   resolver = "lts-12.17";

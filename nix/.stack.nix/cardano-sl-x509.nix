@@ -59,4 +59,10 @@
         };
       };
     };
-  } // rec { src = .././../x509; }
+  } // {
+    src = pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/cardano-sl-x509.git";
+      rev = "59fca94a054532444c3aaa068d634728c751f754";
+      sha256 = "1cr5mxpy65pgkdy0kxybcr76n6fasymdzps69y2b90d5swz4bckl";
+    };
+  }

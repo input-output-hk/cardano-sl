@@ -13,6 +13,7 @@ import           Pos.Crypto (EncryptedSecretKey (eskHash, eskPayload),
 import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret
 import           Universum
+import Pos.Util.Wlog.Compatibility (setupTestLogging)
 
 hexString :: Format r (ByteString -> r)
 hexString = later f
@@ -35,6 +36,7 @@ extract esk path = do
 
 main :: IO ()
 main = do
+  setupTestLogging
   [ path ] <- getArgs
   originalKey <- readUserSecret fromTypeclassWlog path
   let

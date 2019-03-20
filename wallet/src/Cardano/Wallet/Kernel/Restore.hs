@@ -19,8 +19,8 @@ import           Data.List (unzip3)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
-import           Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime)
-import           Formatting (bprint, build, formatToString, sformat, (%))
+import           Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime, UTCTime)
+import           Formatting (bprint, build, formatToString, sformat, (%), shown, int)
 import qualified Formatting.Buildable
 import           Control.Concurrent.STM.TBQueue
 import           Control.Monad.Extra (mapMaybeM)
@@ -416,7 +416,9 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
         case maybeNextTask of
           Nothing -> finish
           Just asyncUpdates -> do
+            t2 <- getCurrentTime
             updates <- wait asyncUpdates
+            t3 <- getCurrentTime
 
             -- Flush to Acid-State & SQLite
             k <- getSecurityParameter (wallet ^. walletNode)
@@ -427,6 +429,8 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
 
             -- Update our progress
             now <- getCurrentTime
+            let fmt = "filtered and applied " % int % " blocks, " % shown % "sec to find async, " % shown % "sec to wait on async, " % shown % "sec to apply in acid-state"
+            (wallet ^. walletLogMessage) Info $ sformat fmt (length updates) (t2 `diffUTCTime` startTime) (t3 `diffUTCTime` t2) (now `diffUTCTime` t3)
             let rate = Rate (fromIntegral $ length blocks) (now `diffUTCTime` startTime)
             slotCount <- getSlotCount (wallet ^. walletNode)
             let flat             = flattenSlotId slotCount
@@ -485,7 +489,13 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
                 return $ Just ((ctxt, prefilteredBlocks), txMetas, slotId)
 
     newGetBatch :: GenesisHash -> [ HeaderHash ] -> IO ([((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId)])
-    newGetBatch genesisHash headerHashes = mapMaybeM (getPrefilteredBlockOrThrow genesisHash) headerHashes
+    newGetBatch genesisHash headerHashes = do
+      startTime <- getCurrentTime
+      result <- mapMaybeM (getPrefilteredBlockOrThrow genesisHash) headerHashes
+      now <- getCurrentTime
+      let fmt = "fetching " % int % " blocks and filtering took " % shown
+      (wallet ^. walletLogMessage) Info $ sformat fmt (length result) (now `diffUTCTime` startTime)
+      pure result
 
     mkBatchStream :: TBQueue (Maybe HeaderHash) -> GenesisHash -> Int -> IO (TBQueue (Maybe (Async ([((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId)]))), Async ())
     mkBatchStream hashStream genesisHash batchSize = do
@@ -493,17 +503,23 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
       task <- async $ do
         let
           readChunk :: [HeaderHash] -> Int -> STM ([HeaderHash], Bool)
-          readChunk hashes 0 = pure (reverse hashes, False)
+          readChunk hashes 0 = do
+            pure (reverse hashes, False)
           readChunk hashes n = do
             hash <- readTBQueue hashStream
             case hash of
               Just hh -> readChunk (hh : hashes) (n - 1)
-              Nothing -> pure (reverse hashes, True)
+              Nothing -> do
+                pure (reverse hashes, True)
           -- gets batchSize header hashes out of the hashStream
           -- if it encounters a Nothing (signaling end of stream) it stops early
           getHeaderHashBatch :: IO ([HeaderHash], Bool)
           getHeaderHashBatch = do
-            atomically $ readChunk [] batchSize
+            startTime <- getCurrentTime
+            chunk <- atomically $ readChunk [] batchSize
+            end <- getCurrentTime
+            (wallet ^. walletLogMessage) Info $ sformat ("fetched " % int % " header hashes from hash stream in " % shown) ((length . fst) chunk) (end `diffUTCTime` startTime)
+            pure chunk
           loop :: IO ()
           loop = do
             (headerHashBatch, done) <- getHeaderHashBatch
@@ -528,27 +544,31 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
           pushHashes (hh : rest) = do
             writeTBQueue queue hh
             pushHashes rest
-          addToQueue :: [ Maybe HeaderHash ] -> IO ()
-          addToQueue headers = do
-            (wallet ^. walletLogMessage) Info "adding batch of header hashes"
+          addToQueue :: [ Maybe HeaderHash ] -> NominalDiffTime -> IO ()
+          addToQueue headers spent = do
+            (wallet ^. walletLogMessage) Info $ sformat ("fetched " % int % " header hashes in " % shown) (length headers) spent
             atomically $ pushHashes headers
             pure ()
           -- currentHash is always the one that was just added
-          go :: [ Maybe HeaderHash ] -> Int -> HeaderHash -> IO ()
-          go !headerHashes !n !currentHash | n <= 0 = do
-            addToQueue (reverse headerHashes)
+          go :: [ Maybe HeaderHash ] -> Int -> HeaderHash -> UTCTime -> IO ()
+          go !headerHashes !n !currentHash !startTime | n <= 0 = do
+            now <- getCurrentTime
+            let spent = now `diffUTCTime` startTime
+            addToQueue (reverse headerHashes) spent
             if (currentHash == tgtHash) then
                 pure ()
-              else
-                go [] batchSize currentHash
-          go !headerHashes _ !currentHash | currentHash == tgtHash = do
-            go (Nothing : headerHashes) 0 currentHash
-          go !headerHashes !n !currentHash = do
+              else do
+                newStart <- getCurrentTime
+                go [] batchSize currentHash newStart
+          go !headerHashes _ !currentHash !startTime | currentHash == tgtHash = do
+            go (Nothing : headerHashes) 0 currentHash startTime
+          go !headerHashes !n !currentHash !startTime = do
             nextHash <- nextHistoricalHash currentHash >>= \case
               Nothing -> throwM (RestorationFinishUnreachable tgtHash currentHash)
               Just hh' -> return hh'
-            go (Just nextHash : headerHashes) (n - 1) nextHash
-        go [ Just startHh ] batchSize startHh
+            go (Just nextHash : headerHashes) (n - 1) nextHash startTime
+        startTime <- getCurrentTime
+        go [ Just startHh ] batchSize startHh startTime
         pure ()
       return (queue, task)
 

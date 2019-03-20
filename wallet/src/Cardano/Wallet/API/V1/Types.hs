@@ -80,9 +80,9 @@ module Cardano.Wallet.API.V1.Types (
   , mkBlockchainHeight
   , LocalTimeDifference
   , mkLocalTimeDifference
-  , EstimatedCompletionTime
+  , EstimatedCompletionTime(..)
   , mkEstimatedCompletionTime
-  , SyncThroughput
+  , SyncThroughput(..)
   , mkSyncThroughput
   , SyncState (..)
   , SyncProgress (..)

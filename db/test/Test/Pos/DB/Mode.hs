@@ -13,7 +13,6 @@ module Test.Pos.DB.Mode
 import           Universum
 
 import           Control.Lens (makeLenses)
-import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.DB (MonadDB (..), MonadDBRead (..), NodeDBs, closeNodeDBs,
                      dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
@@ -23,7 +22,6 @@ import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
                      dbPutSerBlundsRealDefault)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 
 --------------------------------------------------------------------------------
@@ -51,17 +49,12 @@ runTestMode testMode =
         closeNodeDBs nodeDBs
         deleteNodeDBs nodeDBs
 
--- how would i embed this value inside the TestMode structure? (which i would have to turn into a data record?)
-{-# NOINLINE unsafeCache #-}
-unsafeCache :: IndexCache
-unsafeCache = unsafePerformIO $ mkIndexCache 10
-
 instance MonadDBRead TestMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
-    dbGetSerBlock = dbGetSerBlockRealDefault unsafeCache
-    dbGetSerUndo = dbGetSerUndoRealDefault unsafeCache
-    dbGetSerBlund = dbGetSerBlundRealDefault unsafeCache
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance MonadDB TestMode where
     dbPut = dbPutDefault

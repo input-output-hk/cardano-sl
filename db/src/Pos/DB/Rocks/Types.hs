@@ -20,6 +20,7 @@ module Pos.DB.Rocks.Types
        , blockDataDir
        , epochDataDir
        , epochLock
+       , indexCache
        , gStateDB
        , lrcDB
        , miscDB
@@ -40,6 +41,7 @@ import qualified Database.RocksDB as Rocks
 import           Pos.DB.Class (DBTag (..))
 import           Pos.Util.Concurrent.RWLock (RWLock)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.DB.Epoch.Index (IndexCache)
 
 
 -- | This is the set of constraints necessary to operate on «real» DBs
@@ -63,13 +65,14 @@ data DB = DB
     }
 
 data NodeDBs = NodeDBs
-    { _blockIndexDB :: !DB       -- ^ Block index.
-    , _blockDataDir :: !FilePath -- ^ Block and undo files.
-    , _epochDataDir :: !FilePath -- ^ Epoch files.
-    , _gStateDB     :: !DB       -- ^ Global state corresponding to some tip.
-    , _lrcDB        :: !DB       -- ^ Data computed by LRC.
-    , _miscDB       :: !DB       -- ^ Everything small and insignificant
-    , _epochLock    :: !RWLock   -- ^ Lock for the epoch file consolidation.
+    { _blockIndexDB :: !DB         -- ^ Block index.
+    , _blockDataDir :: !FilePath   -- ^ Block and undo files.
+    , _epochDataDir :: !FilePath   -- ^ Epoch files.
+    , _gStateDB     :: !DB         -- ^ Global state corresponding to some tip.
+    , _lrcDB        :: !DB         -- ^ Data computed by LRC.
+    , _miscDB       :: !DB         -- ^ Everything small and insignificant
+    , _epochLock    :: !RWLock     -- ^ Lock for the epoch file consolidation.
+    , _indexCache   :: !IndexCache -- ^ Cache for consolidation index files
     }
 
 makeLenses ''NodeDBs

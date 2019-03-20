@@ -10,7 +10,6 @@ module Cardano.Wallet.Kernel.Mode
 
 import           Control.Lens (makeLensesWith)
 import           Universum
-import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.Chain.Block
 import           Pos.Chain.Genesis as Genesis (Config)
@@ -34,7 +33,6 @@ import           Pos.Infra.Util.JsonLog.Events
 import           Pos.Launcher
 import           Pos.Util
 import           Pos.WorkMode
-import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, applyBlocks,
                      rollbackBlocks)
@@ -167,17 +165,12 @@ instance {-# OVERLAPPABLE #-}
 
 type instance MempoolExt WalletMode = EmptyMempoolExt
 
--- how would i embed this value inside the WalletMode structure? (which i would have to turn into a data record?)
-{-# NOINLINE unsafeCache #-}
-unsafeCache :: IndexCache
-unsafeCache = unsafePerformIO $ mkIndexCache 10
-
 instance MonadDBRead WalletMode where
   dbGet         = dbGetDefault
   dbIterSource  = dbIterSourceDefault
-  dbGetSerBlock = dbGetSerBlockRealDefault unsafeCache
-  dbGetSerUndo  = dbGetSerUndoRealDefault unsafeCache
-  dbGetSerBlund  = dbGetSerBlundRealDefault unsafeCache
+  dbGetSerBlock = dbGetSerBlockRealDefault
+  dbGetSerUndo  = dbGetSerUndoRealDefault
+  dbGetSerBlund  = dbGetSerBlundRealDefault
 
 instance MonadDB WalletMode where
   dbPut         = dbPutDefault

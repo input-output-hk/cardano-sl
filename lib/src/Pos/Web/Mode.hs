@@ -10,7 +10,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
@@ -25,7 +24,6 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 data WebModeContext ext = WebModeContext
     { wmcNodeDBs             :: !NodeDBs
@@ -59,17 +57,12 @@ instance HasPrimaryKey (WebModeContext ext) where
 
 type WebMode ext = Mtl.ReaderT (WebModeContext ext) IO
 
--- how would i embed this value inside the WebMode structure? (which i would have to turn into a data record?)
-{-# NOINLINE unsafeCache #-}
-unsafeCache :: IndexCache
-unsafeCache = unsafePerformIO $ mkIndexCache 10
-
 instance MonadDBRead (WebMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
-    dbGetSerBlock = dbGetSerBlockRealDefault unsafeCache
-    dbGetSerUndo = dbGetSerUndoRealDefault unsafeCache
-    dbGetSerBlund = dbGetSerBlundRealDefault unsafeCache
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance MonadDB (WebMode ext) where
     dbPut = dbPutDefault

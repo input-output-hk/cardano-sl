@@ -55,7 +55,7 @@ hCheckHeader fpath body = do
         ("Invalid header in epoch index file " % build)
         fpath
 
-mkIndexCache :: Int -> IO IndexCache
+mkIndexCache :: MonadIO m => Int -> m IndexCache
 mkIndexCache maxOpenFiles = do
     cache <- newTVarIO mempty
     pure $ IndexCache cache maxOpenFiles
@@ -76,8 +76,8 @@ data IndexCache = IndexCache
 
 data MaybeCacheEntry = Opening | Opened CacheEntry
 
-data CacheEntry = CacheEntry
-    { ceBody :: !ByteString
+newtype CacheEntry = CacheEntry
+    { ceBody :: ByteString
     }
 
 data SlotIndexOffset = SlotIndexOffset

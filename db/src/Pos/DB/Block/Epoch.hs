@@ -71,11 +71,11 @@ import           Pos.DB.BlockIndex (getHeader, getTipHeader)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..),
                      SerializedBlock, SerializedBlund, SerializedUndo)
 import           Pos.DB.Epoch.Index (SlotIndexOffset (..), getEpochBlundOffset,
-                     writeEpochIndex, IndexCache)
+                     writeEpochIndex)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Misc.Common (miscGetBi, miscPutBi)
 import           Pos.DB.Rocks.Types (MonadRealDB, blockDataDir, epochDataDir,
-                     epochLock, getNodeDBs)
+                     epochLock, getNodeDBs, indexCache)
 import           Pos.Util.Concurrent.RWLock (whenAcquireWrite)
 import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logInfo,
                      usingLoggerName)
@@ -135,47 +135,44 @@ consolidateWorker genesisConfig =
 -- retieve it using 'dbGetSerBlundRealDefault'.
 dbGetConsolidatedSerBlundRealDefault
     :: (MonadDBRead m, MonadRealDB ctx m)
-    => IndexCache
-    -> GenesisHash
+    => GenesisHash
     -> HeaderHash
     -> m (Maybe SerializedBlund)
-dbGetConsolidatedSerBlundRealDefault indexCache genesisHash hh = do
+dbGetConsolidatedSerBlundRealDefault genesisHash hh = do
     bloc <- blundLocation genesisHash hh
     case bloc of
         BlundUnknown -> pure Nothing
         BlundFile -> dbGetSerBlundRealFile hh
         BlundEpoch sid ->
-            Serialized . uncurry BS.append <<$>> getConsolidatedSerBlund indexCache sid
+            Serialized . uncurry BS.append <<$>> getConsolidatedSerBlund sid
 
 -- | Like 'dbGetConsolidatedSerBlundRealDefault' but for 'Block'.
 dbGetConsolidatedSerBlockRealDefault
     :: (MonadDBRead m, MonadRealDB ctx m)
-    => IndexCache
-    -> GenesisHash
+    => GenesisHash
     -> HeaderHash
     -> m (Maybe SerializedBlock)
-dbGetConsolidatedSerBlockRealDefault indexCache genesisHash hh = do
+dbGetConsolidatedSerBlockRealDefault genesisHash hh = do
     bloc <- blundLocation genesisHash hh
     case bloc of
         BlundUnknown -> pure Nothing
         BlundFile -> dbGetSerBlockRealFile hh
         BlundEpoch sid ->
-            Serialized . fst <<$>> getConsolidatedSerBlund indexCache sid
+            Serialized . fst <<$>> getConsolidatedSerBlund sid
 
 -- | Like 'dbGetConsolidatedSerBlundRealDefault' but for 'Undo'.
 dbGetConsolidatedSerUndoRealDefault
     :: (MonadDBRead m, MonadRealDB ctx m)
-    => IndexCache
-    -> GenesisHash
+    => GenesisHash
     -> HeaderHash
     -> m (Maybe SerializedUndo)
-dbGetConsolidatedSerUndoRealDefault indexCache genesisHash hh = do
+dbGetConsolidatedSerUndoRealDefault genesisHash hh = do
     bloc <- blundLocation genesisHash hh
     case bloc of
         BlundUnknown -> pure Nothing
         BlundFile -> dbGetSerUndoRealFile hh
         BlundEpoch sid ->
-            Serialized . snd <<$>> getConsolidatedSerBlund indexCache sid
+            Serialized . snd <<$>> getConsolidatedSerBlund sid
 
 -- -----------------------------------------------------------------------------
 
@@ -202,10 +199,11 @@ blundLocation genesisHash hh = do
 -- to determine which epoch file.
 getConsolidatedSerBlund
     :: (MonadDBRead m, MonadRealDB ctx m)
-    => IndexCache -> SlotId -> m (Maybe (ByteString, ByteString))
-getConsolidatedSerBlund indexCache (SlotId ei lsi) = do
+    => SlotId -> m (Maybe (ByteString, ByteString))
+getConsolidatedSerBlund (SlotId ei lsi) = do
     (epochPath, indexPath) <- mkEpochPaths ei . view epochDataDir <$> getNodeDBs
-    moff <- liftIO $ getEpochBlundOffset indexCache indexPath lsi
+    indexCache' <- view indexCache <$> getNodeDBs
+    moff <- liftIO $ getEpochBlundOffset indexCache' indexPath lsi
     case moff of
         Nothing -> pure Nothing
         Just off -> do

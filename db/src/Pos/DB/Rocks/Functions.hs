@@ -51,6 +51,7 @@ import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..),
                      getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock as RWL
 import           Pos.Util.Util (lensOf)
+import           Pos.DB.Epoch.Index (mkIndexCache)
 
 ----------------------------------------------------------------------------
 -- Opening/options
@@ -103,6 +104,7 @@ openNodeDBs recreate fp = do
     _lrcDB <- openRocksDB lrcPath
     _miscDB <- openRocksDB miscPath
     _epochLock <- RWL.new
+    _indexCache <- mkIndexCache 10
     pure NodeDBs {..}
   where
     ensureDirectoryExists :: MonadIO m => FilePath -> m ()

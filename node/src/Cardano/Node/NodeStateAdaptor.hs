@@ -34,7 +34,6 @@ import           Control.Lens (lens, to)
 import           Control.Monad.STM (orElse)
 import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
-import           System.IO.Unsafe (unsafePerformIO)
 
 import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
                      LastKnownHeaderTag, MainBlock, blockHeader, headerHash,
@@ -65,7 +64,6 @@ import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
 import qualified Pos.Util as Util
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..))
-import           Pos.DB.Epoch.Index (IndexCache, mkIndexCache)
 
 {-------------------------------------------------------------------------------
   Additional types
@@ -301,11 +299,6 @@ instance HasShutdownContext Res where
 -------------------------------------------------------------------------------}
 
 
--- how would i embed this value inside the WithNodeState structure? (which i would have to turn into a data record?)
-{-# NOINLINE unsafeCache #-}
-unsafeCache :: IndexCache
-unsafeCache = unsafePerformIO $ mkIndexCache 10
-
 instance ( NodeConstraints
          , MonadThrow m
          , MonadIO    m
@@ -313,9 +306,9 @@ instance ( NodeConstraints
          ) => MonadDBRead (WithNodeState m) where
   dbGet         = dbGetDefault
   dbIterSource  = dbIterSourceDefault
-  dbGetSerBlock = DB.dbGetSerBlockRealDefault unsafeCache
-  dbGetSerUndo  = DB.dbGetSerUndoRealDefault unsafeCache
-  dbGetSerBlund  = DB.dbGetSerBlundRealDefault unsafeCache
+  dbGetSerBlock = DB.dbGetSerBlockRealDefault
+  dbGetSerUndo  = DB.dbGetSerUndoRealDefault
+  dbGetSerBlund  = DB.dbGetSerBlundRealDefault
 
 instance MonadIO m => MonadSlots Res (WithNodeState m) where
   getCurrentSlot           = S.getCurrentSlotSimple

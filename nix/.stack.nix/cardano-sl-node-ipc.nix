@@ -11,7 +11,7 @@
       specVersion = "1.10";
       identifier = {
         name = "cardano-sl-node-ipc";
-        version = "3.0.0";
+        version = "3.0.1";
       };
       license = "MIT";
       copyright = "";

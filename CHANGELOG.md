@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Cardano SL 3.0.1
+
+### Fixes
+
+- Fix inconsistent 'hasSpendingPassword' resolution from legacy data layer migration ([DEVOPS-1250](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1250) [#4112](https://github.com/input-output-hk/cardano-sl/pull/4112))
+
 ## Cardano SL 3.0.0
 
 ### Fixes

@@ -22,7 +22,8 @@ import           Cardano.Wallet.Kernel (PassiveWallet)
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Internal as Kernel.Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.Migration (migrateLegacyDataLayer)
+import           Cardano.Wallet.Kernel.Migration (migrateLegacyDataLayer,
+                     sanityCheckSpendingPassword)
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (WalletBackendParams,
@@ -68,6 +69,7 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
         let pm = configProtocolMagic genesisConfig
         WalletLayer.Kernel.bracketPassiveWallet pm dbMode logMessage' keystore nodeState (npFInjects nodeParams) $ \walletLayer passiveWallet -> do
             migrateLegacyDataLayer passiveWallet dbPath (getFullMigrationFlag params)
+            sanityCheckSpendingPassword passiveWallet
 
             let plugs = plugins (walletLayer, passiveWallet) dbMode
 

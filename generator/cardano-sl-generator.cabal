@@ -1,5 +1,5 @@
 name:                cardano-sl-generator
-version:             3.0.0
+version:             3.0.1
 synopsis:            Cardano SL - arbitrary data generation
 description:         Cardano SL - arbitrary data generation
 license:             MIT

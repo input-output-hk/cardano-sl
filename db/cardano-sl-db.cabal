@@ -225,3 +225,19 @@ test-suite db-test
   default-extensions:  NoImplicitPrelude
                        OverloadedStrings
   ghc-options:         -Wall
+
+executable profiler
+  main-is:             Profiler.hs
+  build-depends:       base
+                     , cardano-sl-db
+                     , cardano-sl-core
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+executable rocks-peek
+  main-is:             RocksPeek.hs
+  build-depends:       base
+                     , cardano-sl-db
+                     , rocksdb-haskell-ng
+  default-language:    Haskell2010
+  ghc-options:         -Wall

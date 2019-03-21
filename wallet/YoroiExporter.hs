@@ -51,16 +51,16 @@ go [ path, index, pw ] = do
       case maybeEsk of
         Just esk -> do
           let
-            matches :: Bool
-            matches = maybe False (const True) (checkPassMatches pwhash esk)
+            matches :: Maybe ()
+            matches = checkPassMatches pwhash esk
           case matches of
-            True -> do
+            Just () -> do
               let
                 decryptedXprv = xPrvChangePass pwhash (mempty :: ByteString) $ eskPayload esk
                 (epriv,remain) = BS.splitAt 64 $ unXPrv $ decryptedXprv
                 (_pub,chaincode) = BS.splitAt 32 remain
               pure $ MasterKey $ sformat (hexString % hexString) epriv chaincode
-            False -> pure InvalidSpendingPw
+            Nothing -> pure InvalidSpendingPw
         Nothing -> pure InvalidIndex
 go _ = pure InvalidArgs
 

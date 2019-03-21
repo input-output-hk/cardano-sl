@@ -1,10 +1,17 @@
-module Cardano.Wallet.Kernel.Migration (migrateLegacyDataLayer) where
+{-# LANGUAGE LambdaCase #-}
+
+module Cardano.Wallet.Kernel.Migration
+    ( migrateLegacyDataLayer
+    , sanityCheckSpendingPassword
+    ) where
 
 import           Universum
 
+import           Data.Acid.Advanced (update')
 import           Data.Text (pack)
 import           Data.Time (defaultTimeLocale, formatTime, getCurrentTime,
                      iso8601DateFormat)
+import           Pos.Crypto.Signing (checkPassMatches)
 import           System.Directory (doesDirectoryExist, makeAbsolute, renamePath)
 
 import           Formatting ((%))
@@ -15,10 +22,15 @@ import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Util.Wlog (Severity (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
+import           Cardano.Wallet.Kernel.DB.AcidState (UpdateHdRootPassword (..))
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import           Cardano.Wallet.Kernel.Keystore as Keystore
+import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Restore (restoreWallet)
+import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 
 {-------------------------------------------------------------------------------
   Pure helper functions for migration.
@@ -104,9 +116,7 @@ restore pw forced esk = do
         rootId = HD.eskToHdRootId nm esk
 
     let -- DEFAULTS for wallet restoration
-        -- we don't have a spending password during migration
-        hasSpendingPassword   = False
-        -- we cannot derive an address without a spending password
+        hasSpendingPassword   = isNothing $ checkPassMatches mempty esk
         defaultAddress        = Nothing
         defaultWalletName     = HD.WalletName "<Migrated Wallet>"
         defaultAssuranceLevel = HD.AssuranceLevelStrict
@@ -132,3 +142,42 @@ restore pw forced esk = do
                 True  -> do
                     logMsg Error ("Migration failed! " <> msg <> " You are advised to delete the newly created db and try again.")
                     exitFailure
+
+-- | Verify that the spending password metadata are correctly set. We mistakenly
+-- forgot to port a fix from RCD-47 done on 2.0.x onto 3.0.0 and, for a few
+-- users, have migrated / restored their wallet with a wrong spending password
+-- metadata (arbitrarily set to `False`), making their wallet completely
+-- unusable.
+--
+-- This checks makes sure that the 'hasSpendingPassword' metadata correctly
+-- reflects the wallet condition. To be run on each start-up, unfortunately.
+sanityCheckSpendingPassword
+    :: Kernel.PassiveWallet
+    -> IO ()
+sanityCheckSpendingPassword pw = do
+    let nm = makeNetworkMagic (pw ^. Kernel.walletProtocolMagic)
+    wKeys <- Keystore.getKeys (pw ^. Kernel.walletKeystore)
+    db <- Kernel.getWalletSnapshot pw
+    lastUpdateNow <- InDb <$> getCurrentTimestamp
+    forM_ wKeys $ \esk -> do
+        let hasSpendingPassword = case checkPassMatches mempty esk of
+                Nothing -> HD.HasSpendingPassword lastUpdateNow
+                Just _  -> HD.NoSpendingPassword
+        let rootId = HD.eskToHdRootId nm esk
+        whenDiscrepancy db rootId hasSpendingPassword restoreTruth >>= \case
+            Left (HD.UnknownHdRoot _) ->
+                logMsg Error "Failed to update spending password status, HDRoot is gone?"
+            Right _ ->
+                return ()
+  where
+    logMsg = pw ^. Kernel.walletLogMessage
+    whenDiscrepancy db rootId hasSpendingPassword action = do
+        case (hasSpendingPassword, Kernel.lookupHdRootId db rootId) of
+            (_, Left e) ->
+                return $ Left e
+            (HD.HasSpendingPassword _, Right root) | root ^. HD.hdRootHasPassword == HD.NoSpendingPassword ->
+                action rootId hasSpendingPassword
+            _ -> -- Avoid making a DB update when there's no need
+                return $ Right ()
+    restoreTruth rootId hasSpendingPassword =
+        void <$> update' (pw ^. Kernel.wallets) (UpdateHdRootPassword rootId hasSpendingPassword)

@@ -1,11 +1,11 @@
 module Main (main) where
 
-import System.Environment (getArgs)
-import Pos.DB.Epoch.Index (getEpochBlundOffset, mkIndexCache)
-import Pos.Core (unsafeMkLocalSlotIndex)
+import           Control.Exception (SomeException, try)
 import           Data.Ix (range)
-import Data.Word (Word16, Word64)
-import Control.Exception (try, SomeException)
+import           Data.Word (Word16, Word64)
+import           Pos.Core (unsafeMkLocalSlotIndex)
+import           Pos.DB.Epoch.Index (getEpochBlundOffset, mkIndexCache)
+import           System.Environment (getArgs)
 
 main :: IO ()
 main = do

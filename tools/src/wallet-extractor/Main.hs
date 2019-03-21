@@ -12,8 +12,8 @@ import           Pos.Crypto (EncryptedSecretKey (eskHash, eskPayload),
                      getEncryptedPass)
 import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret
+import           Pos.Util.Wlog.Compatibility (setupTestLogging)
 import           Universum
-import Pos.Util.Wlog.Compatibility (setupTestLogging)
 
 hexString :: Format r (ByteString -> r)
 hexString = later f

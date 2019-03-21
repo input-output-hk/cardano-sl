@@ -24,11 +24,11 @@ import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)
 import           Pos.Util.Log (Severity (..))
 
@@ -37,12 +37,13 @@ import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      SwitchToForkInternalError (..))
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.HdWallet
-import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, rbContext)
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import           Cardano.Wallet.Kernel.DB.Spec.Update (ApplyBlockFailed (..))
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials,
+                     eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),

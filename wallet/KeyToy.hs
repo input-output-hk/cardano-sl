@@ -1,37 +1,47 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 module Main (main) where
 
-import Cardano.Mnemonic (mkMnemonic, MnemonicError, Mnemonic, mnemonicToSeed)
-import Universum
-import           Cardano.Wallet.Client.Http (BackupPhrase(BackupPhrase), unBackupPhrase, getAccIndex)
+import           Cardano.Crypto.Wallet (unXPrv)
+import           Cardano.Mnemonic (Mnemonic, MnemonicError, mkMnemonic,
+                     mnemonicToSeed)
+import           Cardano.Wallet.Client.Http (BackupPhrase (BackupPhrase),
+                     getAccIndex, unBackupPhrase)
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdRootId, eskToHdRootId,
+                     getHdRootId, isOurs)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials,
+                     eskToWalletDecrCredentials)
+import           Control.Lens (makeLensesWith)
+import           Control.Monad.Reader ()
+import qualified Data.ByteString as BS
+import           Data.Conduit (mapOutputMaybe, runConduitRes, (.|))
+import qualified Data.Conduit.List as Conduit
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as T
-import           Pos.Crypto (ShouldCheckPassphrase (..), eskPayload, safeDeterministicKeyGen)
 import           Formatting (Format, bprint, fprint, hex, later, shown, (%))
-import qualified Data.ByteString as BS
-import           Cardano.Crypto.Wallet (unXPrv)
 import           Formatting.Internal.Raw (left)
-import           Pos.Core (IsBootstrapEraAddr (..), deriveLvl2KeyPair, addrToBase58, Coin, unsafeAddCoin, mkCoin)
+import           Pos.Chain.Txp (TxIn, TxOutAux, toaOut, txOutAddress,
+                     txOutValue)
+import           Pos.Core (Coin, IsBootstrapEraAddr (..), addrToBase58,
+                     deriveLvl2KeyPair, mkCoin, unsafeAddCoin)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId, getHdRootId, HdRootId, isOurs)
-import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import System.Environment (lookupEnv)
-import Pos.DB (MonadDBRead(dbGet,dbIterSource,dbGetSerBlock,dbGetSerUndo,dbGetSerBlund), openNodeDBs, closeNodeDBs, dbGetDefault, dbIterSourceDefault, NodeDBs)
-import Control.Monad.Reader ()
-import Pos.DB.Txp.Utxo (utxoSource)
-import Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault, dbGetSerBlundRealDefault)
-import           Control.Lens (makeLensesWith)
-import           Pos.Util (postfixLFields, HasLens(lensOf))
-import           Pos.Chain.Txp (TxIn, TxOutAux, toaOut, txOutAddress, txOutValue)
-import qualified Data.Conduit.List as Conduit
-import           Data.Conduit (mapOutputMaybe, runConduitRes, (.|))
+import           Pos.Crypto (ShouldCheckPassphrase (..), eskPayload,
+                     safeDeterministicKeyGen)
+import           Pos.DB (MonadDBRead (dbGet, dbGetSerBlock, dbGetSerBlund, dbGetSerUndo, dbIterSource),
+                     NodeDBs, closeNodeDBs, dbGetDefault, dbIterSourceDefault,
+                     openNodeDBs)
+import           Pos.DB.Block (dbGetSerBlockRealDefault,
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault)
+import           Pos.DB.Txp.Utxo (utxoSource)
+import           Pos.Util (HasLens (lensOf), postfixLFields)
+import           System.Environment (lookupEnv)
+import           Universum
 
 data KeyToyContext = KeyToyContext { ktNodeDBs :: NodeDBs }
 makeLensesWith postfixLFields ''KeyToyContext
@@ -74,7 +84,7 @@ main = do
       "mainnet" -> NetworkMainOrStage
       "staging" -> NetworkMainOrStage
       "testnet" -> NetworkTestnet 1097911063
-      _ -> error "unsupported cluster"
+      _         -> error "unsupported cluster"
     rootid = eskToHdRootId nm esk
     walletid = addrToBase58 $ view fromDb (getHdRootId rootid)
     wdc = eskToWalletDecrCredentials nm esk

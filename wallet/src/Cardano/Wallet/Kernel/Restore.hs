@@ -12,18 +12,20 @@ module Cardano.Wallet.Kernel.Restore
 
 import           Universum
 
-import           Control.Concurrent.Async (async, cancel, Async, wait)
+import           Control.Concurrent.Async (Async, async, cancel, wait)
+import           Control.Concurrent.STM.TBQueue
 import           Control.Lens (at, _Just)
+import           Control.Monad.Extra (mapMaybeM)
 import           Data.Acid (update)
 import           Data.List (unzip3)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
-import           Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime, UTCTime)
-import           Formatting (bprint, build, formatToString, sformat, (%), shown, int)
+import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
+                     getCurrentTime)
+import           Formatting (bprint, build, formatToString, int, sformat, shown,
+                     (%))
 import qualified Formatting.Buildable
-import           Control.Concurrent.STM.TBQueue
-import           Control.Monad.Extra (mapMaybeM)
 
 import qualified Prelude
 

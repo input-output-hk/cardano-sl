@@ -46,12 +46,12 @@ import qualified System.Info (os)
 import           Pos.Binary.Class (Bi, serialize')
 import           Pos.DB.BatchOp (rocksWriteBatch)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
+import           Pos.DB.Epoch.Index (mkIndexCache)
 import           Pos.DB.Functions (processIterEntry)
 import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..),
                      getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock as RWL
 import           Pos.Util.Util (lensOf)
-import           Pos.DB.Epoch.Index (mkIndexCache)
 
 ----------------------------------------------------------------------------
 -- Opening/options

@@ -39,9 +39,9 @@ import           Control.Lens (makeLenses)
 import qualified Database.RocksDB as Rocks
 
 import           Pos.DB.Class (DBTag (..))
+import           Pos.DB.Epoch.Index (IndexCache)
 import           Pos.Util.Concurrent.RWLock (RWLock)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.DB.Epoch.Index (IndexCache)
 
 
 -- | This is the set of constraints necessary to operate on «real» DBs

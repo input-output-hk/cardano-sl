@@ -1,54 +1,62 @@
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE NamedFieldPuns             #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Main (main) where
 
-import Universum
-import           Network.HTTP.Client (Manager, newManager)
-import qualified Data.ByteString as BS
-import           Network.TLS (ClientParams (clientHooks, clientSupported), credentialLoadX509FromMemory,
-                     defaultParamsClient, onCertificateRequest,
-                     onServerCertificate, supportedCiphers)
-import           Servant.Client.Core (BaseUrl (BaseUrl), Scheme (Https))
+import           Cardano.Mnemonic (Mnemonic, MnemonicError, mkMnemonic)
+import           Cardano.Wallet.API.Types.UnitOfMeasure
+                     (MeasuredIn (MeasuredIn))
+import           Cardano.Wallet.API.V1.Types
+                     (EstimatedCompletionTime (EstimatedCompletionTime),
+                     SyncThroughput (SyncThroughput), Wallet (walId))
+import           Cardano.Wallet.Client.Http (APIResponse (APIResponse),
+                     AssuranceLevel (NormalAssurance),
+                     BackupPhrase (BackupPhrase), ClientError,
+                     ForceNtpCheck (NoNtpCheck), NewWallet (NewWallet),
+                     NodeInfo (NodeInfo, nfoSyncProgress),
+                     SyncState (Restoring, Synced), Wallet (walSyncState),
+                     WalletClient, WalletId, WalletOperation (RestoreWallet),
+                     getNodeInfo, getWallet, mkHttpClient, postWallet,
+                     spEstimatedCompletionTime, spPercentage, spThroughput)
+import           Control.Concurrent (threadDelay)
 import           Control.Lens hiding ((.=), (^.))
-import           Cardano.Wallet.Client.Http (mkHttpClient, WalletClient, getNodeInfo, ForceNtpCheck(NoNtpCheck),
-                      APIResponse(APIResponse), NodeInfo(nfoSyncProgress, NodeInfo), BackupPhrase(BackupPhrase),
-                      postWallet, NewWallet(NewWallet), WalletOperation(RestoreWallet), AssuranceLevel(NormalAssurance),
-                      SyncState(Restoring, Synced), spPercentage, spEstimatedCompletionTime, spThroughput,
-                      ClientError, WalletId(WalletId), getWallet, Wallet(walSyncState))
-import           Data.Aeson (FromJSON (parseJSON), withObject,
-                     (.:), eitherDecode)
-import           Data.Text.Lens (packed)
-import           Data.Default (def)
-import           Network.TLS.Extra.Cipher (ciphersuite_strong)
-import           Network.Connection (TLSSettings (TLSSettings))
-import           Network.HTTP.Client.TLS (mkManagerSettings)
+import           Data.Aeson (FromJSON (parseJSON), eitherDecode, withObject,
+                     (.:))
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Default (def)
 import qualified Data.Text as T
-import Pos.Util.Jsend (ResponseStatus(SuccessStatus))
-import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (MeasuredIn))
-import Pos.Node.API (SyncPercentage(SyncPercentage))
-import Control.Concurrent(threadDelay)
-import Cardano.Mnemonic (mkMnemonic, MnemonicError, Mnemonic)
+import           Data.Text.Lens (packed)
 import           Formatting (Format, fprint, later, shown, (%))
-import Cardano.Wallet.API.V1.Types (EstimatedCompletionTime(EstimatedCompletionTime), SyncThroughput(SyncThroughput), Wallet(walId))
-import Pos.Core (BlockCount(BlockCount))
 import           Formatting.Internal.Raw (left)
+import           Network.Connection (TLSSettings (TLSSettings))
+import           Network.HTTP.Client (Manager, newManager)
+import           Network.HTTP.Client.TLS (mkManagerSettings)
+import           Network.TLS (ClientParams (clientHooks, clientSupported),
+                     credentialLoadX509FromMemory, defaultParamsClient,
+                     onCertificateRequest, onServerCertificate,
+                     supportedCiphers)
+import           Network.TLS.Extra.Cipher (ciphersuite_strong)
+import           Pos.Core (BlockCount (BlockCount))
+import           Pos.Node.API (SyncPercentage (SyncPercentage))
+import           Pos.Util.Jsend (ResponseStatus (SuccessStatus))
+import           Servant.Client.Core (BaseUrl (BaseUrl), Scheme (Https))
+import           Universum
 
 data FaucetConfig = FaucetConfig {
     -- | Host the wallet API is running on
-    _fcWalletApiHost       :: !String
+    _fcWalletApiHost :: !String
     -- | Port the wallet API is running on
-  , _fcWalletApiPort       :: !Int
+  , _fcWalletApiPort :: !Int
     -- | TLS public certificate
-  , _fcPubCertFile         :: !FilePath
+  , _fcPubCertFile   :: !FilePath
     -- | TLS private key
-  , _fcPrivKeyFile         :: !FilePath
-  , _fcWalletPhrase        :: [Text]
+  , _fcPrivKeyFile   :: !FilePath
+  , _fcWalletPhrase  :: [Text]
   }
 
 makeClassy ''FaucetConfig
@@ -69,7 +77,7 @@ main = do
     getCfg [ path ] = do
       ecfg <- eitherDecode <$> BSL.readFile path
       case ecfg of
-        Left err -> error $ T.pack err
+        Left err  -> error $ T.pack err
         Right cfg -> pure cfg
     getCfg _ = do
       error "usage: restore-profiler config.json"

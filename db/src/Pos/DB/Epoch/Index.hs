@@ -11,14 +11,14 @@ module Pos.DB.Epoch.Index
 
 import           Universum
 
+import           Control.Monad.STM (retry)
 import           Data.Binary (Binary, decode, encode)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as Builder
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Map.Strict as Map
 import           Formatting (build, sformat, (%))
 import           System.IO (IOMode (..), withBinaryFile)
-import qualified Data.Map.Strict as Map
-import Control.Monad.STM (retry)
-import qualified Data.ByteString as BS
 
 import           Pos.Core (LocalSlotIndex (..), SlotCount, localSlotIndices)
 
@@ -70,7 +70,7 @@ clearIndexCache indexCache = do
   atomically clearCache
 
 data IndexCache = IndexCache
-    { icCache :: TVar (Map FilePath MaybeCacheEntry)
+    { icCache        :: TVar (Map FilePath MaybeCacheEntry)
     , icMaxOpenFiles :: Int
     }
 

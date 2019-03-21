@@ -1,13 +1,13 @@
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
 
 module Main (main) where
 
-import Pos.DB.Rocks.Functions
-import System.Environment
 import qualified Database.RocksDB as Rocks
+import           Pos.DB.Rocks.Functions
 import           Pos.DB.Rocks.Types
+import           System.Environment
 
 main :: IO ()
 main = do

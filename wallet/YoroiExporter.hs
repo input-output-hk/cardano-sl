@@ -1,28 +1,27 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE DeriveGeneric     #-}
 
 module Main (main) where
 
 import           Cardano.Crypto.Wallet (unXPrv, xPrvChangePass)
+import           Crypto.Hash (hash)
+import           Crypto.Hash.Algorithms (Blake2b_256)
+import           Data.Aeson
+import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy.Builder as T
-import           Formatting (Format, bprint, hex, later, (%), sformat)
+import           Formatting (Format, bprint, hex, later, sformat, (%))
 import           Formatting.Internal.Raw (left)
-import           Pos.Crypto (EncryptedSecretKey (eskPayload))
+import           Pos.Crypto (EncryptedSecretKey (eskPayload), checkPassMatches)
 import           Pos.Util.Trace (fromTypeclassWlog)
 import           Pos.Util.UserSecret
+import           Pos.Util.Wlog.Compatibility (setupTestLogging)
+import           Safe
 import           Universum
-import Pos.Util.Wlog.Compatibility (setupTestLogging)
-import Safe
-import Pos.Crypto (checkPassMatches)
-import qualified Data.ByteArray as ByteArray
-import           Crypto.Hash.Algorithms (Blake2b_256)
-import           Crypto.Hash (hash)
-import qualified Data.Text.Encoding as T
-import Data.Aeson
 
 hexString :: Format r (ByteString -> r)
 hexString = later f

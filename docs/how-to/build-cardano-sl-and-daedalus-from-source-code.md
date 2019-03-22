@@ -137,7 +137,7 @@ Finally install C-library for RocksDB.
 
 On Ubuntu:
 
-    $ sudo apt-get install librocksdb-dev
+    $ sudo apt-get install librocksdb-dev zlib1g-dev liblz-dev libssl-dev libgmp3-dev
 
 On macOS:
 

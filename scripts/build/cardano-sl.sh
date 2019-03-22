@@ -47,6 +47,8 @@ projects="networking binary util crypto core db chain infra lib node client gene
 function pkgNameToProject {
   if [[ "$1" == "lib" ]]; then
     echo "cardano-sl"
+  elif [[ "$1" == "wallet" ]]; then
+    echo "cardano-wallet"
   else
     echo "cardano-sl-$1"
   fi

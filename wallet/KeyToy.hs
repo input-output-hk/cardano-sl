@@ -43,11 +43,11 @@ import           Pos.Util (HasLens (lensOf), postfixLFields)
 import           System.Environment (lookupEnv)
 import           Universum
 
-data KeyToyContext = KeyToyContext { ktNodeDBs :: NodeDBs }
+data KeyToyContext = KeyToyContext { _ktNodeDBs :: NodeDBs }
 makeLensesWith postfixLFields ''KeyToyContext
 
 instance HasLens NodeDBs KeyToyContext NodeDBs where
-    lensOf = ktNodeDBs_L
+    lensOf = _ktNodeDBs_L
 
 hexString :: Format r (ByteString -> r)
 hexString = later f

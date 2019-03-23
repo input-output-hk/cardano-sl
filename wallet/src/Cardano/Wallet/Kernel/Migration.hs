@@ -29,7 +29,7 @@ import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import           Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Read as Kernel
-import           Cardano.Wallet.Kernel.Restore (restoreWallet)
+import           Cardano.Wallet.Kernel.Restore (restoreSync, restoreWallet)
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 
 {-------------------------------------------------------------------------------
@@ -164,6 +164,11 @@ sanityCheckSpendingPassword pw = do
                 Nothing -> HD.HasSpendingPassword lastUpdateNow
                 Just _  -> HD.NoSpendingPassword
         let rootId = HD.eskToHdRootId nm esk
+
+        logMsg Info (F.sformat ("Migrating " % F.build) rootId)
+        void $ restoreSync pw True (HD.WalletName "My Wallet") HD.AssuranceLevelNormal esk
+
+
         whenDiscrepancy db rootId hasSpendingPassword restoreTruth >>= \case
             Left (HD.UnknownHdRoot _) ->
                 logMsg Error "Failed to update spending password status, HDRoot is gone?"

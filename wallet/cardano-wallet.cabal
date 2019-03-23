@@ -37,7 +37,6 @@ library
       UndecidableInstances
   ghc-options:
       -Wall
-      -Werror
       -Wcompat
       -fwarn-redundant-constraints
 
@@ -503,7 +502,6 @@ test-suite nightly
   ghc-options:
       -threaded -rtsopts
       -Wall
-      -Werror
       -O2
 
   build-depends:
@@ -558,7 +556,6 @@ test-suite integration
   ghc-options:
       -threaded -rtsopts
       -Wall
-      -Werror
       -O2
 
   build-depends:

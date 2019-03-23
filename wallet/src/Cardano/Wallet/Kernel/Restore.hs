@@ -8,13 +8,14 @@ module Cardano.Wallet.Kernel.Restore
     , continueRestoration
     , blundToResolvedBlock
     , mkPrefilter
+    , restoreSync
     ) where
 
 import           Universum
 
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Lens (at, _Just)
-import           Data.Acid (update)
+import           Data.Acid (createCheckpoint, update)
 import           Data.List (unzip3)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
@@ -36,8 +37,8 @@ import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlocks (..),
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (CreateHdRootError)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, rbContext)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Decrypt (decryptAddress,
@@ -66,22 +67,172 @@ import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
 import           Cardano.Wallet.Kernel.Util.Core (utxoBalance)
 import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 
-import           Pos.Chain.Block (Block, Blund, HeaderHash, Undo, mainBlockSlot,
-                     undoTx)
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
+import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
+                     mainBlockSlot, undoTx)
 import           Pos.Chain.Genesis (GenesisHash, configGenesisData,
                      configGenesisHash)
 import qualified Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                      genesisUtxo)
 import           Pos.Core as Core (Address, BlockCount (..), Coin, SlotId,
-                     flattenSlotId, getCurrentTimestamp, mkCoin,
+                     SlotId (..), flattenSlotId, getCurrentTimestamp, mkCoin,
                      unsafeIntegerToCoin)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
+import           Pos.Core.Slotting (EpochIndex, LocalSlotIndex (..), Timestamp,
+                     computeSlotStart, getEpochSlottingDataM, getSystemStartM)
 import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
+import           Pos.DB.Block (getBlund, getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
 import           Pos.DB.Class (getBlock)
-import           Pos.Util.Trace (Severity (Error))
+import           Pos.Util.Trace (Severity (..))
+
+
+restoreSync
+    :: Kernel.PassiveWallet
+    -> Bool
+    -> HD.WalletName
+    -> HD.AssuranceLevel
+    -> EncryptedSecretKey
+    -> IO ()
+restoreSync pw hasSpendingPassword name assurance esk = do
+    genesisHash <- configGenesisHash <$> getCoreConfig (pw ^. walletNode)
+
+    -- First *main* block header hash
+    hh <- withNode $
+            getFirstGenesisBlockHash genesisHash
+            >>= (fmap fromJust . getBlock genesisHash)
+            >>= (fmap fromJust . resolveForwardLink)
+    let ctx = BlockContext
+            { _bcSlotId = InDb (SlotId 0 (UnsafeLocalSlotIndex 0))
+            , _bcHash = InDb hh
+            , _bcPrevMain = Strict.Nothing
+            }
+
+    -- Create initial wallet, this probably fails if there's already a wallet in
+    -- the DB. It assumes that there's none.
+    createWalletHdRnd pw hasSpendingPassword Nothing name assurance esk $ \root defaultHdAccount defaultHdAddress ->
+        Right $ RestoreHdWallet root defaultHdAccount Nothing ctx mempty
+
+    let getBlock :: HeaderHash -> IO Blund
+        getBlock hh = do
+            mb <- withNode $ getBlund genesisHash hh
+            case mb of
+                Just b  -> return b
+                Nothing -> fail "nextBlock: unexisting block"
+
+    let nextHeaderHash :: Block -> IO HeaderHash
+        nextHeaderHash b = do
+            mh <- withNode $ resolveForwardLink b
+            case mh of
+                Just h  -> return h
+                Nothing -> fail "nextHeaderHash: no more hash"
+
+    let nextGetSlotStart :: EpochIndex -> IO (SlotId -> Timestamp)
+        nextGetSlotStart ep = do
+            (systemStart, mSlottingData) <- withNode $ (,)
+                <$> getSystemStartM
+                <*> getEpochSlottingDataM ep
+            case mSlottingData of
+                Nothing ->
+                    fail "nextGetSlotStart: couldn't find slotting data"
+                Just slottingData ->
+                    return $ \(SlotId _ ix) -> computeSlotStart systemStart ix slottingData
+
+    -- FIXME Handle termination when there's no more block to restore
+    loop getBlock nextHeaderHash nextGetSlotStart ctx
+  where
+    withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
+    withNode action = withNodeState (pw ^. walletNode) (\_lock -> action)
+
+    nm = makeNetworkMagic (pw ^. walletProtocolMagic)
+    rootId = HD.eskToHdRootId nm esk
+    wId = WalletIdHdRnd rootId
+
+    log = (pw ^. walletLogMessage) Info
+
+    -- | Restore everything from given hash
+    loop fn1 fn2 fn3 ctx = do
+        start <- getCurrentTime
+        log $ "Restoring next epoch, starting from: " <> sformat build ctx
+        (blocks, ctx') <- getNextEpoch fn1 fn2 fn3 ctx
+        restoreEpoch blocks
+        time <- getCurrentTime <&> \end -> end `diffUTCTime` start
+        createCheckpoint (pw ^. wallets)
+        log $ "Epoch restored (" <> show time <> "), found " <> show (length blocks) <> " blocks"
+        loop fn1 fn2 fn3 ctx'
+
+    -- | Restore / Flush epoch to acid-state
+    restoreEpoch
+        :: [ResolvedBlock]
+        -> IO ()
+    restoreEpoch rblocks = do
+        pending <- foreignPendingByAccount <$> getWalletSnapshot pw
+        let (ctxs, blocks, metas) = unzip3 $ flip map rblocks $ \b ->
+                let (blocks, metas) = prefilterBlock nm pending b [(wId,esk)]
+                in (b ^. rbContext, blocks, metas)
+        k <- getSecurityParameter (pw ^. walletNode)
+        mErr <- update (pw ^. wallets) (ApplyHistoricalBlocks k rootId (zip ctxs blocks))
+        whenLeft mErr (throwM . RestorationApplyHistoricalBlockFailed)
+        forM_ (mconcat metas) (putTxMeta (pw ^. walletMeta))
+
+    -- | Next epoch, in reverse order (last block first)
+    getNextEpoch
+        :: (HeaderHash -> IO Blund)
+        -> (Block -> IO HeaderHash)
+        -> (EpochIndex -> IO (SlotId -> Timestamp))
+        -> BlockContext
+        -> IO ([ResolvedBlock], BlockContext)
+    getNextEpoch getBlock nextHeaderHash nextGetSlotStart = go [] where
+      go bs ctx@(BlockContext (InDb slot) (InDb hh) prev) = do
+        getBlock hh >>= \case
+            -- EBB, end of current epoch
+            --
+            -- When we meet an EBB, we discard it, and continue return the
+            -- context for the next mainblock, effectively discarding the EBB.
+            --
+            -- We do also compute a pure 'getSlotStart' function for this epoch.
+            -- Since epochs may have different number of blocks, and in theory,
+            -- a different slot duration, computing the absolute time of a slot
+            -- is epoch-dependent.
+            (Left b, _) -> do
+                getSlotStart <- nextGetSlotStart (siEpoch slot)
+                hh' <- nextHeaderHash (Left b)
+                let slot' = nextEpochStart (siEpoch slot)
+                let ctx' = BlockContext (InDb slot') (InDb hh') prev
+                return (toResolvedBlock getSlotStart <$> reverse bs, ctx')
+
+            -- Main Block
+            (Right b, undo) -> do
+                hh' <- nextHeaderHash (Right b)
+                let slot' = nextSlot slot
+                let prev' = Strict.Just (InDb hh)
+                let ctx' = BlockContext (InDb slot') (InDb hh') prev'
+                go ((ctx, b, undo) : bs) ctx'
+
+    -- Compute next slot within a same epoch
+    nextSlot :: SlotId -> SlotId
+    nextSlot (SlotId ep (UnsafeLocalSlotIndex sl)) =
+        SlotId ep (UnsafeLocalSlotIndex (sl + 1))
+
+    -- Get the beginning of the epoch following the one of a given slot
+    nextEpochStart :: EpochIndex -> SlotId
+    nextEpochStart ep =
+        SlotId (ep + 1) (UnsafeLocalSlotIndex 0)
+
+    -- Construct a resolved block from various pieces
+    toResolvedBlock
+        :: (SlotId -> Timestamp)
+        -> (BlockContext, MainBlock, Undo)
+        -> ResolvedBlock
+    toResolvedBlock getSlotStart (ctx, b, u) = fromRawResolvedBlock
+        UnsafeRawResolvedBlock
+            { rawResolvedBlock       = b
+            , rawResolvedBlockInputs = map (map fromJust) $ undoTx u
+            , rawTimestamp           = getSlotStart (b ^. mainBlockSlot)
+            , rawResolvedContext     = ctx
+            }
+
 
 -- | Restore a wallet
 --

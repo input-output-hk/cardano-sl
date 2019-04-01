@@ -15,6 +15,10 @@ module Pos.Explorer.Web.Transform
        ) where
 
 import           Universum
+import           Pos.Util.Trace (Trace, traceWith, wlogTrace)
+import           Formatting (sformat, shown, (%))
+
+import qualified Pos.Util.Wlog as Wlog
 
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
@@ -66,6 +70,13 @@ instance MonadTxpLocal ExplorerProd where
 instance MonadReporting ExplorerProd where
     report = lift . lift . report
 
+
+logError :: Text -> IO ()
+logError msg = traceWith explorerTrace (Wlog.Error, msg)
+
+explorerTrace :: Trace IO (Wlog.Severity, Text)
+explorerTrace = wlogTrace "explorerApi"
+
 runExplorerProd :: ExtraContext -> ExplorerProd a -> RealModeE a
 runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
 
@@ -94,7 +105,12 @@ explorerPlugin
     -> Word16
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-explorerPlugin genesisConfig = flip $ explorerServeWebReal genesisConfig
+explorerPlugin genesisConfig port diffusion =
+    (explorerServeWebReal genesisConfig diffusion port) `E.catch` catchError
+    where
+        catchError :: SomeException -> ExplorerProd ()
+        catchError e =
+            liftIO $ logError (sformat ("explorerPlugin error: "%shown) e)
 
 explorerServeWebReal
     :: HasExplorerConfiguration

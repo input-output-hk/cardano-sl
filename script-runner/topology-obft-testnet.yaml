@@ -1,0 +1,4 @@
+wallet:
+  relays: [[{ addr: 52.198.165.239 }]]
+  valency: 1
+  fallbacks: 7

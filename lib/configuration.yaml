@@ -15210,7 +15210,7 @@ obft_testnet: &devnet
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
-      bvMajor: 0
+      bvMajor: 1
       bvMinor: 0
       bvAlt: 0
     systemTag: none
@@ -15227,7 +15227,7 @@ obft_testnet_win64:
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
-      bvMajor: 0
+      bvMajor: 1
       bvMinor: 0
       bvAlt: 0
     systemTag: win64
@@ -15239,7 +15239,7 @@ obft_testnet_macos64:
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
-      bvMajor: 0
+      bvMajor: 1
       bvMinor: 0
       bvAlt: 0
     systemTag: macos64
@@ -15251,7 +15251,7 @@ obft_testnet_linux64:
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
-      bvMajor: 0
+      bvMajor: 1
       bvMinor: 0
       bvAlt: 0
     systemTag: linux

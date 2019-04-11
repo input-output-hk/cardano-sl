@@ -29,6 +29,7 @@ import           Data.Reflection (Given (..), give, given)
 import qualified Data.Text as T
 import           Formatting (bprint, stext, (%))
 import qualified Formatting.Buildable
+import           Formatting.Buildable (Buildable)
 import           Pos.Util.CompileInfoGit
 
 -- | Data about the system that we want to retrieve in compile time.

@@ -106,6 +106,7 @@ import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
+import           Formatting.Buildable (Buildable)
 import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
 import           Pos.Util.Wlog (LoggerName, WithLogger, logDebug, logError,

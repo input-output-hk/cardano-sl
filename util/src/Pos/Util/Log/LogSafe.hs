@@ -66,6 +66,7 @@ import           Data.Reflection (Reifies (..), reify)
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, fconst, later, mapf, (%))
 import qualified Formatting.Buildable
+import           Formatting.Buildable (Buildable)
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
 

@@ -13,6 +13,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Data.Time.Units (Millisecond)
 import qualified Formatting.Buildable as Buildable
+import           Formatting.Buildable (Buildable)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text (readDecimal, readUnsignedDecimal)
 import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..),

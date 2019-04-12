@@ -7,7 +7,7 @@
 - Explorer node with mainnet: `$ nix-build -A connectScripts.mainnet.explorer -o connect-explorer-to-mainnet`
 - Wallet to staging: `$ nix-build -A connectScripts.staging.wallet -o connect-to-staging`
 - Explorer to staging: `$ nix-build -A connectScripts.staging.explorer -o connect-explorer-to-staging`
-3. A runtime state folder will be automatically created relative to your current
+5. A runtime state folder will be automatically created relative to your current
    working directory, but you can override it using `$ export CARDANO_STATE_DIR=~/wallet-state`
-4. Run the script: `$ ./connect-to-mainnet`
+6. Run the script: `$ ./connect-to-mainnet`
    Or run `./connect-explorer-to-mainnet` if you might want to connect anything listed in 4.

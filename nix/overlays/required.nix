@@ -15,10 +15,7 @@ self: super: {
     ########################################################################
     # Overides of Cardano SL packages
 
-    direct-sqlite = super.direct-sqlite.overrideAttrs (oldAttrs: rec {
-      patches = [ ../patches/sqlite.patch ];
-    });
-
+    direct-sqlite = appendPatch super.direct-sqlite ../patches/sqlite.patch;
 
     cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
       configureFlags = (drv.configureFlags or []) ++ [

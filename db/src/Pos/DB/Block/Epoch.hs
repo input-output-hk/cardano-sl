@@ -30,6 +30,7 @@
 
 module Pos.DB.Block.Epoch
        ( consolidateWorker
+       , getHeaderEpochOrSlot
 
        , dbGetConsolidatedSerBlundRealDefault
        , dbGetConsolidatedSerBlockRealDefault

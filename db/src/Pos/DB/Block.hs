@@ -8,6 +8,7 @@ module Pos.DB.Block
        ( getBlock
        , deleteBlock
        , consolidateWorker
+       , getHeaderEpochOrSlot
 
        , prepareBlockDB
 
@@ -38,6 +39,7 @@ import           Pos.Chain.Block (HeaderHash)
 import qualified Pos.Chain.Block as CB
 import           Pos.Chain.Genesis (GenesisHash)
 import           Pos.DB.Block.Epoch (consolidateWorker,
+                     getHeaderEpochOrSlot,
                      dbGetConsolidatedSerBlockRealDefault,
                      dbGetConsolidatedSerBlundRealDefault,
                      dbGetConsolidatedSerUndoRealDefault)

@@ -25,7 +25,7 @@ import           Data.Conduit (mapOutputMaybe, runConduitRes, (.|))
 import qualified Data.Conduit.List as Conduit
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as T
-import           Formatting (Format, bprint, fprint, hex, later, shown, (%), int)
+import           Formatting (Format, bprint, fprint, hex, later, shown, (%), int, build)
 import           Formatting.Internal.Raw (left)
 import           Pos.Chain.Genesis (GenesisHash, configGenesisData, configGenesisHash)
 import           Pos.Chain.Txp (TxIn, TxOutAux, toaOut, txOutAddress, txpTxs, txInputs,
@@ -53,6 +53,8 @@ import           Data.Functor.Contravariant (contramap)
 import           Pos.Util.Wlog.Compatibility (setupTestLogging)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, Undo, mainBlockSlot)
 import qualified Data.List.NonEmpty as NE
+import Pos.DB.Block
+import qualified Formatting.Buildable as Buildable
 
 data KeyToyContext = KeyToyContext { _ktNodeDBs :: NodeDBs }
 makeLensesWith postfixLFields ''KeyToyContext
@@ -123,8 +125,9 @@ iterateOverAllBlocks genesisHash = do
             go2 count tx = do
               let
                 s = length $ NE.toList (tx ^. txInputs)
+              meos <- getHeaderEpochOrSlot hh
               if s > 300 then do
-                liftIO $ fprint ("headerhash: " % shown % " count: " % int % "\n") hh s
+                liftIO $ fprint (build % " headerhash: " % shown % " count: " % int % "\n") meos hh s
                 pure (count + 1)
               else
                 pure count

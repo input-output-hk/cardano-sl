@@ -112,28 +112,30 @@ instance MonadDBRead KeyToy where
 iterateOverAllBlocks :: GenesisHash -> KeyToy ()
 iterateOverAllBlocks genesisHash = do
   let
-    go :: HeaderHash -> KeyToy ()
-    go hh = do
+    go :: HeaderHash -> Int -> KeyToy ()
+    go hh fatTxs = do
       blk <- getBlock genesisHash hh
-      case blk of
+      newCount <- case blk of
         Just (Right blk) -> do
           let
             txs = blk ^. mainBlockTxPayload . txpTxs
-            go2 :: Tx -> KeyToy ()
-            go2 tx = do
+            go2 :: Int -> Tx -> KeyToy Int
+            go2 count tx = do
               let
                 s = length $ NE.toList (tx ^. txInputs)
               if s > 300 then do
                 liftIO $ fprint ("headerhash: " % shown % " count: " % int % "\n") hh s
+                pure (count + 1)
               else
-                pure ()
-          mapM_ go2 txs
-        _ -> pure ()
+                pure count
+          foldlM go2 fatTxs txs
+        _ -> pure fatTxs
       nextHh <- resolveForwardLink hh
       case nextHh of
         Nothing -> do
+          print fatTxs
           print "done"
-        Just nextHh' -> go nextHh'
+        Just nextHh' -> go nextHh' newCount
   genhash <- getFirstGenesisBlockHash genesisHash
-  go genhash
+  go genhash 0
   pure ()

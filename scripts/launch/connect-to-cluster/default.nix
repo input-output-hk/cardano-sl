@@ -55,7 +55,9 @@ let
     "--configuration-key ${env.confKey}"
   ];
 
-  curlScript = writeScript "curl-wallet-${environment}" ''
+  curlScript = let
+    address = if walletListen == "0.0.0.0:8090" then "127.0.0.1:8090" else walletListen;
+  in writeScript "curl-wallet-${environment}" ''
     #!${stdenv.shell}
 
     request_path=$1
@@ -81,7 +83,7 @@ let
       -H 'cache-control: no-cache'                       \
       -H "Accept: application/json; charset=utf-8"       \
       -H "Content-Type: application/json; charset=utf-8" \
-      "https://${walletListen}/$request_path" "$@"
+      "https://${address}/$request_path" "$@"
   '';
   tlsConfigResultant = {
     organization     = "Input Output HK";

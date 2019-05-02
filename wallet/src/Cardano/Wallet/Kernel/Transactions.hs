@@ -30,6 +30,7 @@ import           Control.Retry (RetryPolicyM, RetryStatus, applyPolicy,
 import           Crypto.Random (MonadRandom (..))
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
 import           Data.Default (def)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict as Map
@@ -67,6 +68,7 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (exceptT)
+import           Pos.Binary (serialize)
 import           Pos.Chain.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
                      TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
                      TxSigData (..), Utxo)
@@ -173,19 +175,30 @@ pay activeWallet spendingPassword opts accountId payees = do
         case res of
              Left e      -> return (Left $ PaymentNewTransactionError e)
              Right (txAux, partialMeta, _utxo) -> do
-                 succeeded <- newPending activeWallet accountId txAux partialMeta
-                 case succeeded of
-                      Left e   -> do
-                          -- If the next retry would bring us to the
-                          -- end of our allowed retries, we fail with
-                          -- a proper error
-                          retriesLeft <- applyPolicy retryPolicy rs
-                          return . Left $ case retriesLeft of
-                               Nothing ->
-                                   PaymentSubmissionMaxAttemptsReached
-                               Just _  ->
-                                   PaymentNewPendingError e
-                      Right meta -> return $ Right (taTx $ txAux, meta)
+                 let sz = fromIntegral $ BL.length $ serialize txAux
+                 maxSz <- Node.getMaxTxSize (walletPassive activeWallet ^. walletNode)
+                 if sz > maxSz then
+                     return
+                     . Left
+                     . PaymentNewTransactionError
+                     . NewTransactionErrorCoinSelectionFailed
+                     . CoinSelHardErrMaxInputsReached
+                     $ "Too many inputs were picked, resulting in a too big transaction.\
+                     \ Transactions should be smaller than " <> show maxSz <> " bytes)."
+                 else do
+                     succeeded <- newPending activeWallet accountId txAux partialMeta
+                     case succeeded of
+                          Left e   -> do
+                              -- If the next retry would bring us to the
+                              -- end of our allowed retries, we fail with
+                              -- a proper error
+                              retriesLeft <- applyPolicy retryPolicy rs
+                              return . Left $ case retriesLeft of
+                                   Nothing ->
+                                       PaymentSubmissionMaxAttemptsReached
+                                   Just _  ->
+                                       PaymentNewPendingError e
+                          Right meta -> return $ Right (taTx $ txAux, meta)
 
 -- See <https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter>
 retryPolicy :: RetryPolicyM IO

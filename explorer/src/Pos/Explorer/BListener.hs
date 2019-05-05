@@ -144,7 +144,7 @@ onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
     getTopTxsDiff oldTxs newTxs = take numOfLastTxs reversedCombined
       where
         reversedCombined :: [Tx]
-        reversedCombined = reverse $ getOldTxs oldTxs ++ getNewTxs newTxs
+        reversedCombined = reverse (getNewTxs newTxs) ++ getOldTxs oldTxs
 
     blocksNE :: NE Block
     blocksNE = fst <$> getOldestFirst blunds
@@ -185,7 +185,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
         :: OldTxs
         -> NewTxs
         -> [Tx]
-    getTopTxsDiff oldTxs newTxs = getOldTxs oldTxs \\ getNewTxs newTxs
+    getTopTxsDiff oldTxs newTxs = getOldTxs oldTxs \\ (reverse $ getNewTxs newTxs)
 
     blocksNE :: NE Block
     blocksNE = fst <$> getNewestFirst blunds

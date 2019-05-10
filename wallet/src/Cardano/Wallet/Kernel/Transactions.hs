@@ -177,7 +177,7 @@ pay activeWallet spendingPassword opts accountId payees = do
              Right (txAux, partialMeta, _utxo) -> do
                  let sz = fromIntegral $ BL.length $ serialize txAux
                  maxSz <- Node.getMaxTxSize (walletPassive activeWallet ^. walletNode)
-                 if sz > maxSz then
+                 if sz >= maxSz then
                      return
                      . Left
                      . PaymentNewTransactionError

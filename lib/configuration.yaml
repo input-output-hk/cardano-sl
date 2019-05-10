@@ -14979,9 +14979,8 @@ mainnet_dryrun_full: &mainnet_dryrun_full
     attribResrictEpoch: 2
     addrAttribSize: 128
     txAttribSize: 128
-  update: &mainnet_base_update
-    applicationName: cardano-sl
-    applicationVersion: 1
+  update:
+    <<: *mainnet_base_update
     lastKnownBlockVersion:
       bvMajor: 1
       bvMinor: 0

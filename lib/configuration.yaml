@@ -14979,6 +14979,12 @@ mainnet_dryrun_full: &mainnet_dryrun_full
     attribResrictEpoch: 2
     addrAttribSize: 128
     txAttribSize: 128
+  update:
+    <<: *mainnet_base_update
+    lastKnownBlockVersion:
+      bvMajor: 1
+      bvMinor: 0
+      bvAlt: 0
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full

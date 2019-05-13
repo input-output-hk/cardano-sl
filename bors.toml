@@ -1,6 +1,6 @@
 status = [
   # Hydra: Aggregate job from release.nix
-  "ci/hydra:serokell:cardano-sl:required",
+  "ci/hydra:Cardano:cardano-sl:required",
 
   # Buildkite: stack2nix checks, etc.
   "buildkite/cardano-sl",

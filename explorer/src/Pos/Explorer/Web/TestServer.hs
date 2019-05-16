@@ -96,7 +96,7 @@ cTxBrief :: CTxBrief
 cTxBrief = CTxBrief
     { ctbId         = cTxId
     , ctbTimeIssued = Just posixTime
-    , ctbInputs     = [Just (CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333), Nothing]
+    , ctbInputs     = [Just (cTxId, 0, CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333), Nothing]
     , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
     , ctbInputSum   = mkCCoin $ mkCoin 33333
     , ctbOutputSum  = mkCCoin $ mkCoin 33333

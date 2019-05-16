@@ -73,8 +73,8 @@ import           Pos.Binary (biSize)
 import           Pos.Chain.Block (MainBlock, Undo (..), gbHeader, gbhConsensus,
                      headerHash, mainBlockSlot, mainBlockTxPayload, mcdSlot,
                      prevBlockL)
-import           Pos.Chain.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                     TxUndo, txpTxs, _txOutputs)
+import           Pos.Chain.Txp (Tx (..), TxId, TxIn (..), TxOut (..),
+                     TxOutAux (..), TxUndo, txpTxs, _txOutputs)
 import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotCount,
                      SlotId (..), StakeholderId, Timestamp, addressF,
                      coinToInteger, decodeTextAddress, getEpochIndex,
@@ -309,7 +309,7 @@ data CAddressSummary = CAddressSummary
 data CTxBrief = CTxBrief
     { ctbId         :: !CTxId
     , ctbTimeIssued :: !(Maybe POSIXTime)
-    , ctbInputs     :: ![Maybe (CAddress, CCoin)]
+    , ctbInputs     :: ![Maybe (CTxId, Word, CAddress, CCoin)]
     , ctbOutputs    :: ![(CAddress, CCoin)]
     , ctbInputSum   :: !CCoin
     , ctbOutputSum  :: !CCoin
@@ -417,6 +417,19 @@ tiToTxEntry txi@TxInternal{..} = toTxEntry (tiTimestamp txi) tiTx
 convertTxOutputsMB :: [Maybe TxOut] -> [Maybe (CAddress, Coin)]
 convertTxOutputsMB = map (fmap $ toCAddress . txOutAddress &&& txOutValue)
 
+convertTxInMB :: (TxIn, Maybe TxOutAux) ->  Maybe (CTxId, Word, CAddress, CCoin)
+convertTxInMB (txin, Just outAux) = convertTxIn (txin, outAux)
+convertTxInMB _                   = Nothing
+
+convertTxIn :: (TxIn, TxOutAux) -> Maybe (CTxId, Word, CAddress, CCoin)
+convertTxIn ((TxInUtxo txInHash txInIndex), txOutAux) = Just (cId, cOutIndex, cAddress, cCoins)
+  where
+    cId = toCTxId txInHash
+    cOutIndex = fromIntegral txInIndex
+    cAddress = toCAddress . txOutAddress . toaOut $ txOutAux
+    cCoins = mkCCoin (txOutValue . toaOut $ txOutAux)
+convertTxIn _ = Nothing
+
 convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
 convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 
@@ -427,7 +440,10 @@ toTxBrief txi = CTxBrief {..}
     ts            = tiTimestamp txi
     ctbId         = toCTxId $ hash tx
     ctbTimeIssued = timestampToPosix <$> ts
-    ctbInputs     = map (fmap (second mkCCoin)) txInputsMB
+    txIns         = NE.toList $ _txInputs tx
+    txOutAuxsMB   = NE.toList $ teInputOutputs (tiExtra txi)
+    zipped        = zip txIns txOutAuxsMB
+    ctbInputs     = fmap convertTxInMB zipped
     ctbOutputs    = map (second mkCCoin) txOutputs
     ctbInputSum   = sumCoinOfInputsOutputs txInputsMB
     ctbOutputSum  = sumCoinOfInputsOutputs $ map Just txOutputs

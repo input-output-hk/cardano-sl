@@ -59,7 +59,7 @@ instance Buildable SscVerifyError where
     build (NotSharesPhase slotId) =
         bprint (build%" doesn't belong share phase") slotId
     build (NotIntermediatePhase slotId) =
-        bprint (build%" doesn't  belong intermidiate phase") slotId
+        bprint (build%" doesn't  belong intermediate phase") slotId
     build CurrentSlotUnknown = "we don't know current slot"
 
     build (DifferentEpoches e g) =

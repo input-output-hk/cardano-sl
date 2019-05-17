@@ -320,8 +320,8 @@ applyWithRollback genesisConfig txpConfig diffusion toApply lca toRollback = do
         res <- L.applyWithRollback genesisConfig txpConfig toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
-        Left (pretty -> err) ->
-            logWarning $ "Couldn't apply blocks with rollback: " <> err
+        Left err ->
+            logWarning $ "Couldn't apply blocks with rollback: " <> pretty err
         Right newTip -> do
             logDebug $ sformat
                 ("Finished applying blocks w/ rollback, relaying new tip: "%shortHashF)

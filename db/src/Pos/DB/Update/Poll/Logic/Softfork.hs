@@ -102,11 +102,11 @@ processGenesisBlock genesisConfig epoch = do
     case nonEmpty toAdoptList of
         -- If there is nothing to adopt, we move unstable issuers to stable
         -- and that's all.
-        Nothing                         -> mapM_ moveUnstable competing
+        Nothing -> mapM_ moveUnstable competing
         -- Otherwise we choose version to adopt, adopt it, remove all
         -- versions which no longer can be adopted and only then move
         -- unstable to stable.
-        Just (chooseToAdopt -> toAdopt) -> adoptAndFinish competing toAdopt
+        Just x  -> adoptAndFinish competing $ chooseToAdopt x
     -- In the end we also update slotting data to the most recent state.
     updateSlottingData (configEpochSlots genesisConfig) epoch
     setEpochProposers mempty

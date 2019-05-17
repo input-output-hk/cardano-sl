@@ -22,6 +22,7 @@ let
   testnet = makeHelper { name = "testnet"; key = "testnet_full"; };
   staging = makeHelper { name = "staging"; key = "mainnet_dryrun_full"; };
   obft-testnet = makeHelper { name = "obft-testnet"; key = "obft_testnet"; };
+  obft-testnet-short = makeHelper { name = "obft-testnet-short"; key = "obft_testnet_short"; };
 in
   cardanoPkgs.cardano-sl-script-runner.env.overrideAttrs (drv: {
     buildInputs = drv.buildInputs ++ [ cardanoPkgs.cardano-sl-node-static cardanoPkgs.cardano-sl-tools mainnet testnet staging obft-testnet ];

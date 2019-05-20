@@ -213,7 +213,7 @@ verifyBlock genesisConfig verifyAllIsKnown (ComponentBlockMain header payload) =
         -- boundaries (first slot of a new epoch) such that updates can still
         -- be adopted during OBFT.
         initialEra <- getConsensusEra
-        initialBV  <- getAdoptedBV
+        _initialBV  <- getAdoptedBV
         case initialEra of
             OBFT _ -> do
                 let slotId     = header ^. headerSlotL
@@ -224,7 +224,16 @@ verifyBlock genesisConfig verifyAllIsKnown (ComponentBlockMain header payload) =
                     processGenesisBlock genesisConfig ei
                 getAdoptedBV
 
-            Original -> pure initialBV
+            Original -> do
+                let slotId     = header ^. headerSlotL
+                    epochIndex = siEpoch slotId
+                tipHeader <- DB.getTipHeader
+                whenEpochBoundaryObft epochIndex tipHeader $ \ei -> do
+                    -- We're on an OBFT-style epoch boundary during Original...
+                    -- Might be in recovery mode atm.
+                    logDebug $ "usVerifyBlocks Original: We're on an OBFT-style epoch boundary while in the Original era. Perhaps the OBFT update hasn't been adopted yet? Running processGenesisBlock"
+                    processGenesisBlock genesisConfig ei
+                getAdoptedBV
 
     execRollT $ do
         verifyAndApplyUSPayload

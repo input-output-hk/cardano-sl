@@ -93,6 +93,9 @@ verifyBlocksPrefix genesisConfig currentSlot blocks = runExceptT $ do
     adoptedBV <- lift getAdoptedBV
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
 
+    (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
+        ExceptT $ usVerifyBlocks genesisConfig dataMustBeKnown (map toUpdateBlock blocks)
+
     -- Run verification of each component.
     -- 'slogVerifyBlocks' uses 'Pos.Chain.Block.Pure.verifyBlocks' which does
     -- the internal consistency checks formerly done in the 'Bi' instance
@@ -108,8 +111,6 @@ verifyBlocksPrefix genesisConfig currentSlot blocks = runExceptT $ do
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks genesisConfig blocks
-    (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ usVerifyBlocks genesisConfig dataMustBeKnown (map toUpdateBlock blocks)
 
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
@@ -153,6 +154,15 @@ verifyAndApplyBlocks genesisConfig txpConfig curSlot rollback blocks = runExcept
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
     tipHeader <- getTipHeader
+
+
+    {-
+    case tipHeader of
+        BlockHeaderGenesis _ -> pass
+        BlockHeaderMain mb -> lift $ processGenesisBlock genesisConfig (mb ^. epochIndexL)
+    -}
+
+
     hh <- rollingVerifyAndApply tipHeader [] (spanEpoch blocks)
     lift $ normalizeMempool genesisConfig txpConfig
     pure hh
@@ -230,11 +240,13 @@ verifyAndApplyBlocks genesisConfig txpConfig curSlot rollback blocks = runExcept
                 if mb ^. epochIndexL /= epochIndex - 1
                     then pass
                     else do
+                        logDebug $ "rollingVerifyAndApply: mb ^. epochIndexL = "
+                                <> pretty (mb ^. epochIndexL)
                         logDebug "rollingVerifyAndApply: Detected new OBFT-style epoch (no EBB)."
                         logDebug $ "Rolling: Calculating LRC if needed for epoch "
                                 <> pretty epochIndex
                         lift $ lrcSingleShot genesisConfig epochIndex
-                        logDebug $ "rollingVerifyAndApply: We're on OBFT-style epoch boundary. Running processGenesisBlock"
+                        -- logDebug $ "rollingVerifyAndApply: We're on OBFT-style epoch boundary. Running processGenesisBlock"
                         -- need to `processGenesisBlock genesisConfig epochIndex` here
 
         logDebug "Rolling: verifying"

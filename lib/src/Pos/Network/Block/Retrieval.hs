@@ -43,9 +43,6 @@ import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (logDebug, logError, logInfo, logWarning)
 
--- I really don't like join
-{-# ANN retrievalWorker ("HLint: ignore Use join" :: Text) #-}
-
 -- | Worker that queries blocks. It has two jobs:
 --
 -- * If there are headers in 'BlockRetrievalQueue', this worker retrieves

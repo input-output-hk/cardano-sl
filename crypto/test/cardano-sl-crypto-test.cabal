@@ -1,5 +1,5 @@
 name:                cardano-sl-crypto-test
-version:             3.0.1
+version:             3.0.2
 synopsis:            Cardano SL - arbitrary instances for cardano-sl-crypto
 description:         This package contains arbitrary instances for the cryptography primitives used in Cardano SL.
 license:             MIT

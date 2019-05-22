@@ -1,5 +1,5 @@
 name:                cardano-sl-cluster
-version:             3.0.1
+version:             3.0.2
 synopsis:            Utilities to generate and run cluster of nodes
 description:         See README
 homepage:            https://github.com/input-output-hk/cardano-sl/cluster/README.md

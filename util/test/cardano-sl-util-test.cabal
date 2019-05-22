@@ -1,5 +1,5 @@
 name:                cardano-sl-util-test
-version:             3.0.1
+version:             3.0.2
 synopsis:            Cardano SL - general utilities (tests)
 description:         QuickCheck Arbitrary instances for the Cardano SL general
                      utilities package.

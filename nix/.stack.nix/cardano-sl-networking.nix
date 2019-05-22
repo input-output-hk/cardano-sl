@@ -11,7 +11,7 @@
       specVersion = "1.20";
       identifier = {
         name = "cardano-sl-networking";
-        version = "3.0.1";
+        version = "3.0.2";
       };
       license = "MIT";
       copyright = "";

@@ -1,5 +1,5 @@
 name:                cardano-sl-node-ipc
-version:             3.0.1
+version:             3.0.2
 license:             MIT
 license-file:        LICENSE
 author:              Michael Bishop

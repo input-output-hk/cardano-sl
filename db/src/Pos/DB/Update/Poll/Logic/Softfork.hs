@@ -85,29 +85,31 @@ processGenesisBlock
     -> EpochIndex
     -> m ()
 processGenesisBlock genesisConfig epoch = do
-    -- First thing to do is to obtain values threshold for softfork
-    -- resolution rule check.
-    totalStake <- note (PollUnknownStakes epoch)
-        =<< getEpochTotalStake (configBlockVersionData genesisConfig) epoch
-    sfr <- bvdSoftforkRule <$> getAdoptedBVData
-    -- Then we take all competing BlockVersions and actually check softfork
-    -- resolution rule for them.
     competing <- getCompetingBVStates
-    logCompetingBVStates competing
-    let checkThreshold' = checkThreshold totalStake sfr
-    toAdoptList <- catMaybes <$> mapM checkThreshold' competing
-    logWhichCanBeAdopted $ map fst toAdoptList
-    -- We also do sanity check in assert mode just in case.
-    inAssertMode $ sanityCheckCompeting $ map fst competing
-    case nonEmpty toAdoptList of
-        -- If there is nothing to adopt, we move unstable issuers to stable
-        -- and that's all.
-        Nothing -> mapM_ moveUnstable competing
-        -- Otherwise we choose version to adopt, adopt it, remove all
-        -- versions which no longer can be adopted and only then move
-        -- unstable to stable.
-        Just x  -> adoptAndFinish competing $ chooseToAdopt x
-    -- In the end we also update slotting data to the most recent state.
+    unless (null competing) $ do
+        -- Take all competing BlockVersions and actually check softfork
+        -- resolution rule for them.
+        logCompetingBVStates competing
+
+        -- Obtain values threshold for softfork resolution rule check.
+        totalStake <- note (PollUnknownStakes epoch)
+            =<< getEpochTotalStake (configBlockVersionData genesisConfig) epoch
+        sfr <- bvdSoftforkRule <$> getAdoptedBVData
+        let checkThreshold' = checkThreshold totalStake sfr
+
+        toAdoptList <- catMaybes <$> mapM checkThreshold' competing
+        logWhichCanBeAdopted $ map fst toAdoptList
+        -- We also do sanity check in assert mode just in case.
+        inAssertMode $ sanityCheckCompeting $ map fst competing
+        case nonEmpty toAdoptList of
+            -- If there is nothing to adopt, we move unstable issuers to stable
+            -- and that's all.
+            Nothing -> mapM_ moveUnstable competing
+            -- Otherwise we choose version to adopt, adopt it, remove all
+            -- versions which no longer can be adopted and only then move
+            -- unstable to stable.
+            Just x  -> adoptAndFinish competing $ chooseToAdopt x
+        -- In the end we also update slotting data to the most recent state.
     updateSlottingData (configEpochSlots genesisConfig) epoch
     setEpochProposers mempty
   where

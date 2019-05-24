@@ -89,12 +89,12 @@ processGenesisBlock genesisConfig epoch = do
     -- resolution rule check.
     totalStake <- note (PollUnknownStakes epoch)
         =<< getEpochTotalStake (configBlockVersionData genesisConfig) epoch
-    BlockVersionData {..} <- getAdoptedBVData
+    sfr <- bvdSoftforkRule <$> getAdoptedBVData
     -- Then we take all competing BlockVersions and actually check softfork
     -- resolution rule for them.
     competing <- getCompetingBVStates
     logCompetingBVStates competing
-    let checkThreshold' = checkThreshold totalStake bvdSoftforkRule
+    let checkThreshold' = checkThreshold totalStake sfr
     toAdoptList <- catMaybes <$> mapM checkThreshold' competing
     logWhichCanBeAdopted $ map fst toAdoptList
     -- We also do sanity check in assert mode just in case.

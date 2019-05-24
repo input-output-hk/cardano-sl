@@ -353,8 +353,8 @@ instance (MonadPollRead m) =>
         case bvs of
             Nothing ->
                 logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
-            Just (bvsModifier -> bvm) ->
-                pmAdoptedBVFullL .= Just (bv, applyBVM bvm adoptedBVD)
+            Just bvm ->
+                pmAdoptedBVFullL .= Just (bv, applyBVM (bvsModifier bvm) adoptedBVD)
     setLastConfirmedSV SoftwareVersion {..} = ether $
         pmConfirmedL %= MM.insert svAppName svNumber
     delConfirmedSV appName = ether $

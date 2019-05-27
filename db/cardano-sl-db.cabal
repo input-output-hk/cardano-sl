@@ -158,6 +158,7 @@ library
                      , stm
                      , tagged
                      , text
+                     , time
                      , time-units
                      , transformers
                      , universum

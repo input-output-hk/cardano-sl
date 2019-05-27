@@ -48,7 +48,11 @@ function pkgNameToProject {
   if [[ "$1" == "lib" ]]; then
     echo "cardano-sl"
   else
-    echo "cardano-sl-$1"
+    if [[ "$1" == "wallet" ]]; then
+     echo "cardano-wallet"
+    else
+     echo "cardano-sl-$1"
+    fi
   fi
 }
 

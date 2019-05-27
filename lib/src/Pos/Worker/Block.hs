@@ -57,7 +57,7 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
 import           Pos.DB.Lrc.OBFT (getSlotLeaderObft)
-import           Pos.DB.Update (getAdoptedBV, getAdoptedBVData, getConsensusEra)
+import           Pos.DB.Update (getAdoptedBVData, getConsensusEra)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
                      (Diffusion (announceBlockHeader))
@@ -151,14 +151,6 @@ blockCreator
     -> Diffusion m -> m ()
 blockCreator genesisConfig txpConfig slotId diffusion = do
     era <- getConsensusEra
-    logInfo $ sformat ("blockCreator: Consensus era is " % shown) era
-
-    bv <- getAdoptedBV
-    bvd <- getAdoptedBVData
-    logInfo $ sformat ("blockCreator: Adopted BV is " % shown) bv
-    logInfo $ sformat ("blockCreator: Adopted BVD is " % shown) bvd
-
-    logInfo $ sformat ("blockCreator: slotId is " % shown) slotId
     case era of
         Original -> blockCreatorOriginal genesisConfig
                                          txpConfig
@@ -199,22 +191,12 @@ blockCreatorObft genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
     ourPk <- getOurPublicKey
     let ourPkHash = addressHash ourPk
         finalHeavyPsk = fst <$> pske
-    logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
-    logOnEpochF $ sformat ("Current slot leader: "%build) leader
-    logDebug $ sformat ("Current slotId: "%build) slotId
-    logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
-
     let weAreLeader        = leader == ourPkHash
         weAreHeavyDelegate = maybe False
                                    ((== ourPk) . pskDelegatePk)
                                    finalHeavyPsk
-    if | weAreLeader || weAreHeavyDelegate ->
-            onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion
-        | otherwise -> pass
-
-  where
-    logOnEpochFS = if siSlot == localSlotIndexMinBound then logInfoS else logDebugS
-    logOnEpochF = if siSlot == localSlotIndexMinBound then logInfo else logDebug
+    when (weAreLeader || weAreHeavyDelegate) $
+        onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion
 
 dropObftEbb ::
        forall ctx m.
@@ -226,7 +208,6 @@ dropObftEbb ::
 dropObftEbb genesisConfig txpConfig = do
     -- not sure if everything needs to run inside StateLock
     tipHeader <- DB.getTipHeader
-    logDebug $ sformat ("dropObftEbb: tipHeader: ("%shown%").") tipHeader
     case tipHeader of
         BlockHeaderMain _      -> pure ()
         BlockHeaderGenesis _   -> do

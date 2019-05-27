@@ -22,16 +22,18 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (ExceptT (ExceptT),
                      MonadError (throwError), runExceptT, withExceptT)
 import qualified Data.List.NonEmpty as NE
-import           Formatting (sformat, shown, (%))
+import           Formatting (build, sformat, shown, (%))
 
-import           Pos.Chain.Block (ApplyBlocksException (..), Block, Blund,
-                     HeaderHash, RollbackException (..), Undo (..),
-                     VerifyBlocksException (..), headerHashG, prevBlockL)
+import           Pos.Chain.Block (ApplyBlocksException (..), Block,
+                     BlockHeader (..), Blund, HeaderHash,
+                     RollbackException (..), Undo (..),
+                     VerifyBlocksException (..), headerHash, headerHashG,
+                     mainHeaderSlot, prevBlockL)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (ConsensusEra (..), PollModifier,
                      UpdateConfiguration)
-import           Pos.Core (epochIndexL)
+import           Pos.Core (EpochIndex (..), epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
@@ -41,15 +43,17 @@ import           Pos.DB.Block.Logic.Internal (BypassSecurityCheck (..),
                      MonadMempoolNormalization, applyBlocksUnsafe,
                      normalizeMempool, rollbackBlocksUnsafe, toSscBlock,
                      toTxpBlock, toUpdateBlock)
+import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
+import           Pos.DB.Block.Logic.SplitByEpoch (splitByEpoch)
 import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..),
                      mustDataBeKnown, slogVerifyBlocks)
 import           Pos.DB.Delegation (dlgVerifyBlocks)
-import qualified Pos.DB.GState.Common as GS (getTip)
+import qualified Pos.DB.GState.Common as GS (getTip, writeBatchGState)
 import           Pos.DB.Ssc (sscVerifyBlocks)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import           Pos.DB.Update (getAdoptedBV, getConsensusEra, usVerifyBlocks)
+import           Pos.DB.Update (getAdoptedBV, getConsensusEra, usApplyBlocks, usVerifyBlocks)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (logDebug)
@@ -147,11 +151,13 @@ verifyAndApplyBlocks
     -> OldestFirst NE Block
     -> m (Either ApplyBlocksException (HeaderHash, NewestFirst [] Blund))
 verifyAndApplyBlocks genesisConfig txpConfig curSlot rollback blocks = runExceptT $ do
-    tip <- lift GS.getTip
-    let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
-    when (tip /= assumedTip) $
-        throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
-    hh <- rollingVerifyAndApply genesisConfig curSlot rollback [] (spanEpoch blocks)
+    tip <- lift getTipHeader
+    let tipHash = headerHash tip
+        assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
+        startingNewEpoch = blocks ^. _Wrapped . _neHead ^. epochIndexL /= tip ^. epochIndexL
+    when (tipHash /= assumedTip) $
+        throwError $ ApplyBlocksTipMismatch "verify and apply" tipHash assumedTip
+    hh <- rollingVerifyAndApply genesisConfig curSlot rollback [] (splitByEpoch startingNewEpoch blocks)
     lift $ normalizeMempool genesisConfig txpConfig
     pure hh
 
@@ -171,16 +177,46 @@ rollingVerifyAndApply
     -> Maybe SlotId
     -> Bool
     -> [NewestFirst NE Blund]
-    -> (OldestFirst NE Block, OldestFirst [] Block)
+    -> [OldestFirst NE Block]
     -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
-rollingVerifyAndApply genesisConfig curSlot rollback blunds (prefix, suffix) = do
+rollingVerifyAndApply _ _ _ blunds [] = (,concatNE blunds) <$> lift GS.getTip
+rollingVerifyAndApply genesisConfig curSlot rollback blunds (prefix : suffix) = do
     let prefixHead = prefix ^. _Wrapped . _neHead
-    when (isLeft prefixHead) $ do
-        let epochIndex = prefixHead ^. epochIndexL
-        logDebug $ "Rolling: Calculating LRC if needed for epoch "
-                   <> pretty epochIndex
-        lift $ lrcSingleShot genesisConfig epochIndex
+        epochIndex = prefixHead ^. epochIndexL
+
+    if isLeft prefixHead
+        then do
+            -- This is an EEB for the Original era.
+            logDebug $ "Rolling: Calculating LRC if needed for epoch "
+                    <> pretty epochIndex
+            lift $ lrcSingleShot genesisConfig epochIndex
+        else do
+            -- We may or may not be in the Original era here.
+            -- This is a somewhat savage hack to make sure the adopted block version
+            -- data is updated on the first block of an OBFT epoch (which may not
+            -- be slot 0 of the new epoch).
+            tipHeader <- getTipHeader
+            case tipHeader of
+                BlockHeaderGenesis _ -> pure ()
+
+                BlockHeaderMain mb ->
+                    when (mb ^. epochIndexL == epochIndex - 1) $ do
+                        logDebug $ "Rolling: Calculating OBFT LRC if needed for epoch "
+                                <> pretty epochIndex
+
+                        logDebug $
+                            sformat ("Erik: slot " % build % ", current " % shown % ", other " % shown)
+                                (mb ^. mainHeaderSlot) (getEpochIndex $ mb ^. epochIndexL) (getEpochIndex $ epochIndex - 1)
+
+                        lift $ lrcSingleShot genesisConfig epochIndex
+
+                        -- Apply just the update payload of the first block of the next epoch.
+                        let ublocks = OldestFirst $ toUpdateBlock (NE.head $ getOldestFirst prefix) :| []
+                        ops <- lift $ usApplyBlocks genesisConfig ublocks Nothing
+                        GS.writeBatchGState ops
+
     logDebug "Rolling: verifying"
+    logDebug $ sformat ("verifyBlocksPrefix: " % shown) (NE.length $ getOldestFirst prefix)
     lift (verifyBlocksPrefix genesisConfig curSlot prefix) >>= \case
         Left (ApplyBlocksVerifyFailure -> failure)
             | rollback  -> failWithRollback failure blunds
@@ -201,12 +237,11 @@ rollingVerifyAndApply genesisConfig curSlot rollback blunds (prefix, suffix) = d
                 (ShouldCallBListener True)
                 newBlunds
                 (Just pModifier)
-            case getOldestFirst suffix of
+            case suffix of
                 [] -> (,concatNE blunds') <$> lift GS.getTip
-                (genesis:xs) -> do
+                _ ->  do
                     logDebug "Rolling: Applying done, next portion"
-                    rollingVerifyAndApply genesisConfig curSlot rollback blunds' $
-                        spanEpoch (OldestFirst (genesis:|xs))
+                    rollingVerifyAndApply genesisConfig curSlot rollback blunds' suffix
   where
     -- Applies as many blocks from failed prefix as possible. Argument
     -- indicates if at least some progress was done so we should
@@ -242,22 +277,6 @@ rollingVerifyAndApply genesisConfig curSlot rollback blunds (prefix, suffix) = d
         lift $ mapM_ (rollbackBlocks genesisConfig) toRollback
         throwError e
 
--- Spans input into @(a, b)@ where @a@ is either a single genesis
--- block or a maximum prefix of main blocks from the same epoch.
--- Examples (where g is for genesis and m is for main):
--- * gmmgm → g, mmgm
--- * mmgm → mm, gm
--- * ggmmg → g, gmmg
-spanEpoch ::
-       OldestFirst NE Block
-    -> (OldestFirst NE Block, OldestFirst [] Block)
-spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
-spanEpoch x                              = spanTail x
-  where
-    spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
-                spanSafe ((==) `on` view epochIndexL) .      -- do work
-                getOldestFirst                               -- unwrap argument
-
 concatNE :: [NewestFirst NE a] -> NewestFirst [] a
 concatNE = NewestFirst . foldMap (\(NewestFirst as) -> NE.toList as)
 
@@ -288,11 +307,11 @@ applyBlocks genesisConfig calculateLrc pModifier blunds = do
         (genesis:xs) -> applyBlocks genesisConfig calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
     prefixHead = prefix ^. _Wrapped . _neHead . _1
-    (prefix, suffix) = spanEpochAB blunds
+    (prefix, suffix) = spanEpoch blunds
     -- this version is different from one in verifyAndApply subtly,
     -- but they can be merged with some struggle.
-    spanEpochAB (OldestFirst (b@((Left _),_):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
-    spanEpochAB x                                  = spanTail x
+    spanEpoch (OldestFirst (b@((Left _),_):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
+    spanEpoch x                                  = spanTail x
     spanTail = over _1 OldestFirst . over _2 OldestFirst .
                spanSafe ((==) `on` view (_1 . epochIndexL)) .
                getOldestFirst

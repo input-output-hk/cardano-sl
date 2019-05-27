@@ -34,7 +34,7 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (EpochIndex (..), MonadSlotsData,
-                     SlotId (..), SlottingData, slottingVar)
+                     SlottingData, slottingVar)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.BlockIndex as DB (getTipHeader)
 import qualified Pos.DB.Class as DB
@@ -213,18 +213,22 @@ verifyBlock genesisConfig verifyAllIsKnown (ComponentBlockMain header payload) =
         -- boundaries (first slot of a new epoch) such that updates can still
         -- be adopted during OBFT.
         initialEra <- getConsensusEra
-        initialBV  <- getAdoptedBV
+        initialBV <- getAdoptedBV
+        tipHeader <- DB.getTipHeader
         case initialEra of
-            OBFT _ -> do
-                let slotId     = header ^. headerSlotL
-                    epochIndex = siEpoch slotId
-                tipHeader <- DB.getTipHeader
-                whenEpochBoundaryObft epochIndex tipHeader $ \ei -> do
-                    logDebug $ "usVerifyBlocks OBFT: We're on epoch boundary. Running processGenesisBlock"
-                    processGenesisBlock genesisConfig ei
-                getAdoptedBV
+            OBFT _ ->
+                if header ^. epochIndexL /= tipHeader ^. epochIndexL
+                    then obftProcessGenesisBlock (header ^. epochIndexL)
+                    else pure initialBV
 
-            Original -> pure initialBV
+            Original -> do
+                case tipHeader of
+                    BlockHeaderGenesis _ -> pure initialBV
+
+                    BlockHeaderMain _ ->
+                        if header ^. epochIndexL /= tipHeader ^. epochIndexL
+                            then obftProcessGenesisBlock (header ^. epochIndexL)
+                            else pure initialBV
 
     execRollT $ do
         verifyAndApplyUSPayload
@@ -245,20 +249,15 @@ verifyBlock genesisConfig verifyAllIsKnown (ComponentBlockMain header payload) =
             (header ^. headerSlotL)
             (header ^. headerHashG)
   where
-    whenEpochBoundaryObft ::
-        ( Applicative m
+    obftProcessGenesisBlock ::
+        ( MonadPoll m
+        , MonadError PollVerFailure m
         )
-        => EpochIndex
-        -> BlockHeader
-        -> (EpochIndex -> m ())
-        -> m ()
-    whenEpochBoundaryObft currentEpoch tipHeader actn = do
-        case tipHeader of
-            BlockHeaderGenesis _ -> pass
-            BlockHeaderMain mb ->
-                if mb ^. epochIndexL /= currentEpoch - 1
-                    then pass
-                    else actn currentEpoch
+        => EpochIndex -> m BlockVersion
+    obftProcessGenesisBlock currentEpoch = do
+        logDebug $ "usVerifyBlocks OBFT: We're on epoch boundary. Running processGenesisBlock."
+        processGenesisBlock genesisConfig currentEpoch
+        getAdoptedBV
 
 -- | Checks whether our software can create block according to current
 -- global state.

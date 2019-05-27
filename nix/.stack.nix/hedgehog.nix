@@ -11,7 +11,7 @@
       specVersion = "1.8";
       identifier = {
         name = "hedgehog";
-        version = "0.6.1";
+        version = "1.0";
       };
       license = "BSD-3-Clause";
       copyright = "";
@@ -19,8 +19,8 @@
       author = "Jacob Stanley";
       homepage = "https://hedgehog.qa";
       url = "";
-      synopsis = "Hedgehog will eat all your bugs.";
-      description = "Hedgehog is a modern property-based testing system, in the spirit of\nQuickCheck. Hedgehog uses integrated shrinking, so shrinks obey the\ninvariants of generated values by construction.\n\nTo get started quickly, see the examples:\n<https://github.com/hedgehogqa/haskell-hedgehog/tree/master/hedgehog-example>";
+      synopsis = "Release with confidence.";
+      description = "<http://hedgehog.qa/ Hedgehog> automatically generates a comprehensive array\nof test cases, exercising your software in ways human testers would never\nimagine.\n\nGenerate hundreds of test cases automatically, exposing even the\nmost insidious of corner cases. Failures are automatically simplified, giving\ndevelopers coherent, intelligible error messages.\n\nTo get started quickly, see the <https://github.com/hedgehogqa/haskell-hedgehog/tree/master/hedgehog-example examples>.";
       buildType = "Simple";
     };
     components = {
@@ -34,6 +34,7 @@
           (hsPkgs.containers)
           (hsPkgs.directory)
           (hsPkgs.exceptions)
+          (hsPkgs.fail)
           (hsPkgs.lifted-async)
           (hsPkgs.mmorph)
           (hsPkgs.monad-control)
@@ -46,7 +47,6 @@
           (hsPkgs.stm)
           (hsPkgs.template-haskell)
           (hsPkgs.text)
-          (hsPkgs.th-lift)
           (hsPkgs.time)
           (hsPkgs.transformers)
           (hsPkgs.transformers-base)
@@ -59,6 +59,8 @@
             (hsPkgs.hedgehog)
             (hsPkgs.base)
             (hsPkgs.containers)
+            (hsPkgs.mmorph)
+            (hsPkgs.mtl)
             (hsPkgs.pretty-show)
             (hsPkgs.semigroups)
             (hsPkgs.text)
@@ -69,9 +71,9 @@
     };
   } // {
     src = pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/haskell-hedgehog.git";
-      rev = "e63fb354bfbad07f3befdd43b382c655944218be";
-      sha256 = "1p2yzlaiqj34pkk26cgg0dkvkm1zwjpgx1zk95md5xj0cijb34gj";
+      url = "https://github.com/hedgehogqa/haskell-hedgehog.git";
+      rev = "a20005f4d584f19ea05524320f1c9a90a44c81db";
+      sha256 = "1lca47ilzg75ibv2qbb1pl466rba6ir8ra0cg4qlji63dsbpkiks";
     };
     postUnpack = "sourceRoot+=/hedgehog; echo source root reset to \$sourceRoot";
   }

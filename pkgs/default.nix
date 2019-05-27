@@ -38155,6 +38155,7 @@ license = stdenv.lib.licenses.mit;
 , containers
 , directory
 , exceptions
+, fail
 , fetchgit
 , lifted-async
 , mmorph
@@ -38169,7 +38170,6 @@ license = stdenv.lib.licenses.mit;
 , stm
 , template-haskell
 , text
-, th-lift
 , time
 , transformers
 , transformers-base
@@ -38178,12 +38178,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "hedgehog";
-version = "0.6.1";
+version = "1.0";
 src = fetchgit {
 
-url = "https://github.com/input-output-hk/haskell-hedgehog.git";
-sha256 = "1p2yzlaiqj34pkk26cgg0dkvkm1zwjpgx1zk95md5xj0cijb34gj";
-rev = "e63fb354bfbad07f3befdd43b382c655944218be";
+url = "https://github.com/hedgehogqa/haskell-hedgehog.git";
+sha256 = "1lca47ilzg75ibv2qbb1pl466rba6ir8ra0cg4qlji63dsbpkiks";
+rev = "a20005f4d584f19ea05524320f1c9a90a44c81db";
 fetchSubmodules = true;
 
 };
@@ -38197,6 +38197,7 @@ concurrent-output
 containers
 directory
 exceptions
+fail
 lifted-async
 mmorph
 monad-control
@@ -38209,7 +38210,6 @@ semigroups
 stm
 template-haskell
 text
-th-lift
 time
 transformers
 transformers-base
@@ -38218,7 +38218,7 @@ wl-pprint-annotated
 doHaddock = false;
 doCheck = false;
 homepage = "https://hedgehog.qa";
-description = "Hedgehog will eat all your bugs";
+description = "Release with confidence";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};

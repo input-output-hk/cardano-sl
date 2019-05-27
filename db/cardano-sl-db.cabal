@@ -118,6 +118,7 @@ library
                        Pos.DB.Block.Logic.Creation
                        Pos.DB.Block.Logic.Header
                        Pos.DB.Block.Logic.Internal
+                       Pos.DB.Block.Logic.SplitByEpoch
                        Pos.DB.Block.Logic.Util
                        Pos.DB.Block.Logic.VAR
                        Pos.DB.Block.Lrc
@@ -197,7 +198,8 @@ library
 test-suite db-test
   hs-source-dirs:      test
   main-is:             test.hs
-  other-modules:       Test.Pos.DB.Epoch.Index
+  other-modules:       Test.Pos.DB.Block.Logic.SplitByEpoch
+                       Test.Pos.DB.Epoch.Index
                        Test.Pos.DB.Functions
                        Test.Pos.DB.Mode
                        Test.Pos.DB.Update.Poll.Logic.Version

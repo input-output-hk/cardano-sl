@@ -151,24 +151,63 @@ verifyAndApplyBlocks genesisConfig txpConfig curSlot rollback blocks = runExcept
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
         throwError $ ApplyBlocksTipMismatch "verify and apply" tip assumedTip
-    hh <- rollingVerifyAndApply [] (spanEpoch blocks)
+    hh <- rollingVerifyAndApply genesisConfig curSlot rollback [] (spanEpoch blocks)
     lift $ normalizeMempool genesisConfig txpConfig
     pure hh
+
+-- This function tries to apply a new portion of blocks (prefix
+-- and suffix). It also has an aggregating parameter @blunds@ which is
+-- collected to rollback blocks if correspondent flag is on. The first
+-- list is packs of blunds. The head of this list is the blund that should
+-- be rolled back first. This function also tries to apply as much as
+-- possible if the @rollback@ flag is on.
+rollingVerifyAndApply
+    :: forall ctx m.
+       ( BlockLrcMode ctx m
+       , MonadMempoolNormalization ctx m
+       , HasMisbehaviorMetrics ctx
+       )
+    => Genesis.Config
+    -> Maybe SlotId
+    -> Bool
+    -> [NewestFirst NE Blund]
+    -> (OldestFirst NE Block, OldestFirst [] Block)
+    -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
+rollingVerifyAndApply genesisConfig curSlot rollback blunds (prefix, suffix) = do
+    let prefixHead = prefix ^. _Wrapped . _neHead
+    when (isLeft prefixHead) $ do
+        let epochIndex = prefixHead ^. epochIndexL
+        logDebug $ "Rolling: Calculating LRC if needed for epoch "
+                   <> pretty epochIndex
+        lift $ lrcSingleShot genesisConfig epochIndex
+    logDebug "Rolling: verifying"
+    lift (verifyBlocksPrefix genesisConfig curSlot prefix) >>= \case
+        Left (ApplyBlocksVerifyFailure -> failure)
+            | rollback  -> failWithRollback failure blunds
+            | otherwise -> do
+                  logDebug $ sformat ("Rolling: run applyAMAP: apply as much as possible\
+                                     \ after `verifyBlocksPrefix` failure: "%shown) failure
+                  applyAMAP failure
+                               (over _Wrapped toList prefix)
+                               (NewestFirst [])
+                               (null blunds)
+        Right (undos, pModifier) -> do
+            let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
+                                          getOldestFirst undos
+            let blunds' = toNewestFirst newBlunds : blunds
+            logDebug "Rolling: Verification done, applying unsafe block"
+            lift $ applyBlocksUnsafe
+                genesisConfig
+                (ShouldCallBListener True)
+                newBlunds
+                (Just pModifier)
+            case getOldestFirst suffix of
+                [] -> (,concatNE blunds') <$> lift GS.getTip
+                (genesis:xs) -> do
+                    logDebug "Rolling: Applying done, next portion"
+                    rollingVerifyAndApply genesisConfig curSlot rollback blunds' $
+                        spanEpoch (OldestFirst (genesis:|xs))
   where
-    -- Spans input into @(a, b)@ where @a@ is either a single genesis
-    -- block or a maximum prefix of main blocks from the same epoch.
-    -- Examples (where g is for genesis and m is for main):
-    -- * gmmgm → g, mmgm
-    -- * mmgm → mm, gm
-    -- * ggmmg → g, gmmg
-    spanEpoch ::
-           OldestFirst NE Block
-        -> (OldestFirst NE Block, OldestFirst [] Block)
-    spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
-    spanEpoch x                              = spanTail x
-    spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
-                spanSafe ((==) `on` view epochIndexL) .      -- do work
-                getOldestFirst                               -- unwrap argument
     -- Applies as many blocks from failed prefix as possible. Argument
     -- indicates if at least some progress was done so we should
     -- return tip. Fail otherwise.
@@ -179,18 +218,18 @@ verifyAndApplyBlocks genesisConfig txpConfig curSlot rollback blocks = runExcept
         -> Bool
         -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
     applyAMAP e (OldestFirst []) _      True                   = throwError e
-    applyAMAP _ (OldestFirst []) blunds False                  = (,blunds) <$> lift GS.getTip
-    applyAMAP e (OldestFirst (block:xs)) blunds nothingApplied = do
+    applyAMAP _ (OldestFirst []) blnds False                  = (,blnds) <$> lift GS.getTip
+    applyAMAP e (OldestFirst (block:xs)) blnds nothingApplied = do
         lift (verifyBlocksPrefix genesisConfig curSlot (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
-                applyAMAP e' (OldestFirst []) blunds nothingApplied
+                applyAMAP e' (OldestFirst []) blnds nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe
                     genesisConfig
                     (ShouldCallBListener True)
                     (one (block, undo))
                     (Just pModifier)
-                applyAMAP e (OldestFirst xs) (NewestFirst $ (block, undo) : getNewestFirst blunds) False
+                applyAMAP e (OldestFirst xs) (NewestFirst $ (block, undo) : getNewestFirst blnds) False
             Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
@@ -202,53 +241,25 @@ verifyAndApplyBlocks genesisConfig txpConfig curSlot rollback blocks = runExcept
         logDebug "verifyAndapply failed, rolling back"
         lift $ mapM_ (rollbackBlocks genesisConfig) toRollback
         throwError e
-    -- This function tries to apply a new portion of blocks (prefix
-    -- and suffix). It also has an aggregating parameter @blunds@ which is
-    -- collected to rollback blocks if correspondent flag is on. The first
-    -- list is packs of blunds. The head of this list is the blund that should
-    -- be rolled back first. This function also tries to apply as much as
-    -- possible if the @rollback@ flag is on.
-    rollingVerifyAndApply
-        :: [NewestFirst NE Blund]
-        -> (OldestFirst NE Block, OldestFirst [] Block)
-        -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
-    rollingVerifyAndApply blunds (prefix, suffix) = do
-        let prefixHead = prefix ^. _Wrapped . _neHead
-        when (isLeft prefixHead) $ do
-            let epochIndex = prefixHead ^. epochIndexL
-            logDebug $ "Rolling: Calculating LRC if needed for epoch "
-                       <> pretty epochIndex
-            lift $ lrcSingleShot genesisConfig epochIndex
-        logDebug "Rolling: verifying"
-        lift (verifyBlocksPrefix genesisConfig curSlot prefix) >>= \case
-            Left (ApplyBlocksVerifyFailure -> failure)
-                | rollback  -> failWithRollback failure blunds
-                | otherwise -> do
-                      logDebug $ sformat ("Rolling: run applyAMAP: apply as much as possible\
-                                         \ after `verifyBlocksPrefix` failure: "%shown) failure
-                      applyAMAP failure
-                                   (over _Wrapped toList prefix)
-                                   (NewestFirst [])
-                                   (null blunds)
-            Right (undos, pModifier) -> do
-                let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
-                                              getOldestFirst undos
-                let blunds' = toNewestFirst newBlunds : blunds
-                logDebug "Rolling: Verification done, applying unsafe block"
-                lift $ applyBlocksUnsafe
-                    genesisConfig
-                    (ShouldCallBListener True)
-                    newBlunds
-                    (Just pModifier)
-                case getOldestFirst suffix of
-                    [] -> (,concatNE blunds') <$> lift GS.getTip
-                    (genesis:xs) -> do
-                        logDebug "Rolling: Applying done, next portion"
-                        rollingVerifyAndApply blunds' $
-                            spanEpoch (OldestFirst (genesis:|xs))
 
-    concatNE :: [NewestFirst NE a] -> NewestFirst [] a
-    concatNE = NewestFirst . foldMap (\(NewestFirst as) -> NE.toList as)
+-- Spans input into @(a, b)@ where @a@ is either a single genesis
+-- block or a maximum prefix of main blocks from the same epoch.
+-- Examples (where g is for genesis and m is for main):
+-- * gmmgm → g, mmgm
+-- * mmgm → mm, gm
+-- * ggmmg → g, gmmg
+spanEpoch ::
+       OldestFirst NE Block
+    -> (OldestFirst NE Block, OldestFirst [] Block)
+spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
+spanEpoch x                              = spanTail x
+  where
+    spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
+                spanSafe ((==) `on` view epochIndexL) .      -- do work
+                getOldestFirst                               -- unwrap argument
+
+concatNE :: [NewestFirst NE a] -> NewestFirst [] a
+concatNE = NewestFirst . foldMap (\(NewestFirst as) -> NE.toList as)
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txp and ssc
@@ -277,11 +288,11 @@ applyBlocks genesisConfig calculateLrc pModifier blunds = do
         (genesis:xs) -> applyBlocks genesisConfig calculateLrc pModifier (OldestFirst (genesis:|xs))
   where
     prefixHead = prefix ^. _Wrapped . _neHead . _1
-    (prefix, suffix) = spanEpoch blunds
+    (prefix, suffix) = spanEpochAB blunds
     -- this version is different from one in verifyAndApply subtly,
     -- but they can be merged with some struggle.
-    spanEpoch (OldestFirst (b@((Left _),_):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
-    spanEpoch x                                  = spanTail x
+    spanEpochAB (OldestFirst (b@((Left _),_):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
+    spanEpochAB x                                  = spanTail x
     spanTail = over _1 OldestFirst . over _2 OldestFirst .
                spanSafe ((==) `on` view (_1 . epochIndexL)) .
                getOldestFirst

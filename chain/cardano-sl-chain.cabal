@@ -16,6 +16,7 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Pos.Chain.Block
+                       Pos.Chain.Block.Slog.LastBlkSlots
                        Pos.Chain.Delegation
                        Pos.Chain.Genesis
                        Pos.Chain.Lrc
@@ -247,6 +248,7 @@ test-suite chain-test
                        Test.Pos.Chain.Block.CborSpec
                        Test.Pos.Chain.Block.Gen
                        Test.Pos.Chain.Block.SafeCopySpec
+                       Test.Pos.Chain.Block.Slog.LastBlkSlots
                        Test.Pos.Chain.Delegation.Arbitrary
                        Test.Pos.Chain.Delegation.Bi
                        Test.Pos.Chain.Delegation.Example

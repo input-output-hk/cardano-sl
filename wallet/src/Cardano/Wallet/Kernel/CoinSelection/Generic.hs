@@ -302,7 +302,10 @@ data CoinSelHardErr =
 
     -- | When trying to construct a transaction, the max number of allowed
     -- inputs was reached.
-  | CoinSelHardErrMaxInputsReached Text
+    -- the max inputs, balance for max-inputs utxo, and min target
+  | CoinSelHardErrMaxInputsReached Word64 Text Text
+    -- a raw msg
+  | CoinSelHardErrMaxInputsReached2 Text
 
     -- | UTxO exhausted during input selection
     --
@@ -635,12 +638,15 @@ instance Buildable CoinSelHardErr where
     % "}"
     )
     out
-  build (CoinSelHardErrMaxInputsReached inputs) = bprint
-    ( "CoinSelHardErrMaxInputsReached"
-    % "{ inputs: " % build
+  build (CoinSelHardErrMaxInputsReached inputs balance target) = bprint
+    ( "CoinSelHardErrMaxInputsReached{ inputs: " % build % ", balance: "%build%", target: "%build%" }")
+    (pretty inputs) balance target
+  build (CoinSelHardErrMaxInputsReached2 msg) = bprint
+    ( "CoinSelHardErrMaxInputsReached2"
+    % "{ msg: " % build
     % "}"
     )
-    inputs
+    msg
   build (CoinSelHardErrCannotCoverFee) = bprint
     ( "CoinSelHardErrCannotCoverFee" )
   build (CoinSelHardErrUtxoExhausted bal val) = bprint

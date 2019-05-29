@@ -38,7 +38,7 @@ import qualified Data.Vector as V
 import qualified System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Formatting (bprint, build, sformat, (%))
+import           Formatting (bprint, build, sformat, (%), shown)
 import qualified Formatting.Buildable
 
 import           Cardano.Crypto.Wallet (DerivationIndex)
@@ -83,6 +83,7 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
                      ShouldCheckPassphrase (..), Signature (..), hash,
                      redeemToPublic)
 import           UTxO.Util (shuffleNE)
+import           Pos.Util.Wlog
 
 {-------------------------------------------------------------------------------
   Generating payments and estimating fees
@@ -182,7 +183,7 @@ pay activeWallet spendingPassword opts accountId payees = do
                      . Left
                      . PaymentNewTransactionError
                      . NewTransactionErrorCoinSelectionFailed
-                     . CoinSelHardErrMaxInputsReached
+                     . CoinSelHardErrMaxInputsReached2
                      $ "Too many inputs were picked, resulting in a too big transaction.\
                      \ Transactions should be smaller than " <> show maxSz <> " bytes)."
                  else do
@@ -238,6 +239,7 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
     maxTxSize  <- liftIO $ Node.getMaxTxSize (walletPassive ^. walletNode)
     -- TODO: We should cache this maxInputs value
     let maxInputs = estimateMaxTxInputs maxTxSize
+    logError $ sformat ("maxInputs: " % shown) maxInputs
 
     -- STEP 0: Get available UTxO
     availableUtxo <- withExceptT NewTransactionUnknownAccount $ exceptT $

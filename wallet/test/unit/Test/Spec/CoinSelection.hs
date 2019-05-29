@@ -384,9 +384,9 @@ outputWasRedeem (CoinSelHardErrOutputIsRedeemAddress _) = True
 outputWasRedeem _                                       = False
 
 maxInputsReached :: CoinSelHardErr -> Bool
-maxInputsReached (CoinSelHardErrMaxInputsReached _ _ _) = True
-maxInputsReached (CoinSelHardErrMaxInputsReached2 _)    = True
-maxInputsReached _                                      = False
+maxInputsReached (CoinSelHardErrMaxInputsReached _ _ _ _) = True
+maxInputsReached (CoinSelHardErrMaxInputsReached2 _)      = True
+maxInputsReached _                                        = False
 
 errorWas :: (CoinSelHardErr -> Bool)
          -> Core.Utxo

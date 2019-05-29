@@ -49,7 +49,10 @@ atLeast :: forall utxo m. (Monad m, PickFromUtxo utxo)
         -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 atLeast maxNumInputs targetMin = do
     utxo <- get
-    case go emptySelection utxo (pickLargest maxNumInputs utxo) of
+    let
+      sortedLargest :: [(UtxoEntry (Dom utxo), utxo)]
+      sortedLargest = pickLargest maxNumInputs utxo
+    case go emptySelection utxo sortedLargest of
       Nothing -> do
           -- If we failed to cover 'targetMin' it might be because we
           -- depleted the Utxo or simply because our 'maxNumInputs' was
@@ -60,7 +63,7 @@ atLeast maxNumInputs targetMin = do
           let balance = utxoBalance utxo
           if balance < targetMin
              then throwError $ CoinSelHardErrUtxoExhausted (pretty balance) (pretty targetMin)
-             else throwError $ CoinSelHardErrMaxInputsReached maxNumInputs (pretty balance) (pretty targetMin)
+             else throwError $ CoinSelHardErrMaxInputsReached (show maxNumInputs) (pretty balance) (pretty targetMin) (show $ length sortedLargest)
       Just (selected, remainingUtxo) -> do
         put remainingUtxo
         return selected

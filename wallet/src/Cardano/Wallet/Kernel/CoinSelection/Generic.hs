@@ -303,7 +303,7 @@ data CoinSelHardErr =
     -- | When trying to construct a transaction, the max number of allowed
     -- inputs was reached.
     -- the max inputs, balance for max-inputs utxo, and min target
-  | CoinSelHardErrMaxInputsReached Word64 Text Text
+  | CoinSelHardErrMaxInputsReached String Text Text String
     -- a raw msg
   | CoinSelHardErrMaxInputsReached2 Text
 
@@ -638,9 +638,9 @@ instance Buildable CoinSelHardErr where
     % "}"
     )
     out
-  build (CoinSelHardErrMaxInputsReached inputs balance target) = bprint
-    ( "CoinSelHardErrMaxInputsReached{ inputs: " % build % ", balance: "%build%", target: "%build%" }")
-    (pretty inputs) balance target
+  build (CoinSelHardErrMaxInputsReached inputs balance target sortedutxo) = bprint
+    ( "CoinSelHardErrMaxInputsReached{ inputs: " % build % ", balance: "%build%", target: "%build%", sortedUtxo: "%build%" }")
+    (pretty inputs) balance target sortedutxo
   build (CoinSelHardErrMaxInputsReached2 msg) = bprint
     ( "CoinSelHardErrMaxInputsReached2"
     % "{ msg: " % build

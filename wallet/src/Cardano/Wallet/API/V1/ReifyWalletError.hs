@@ -287,7 +287,7 @@ newTransactionError e = case e of
           CoinSelHardErrCannotCoverFee ->
                 V1.NotEnoughMoney V1.ErrCannotCoverFee
 
-          (CoinSelHardErrMaxInputsReached _max_inputs _balance _target) ->
+          (CoinSelHardErrMaxInputsReached _max_inputs _balance _target _sortedUtxo) ->
                 V1.TooBigTransaction
 
           (CoinSelHardErrMaxInputsReached2 _txt) ->

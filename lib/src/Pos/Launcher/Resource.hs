@@ -33,8 +33,8 @@ import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
 import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
-import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam,
-                     configEpochSlots, configStartTime)
+import           Pos.Chain.Genesis as Genesis (Config, configEpochSlots,
+                     configStartTime)
 import           Pos.Chain.Ssc (SscParams, SscState, createSscContext)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
@@ -317,7 +317,7 @@ allocateNodeContext genesisConfig ancd txpSettings ekgStore = do
     logDebug "Created context for update"
     ncSscContext <- createSscContext sscnp
     logDebug "Created context for ssc"
-    ncSlogContext <- mkSlogContext (configBlkSecurityParam genesisConfig) store
+    ncSlogContext <- mkSlogContext genesisConfig store
     logDebug "Created context for slog"
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.

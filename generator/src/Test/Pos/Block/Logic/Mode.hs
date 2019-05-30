@@ -286,7 +286,7 @@ initBlockTestContext uc genesisConfig tp@TestParams {..} callback = do
             putLrcCtx _gscLrcContext
             btcUpdateContext <- mkUpdateContext epochSlots
             btcSscState <- mkSscState epochSlots
-            _gscSlogGState <- mkSlogGState
+            _gscSlogGState <- mkSlogGState genesisConfig
             btcTxpMem <- mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings genesisConfig _tpTxpConfiguration
             let btcSlotId = Nothing

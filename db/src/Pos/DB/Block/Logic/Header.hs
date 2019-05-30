@@ -29,8 +29,9 @@ import           Serokell.Util.Verify (VerificationRes (..))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (BlockHeader (..), ConsensusEraLeaders (..),
-                     HeaderHash, VerifyHeaderParams (..), headerHash,
-                     headerHashG, headerSlotL, prevBlockL, verifyHeader)
+                     HasSlogGState, HeaderHash, VerifyHeaderParams (..),
+                     headerHash, headerHashG, headerSlotL, prevBlockL,
+                     verifyHeader)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
                      configGenesisWStakeholders)
@@ -42,6 +43,7 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot), SlotId (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.GState.BlockExtra as GS
+import           Pos.DB.Block.Slog.Context (slogGetLastBlkSlots)
 import           Pos.DB.Block.Load (loadHeadersByDepth)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
@@ -50,6 +52,7 @@ import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Lrc.OBFT (getEpochSlotLeaderScheduleObft)
 import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)
 import           Pos.Util.Wlog (WithLogger, logDebug, logInfo)
+
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -76,7 +79,8 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- as ClassifyHeaderRes type.
 classifyNewHeader
     :: forall ctx m.
-    ( MonadSlots ctx m
+    ( HasSlogGState ctx
+    , MonadSlots ctx m
     , MonadDBRead m
     , MonadUnliftIO m
     , WithLogger m
@@ -119,9 +123,9 @@ classifyNewHeader genesisConfig (BlockHeaderMain header) = fmap (either identity
                     getEpochSlotLeaderScheduleObft genesisConfig
                                                    (siEpoch newHeaderSlot)
                 OBFT ObftLenient -> do
-                    lastBlkSlots <- GS.getLastSlots
                     let gStakeholders = Genesis.configGenesisWStakeholders genesisConfig
                         k = configBlkSecurityParam genesisConfig
+                    lastBlkSlots <- slogGetLastBlkSlots
                     pure $ ObftLenientLeaders (Set.fromList gStakeholders)
                                               k
                                               lastBlkSlots

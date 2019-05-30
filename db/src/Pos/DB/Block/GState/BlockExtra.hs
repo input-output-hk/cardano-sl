@@ -7,9 +7,7 @@
 module Pos.DB.Block.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
-       , getLastSlots
-       , putLastSlots
-       , rollbackLastSlots
+       , calcLastBlkSlots
        , upgradeLastSlotsVersion
        , getFirstGenesisBlockHash
        , BlockExtraOp (..)
@@ -33,12 +31,14 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader (..), HasHeaderHash,
                      HeaderHash, LastBlkSlots, LastSlotInfo (..), headerHash,
-                     mainHeaderLeaderKey, noLastBlkSlots, prevBlockL)
+                     mainHeaderLeaderKey, prevBlockL)
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Chain.Genesis (GenesisHash (..), configBlkSecurityParam,
                      configEpochSlots)
 import qualified Pos.Chain.Genesis as Genesis
-import           Pos.Core (FlatSlotId, SlotCount, flattenEpochOrSlot,
-                     getEpochOrSlot, slotIdF, unflattenSlotId)
+import           Pos.Core (BlockCount (..), FlatSlotId, SlotCount, addressHash,
+                     flattenEpochOrSlot, getEpochOrSlot, slotIdF,
+                     unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
@@ -46,7 +46,6 @@ import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
 import           Pos.DB.Class (MonadBlockDBRead, SerializedBlock, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Util (maybeThrow)
-import           Pos.Util.Wlog (CanLog)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -67,45 +66,31 @@ isBlockInMainChain h =
 
 -- | This function returns 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'.
-getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
-getLastSlots =
-    gsGetBi lastSlotsKey2 >>=
-        maybeThrow (DBMalformed "Last slots v2 not found in the global state DB")
-
-putLastSlots :: forall m . MonadDB m => LastBlkSlots -> m ()
-putLastSlots =
-    gsPutBi lastSlotsKey2
-
--- | Roll back slots.
--- This assumes that the tip header (retrieved via `getTipHeader` has already
--- been rolled back.
-rollbackLastSlots :: forall m . (CanLog m, MonadIO m, MonadDB m) => Genesis.Config -> m ()
-rollbackLastSlots genesisConfig = do
-    -- Simple is better. Find the 'FlatSlotId' of the tip header and then generate
-    -- the required 'LastBlkSlots' data from that.
-    gsPutBi lastSlotsKey2 =<< getLastSlotInfo genesisConfig
-
+calcLastBlkSlots :: forall m . MonadDBRead m => Genesis.Config -> m LastBlkSlots
+calcLastBlkSlots genesisConfig = do
+    xs <- calcLastSlotInfo genesisConfig
+    pure $ LastBlkSlots.fromList (fromIntegral . getBlockCount $ configBlkSecurityParam genesisConfig) xs
 
 -- | This function acts as a one time conversion from version 1 to version 2
 -- of the `LastBlkSlots` data type.
-upgradeLastSlotsVersion :: forall m . (MonadDB m, MonadIO m) => Genesis.Config -> m ()
-upgradeLastSlotsVersion genesisConfig =
-    gsGetBi oldLastSlotsKey >>= \case
-        Nothing -> pure () -- Assume it has already been converted.
-        Just (_ :: OldestFirst [] FlatSlotId) -> do
-            gsPutBi lastSlotsKey2 =<< getLastSlotInfo genesisConfig
-            gsDelete oldLastSlotsKey -- Delete the old key
+upgradeLastSlotsVersion :: forall m . MonadDB m => Genesis.Config -> m ()
+upgradeLastSlotsVersion _ = do
+    -- Delete both the old keys, because this is no longer stored in the DB.
+    gsDelete oldLastSlotsKey
+    gsDelete lastSlotsKey2
   where
-    -- This is the DB key for version 1 of the `LastBlksSlots` data type that only
-    -- contains a list of `FlatSlotId`s
+    -- The old DB keys that we no longer use.
     oldLastSlotsKey :: ByteString
     oldLastSlotsKey = "e/ls/"
+
+    lastSlotsKey2 :: ByteString
+    lastSlotsKey2 = "e/ls2/"
 
 
 -- Get the 'LastSlotInfo' data for the last 'k' (security paramenter) starting
 -- at the current blockchain tip.
-getLastSlotInfo :: (MonadDB m, MonadIO m) => Genesis.Config -> m LastBlkSlots
-getLastSlotInfo genesisConfig = do
+calcLastSlotInfo :: MonadDBRead m => Genesis.Config -> m (OldestFirst [] LastSlotInfo)
+calcLastSlotInfo genesisConfig = do
     th <- getTipHeader
     let thfsid = flattenEpochOrSlot (configEpochSlots genesisConfig) $ getEpochOrSlot th
         lastfsid =
@@ -114,7 +99,7 @@ getLastSlotInfo genesisConfig = do
                 else thfsid - fromIntegral (configBlkSecurityParam genesisConfig - 1)
     OldestFirst <$> convert th lastfsid []
   where
-    convert :: (MonadDB m, MonadIO m) => BlockHeader -> FlatSlotId -> [LastSlotInfo] -> m [LastSlotInfo]
+    convert :: MonadDBRead m => BlockHeader -> FlatSlotId -> [LastSlotInfo] -> m [LastSlotInfo]
     convert bh lastFsid !acc = do
         let bhFsid = flattenEpochOrSlot (configEpochSlots genesisConfig) $ getEpochOrSlot bh
         if bhFsid < lastFsid
@@ -122,7 +107,7 @@ getLastSlotInfo genesisConfig = do
             else do
                 let ys = case leaderKey bh of
                             Nothing -> acc
-                            Just lk -> LastSlotInfo bhFsid lk : acc
+                            Just lk -> LastSlotInfo bhFsid (addressHash lk) : acc
                 mnbh <- getHeader $ view prevBlockL bh
                 case mnbh of
                     Nothing  -> pure acc
@@ -167,7 +152,7 @@ buildBlockExtraOp epochSlots = later build'
         bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
     build' (SetLastSlots slots) =
         bprint ("SetLastSlots: "%listJson)
-        (map (bprint slotIdF . unflattenSlotId epochSlots . lsiFlatSlotId) slots)
+        (map (bprint slotIdF . unflattenSlotId epochSlots . lsiFlatSlotId) $ LastBlkSlots.getList slots)
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
@@ -178,8 +163,8 @@ instance RocksBatchOp BlockExtraOp where
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (serialize' ()) ]
-    toBatchOp (SetLastSlots slots) =
-        [Rocks.Put lastSlotsKey2 (serialize' slots)]
+    toBatchOp (SetLastSlots _) =
+        [{- No longer store this in the DB -}]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
@@ -281,7 +266,6 @@ initGStateBlockExtra :: MonadDB m => GenesisHash -> HeaderHash -> m ()
 initGStateBlockExtra genesisHash firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
     gsPutBi (forwardLinkKey $ getGenesisHash genesisHash) firstGenesisHash
-    gsPutBi lastSlotsKey2 noLastBlkSlots
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -292,7 +276,3 @@ forwardLinkKey h = "e/fl/" <> serialize' h
 
 mainChainKey :: HeaderHash -> ByteString
 mainChainKey h = "e/mc/" <> serialize' h
-
--- This is the DB key for version 2 of the `LastBlksSlots`.
-lastSlotsKey2 :: ByteString
-lastSlotsKey2 = "e/ls2/"

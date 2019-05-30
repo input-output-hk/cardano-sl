@@ -37,6 +37,7 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (ConsensusEraLeaders (..), HeaderHash,
                      headerLastSlotInfo, mkMainBlock, mkMainBlockExplicit)
 import qualified Pos.Chain.Block as Block
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import qualified Pos.Chain.Delegation as Core
 import           Pos.Chain.Genesis (GenesisHash (..))
 import           Pos.Chain.Update (ConsensusEra (..),
@@ -505,7 +506,7 @@ genHeaderAndParams pm era = do
                     pure $ ObftLenientLeaders
                             (Set.fromList $ mapMaybe (fmap Core.addressHash . Block.headerLeaderKey) headers)
                             blkSecurityParam
-                            (OldestFirst $ mapMaybe (headerLastSlotInfo slotsPerEpoch) headers)
+                            (LastBlkSlots.updateMany (LastBlkSlots.create (fromIntegral $ getBlockCount blkSecurityParam)) . OldestFirst $ mapMaybe (headerLastSlotInfo slotsPerEpoch) headers)
             , Block.vhpMaxSize = Just (biSize header)
             , Block.vhpVerifyNoUnknown = not hasUnknownAttributes
             , Block.vhpConsensusEra = era

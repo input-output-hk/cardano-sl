@@ -156,7 +156,7 @@ initExplorerTestContext tp@TestParams {..} = do
         DB.initNodeDBs dummyConfig
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
         let _gscLrcContext = LrcContext {..}
-        _gscSlogGState <- mkSlogGState
+        _gscSlogGState <- mkSlogGState dummyConfig
         _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
         let etcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
         etcSSlottingVar <- mkSimpleSlottingStateVar dummyEpochSlots

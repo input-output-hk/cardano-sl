@@ -26,7 +26,7 @@ import           Data.Time.Clock (UTCTime, getCurrentTime, diffUTCTime)
 import           Formatting (build, sformat, shown, (%))
 
 import           Pos.Chain.Block (ApplyBlocksException (..), Block,
-                     BlockHeader (..), Blund, HeaderHash,
+                     BlockHeader (..), Blund, HasSlogGState, HeaderHash,
                      RollbackException (..), Undo (..),
                      VerifyBlocksException (..), headerHash, headerHashG,
                      mainHeaderSlot, prevBlockL)
@@ -80,6 +80,7 @@ import           Pos.Util.Wlog (logDebug)
 verifyBlocksPrefix
     :: forall ctx m.
        ( MonadBlockVerify ctx m
+       , HasSlogGState ctx
        )
     => Genesis.Config
     -> Maybe SlotId -- ^ current slot to verify that headers are not from future slots

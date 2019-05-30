@@ -36,7 +36,8 @@ import           Pos.Chain.Block.Header (BlockHeader (..), HasHeaderHash (..),
 import           Pos.Chain.Block.IsHeader (headerSlotL)
 import           Pos.Chain.Block.Main (mebAttributes, mehAttributes)
 import           Pos.Chain.Block.Slog (ConsensusEraLeaders (..),
-                     LastSlotInfo (..))
+                     LastBlkSlots)
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxValidationRules)
 import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
@@ -211,7 +212,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
                         ,   ( obftLeaderCanMint blockSlotLeader blkSecurityParam lastBlkSlots
                             , sformat ("ObftLenient: slot leader who published block, "%build%", has minted too many blocks ("% build %") in the past "%build%" slots.")
                                     blockSlotLeader
-                                    (blocksMintedByLeaderInLastKSlots blockSlotLeader $ getOldestFirst lastBlkSlots)
+                                    (blocksMintedByLeaderInLastKSlots blockSlotLeader lastBlkSlots)
                                     (getBlockCount blkSecurityParam)
                             )
                         ]
@@ -240,16 +241,14 @@ verifyHeader pm VerifyHeaderParams {..} h =
       where
         -- Determine whether the leader is allowed to mint a block based on
         -- whether blocksMintedByLeaderInLastKSlots <= floor (k * t)
-        obftLeaderCanMint :: AddressHash PublicKey -> BlockCount -> OldestFirst [] LastSlotInfo -> Bool
-        obftLeaderCanMint leaderAddrHash blkSecurityParam (OldestFirst lastBlkSlots) =
+        obftLeaderCanMint :: AddressHash PublicKey -> BlockCount -> LastBlkSlots -> Bool
+        obftLeaderCanMint leaderAddrHash blkSecurityParam lastBlkSlots =
             blocksMintedByLeaderInLastKSlots leaderAddrHash lastBlkSlots
                 <= leaderMintThreshold blkSecurityParam
 
-        blocksMintedByLeaderInLastKSlots :: AddressHash PublicKey -> [LastSlotInfo] -> Int
+        blocksMintedByLeaderInLastKSlots :: AddressHash PublicKey -> LastBlkSlots -> Int
         blocksMintedByLeaderInLastKSlots leaderAddrHash lastBlkSlots =
-            length $
-                filter (\lsi -> leaderAddrHash == (addressHash $ lsiLeaderPubkeyHash lsi))
-                       lastBlkSlots
+            LastBlkSlots.getKeyCount lastBlkSlots leaderAddrHash
 
         leaderMintThreshold :: BlockCount -> Int
         leaderMintThreshold blkSecurityParam =

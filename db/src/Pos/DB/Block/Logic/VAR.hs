@@ -43,17 +43,18 @@ import           Pos.DB.Block.Logic.Internal (BypassSecurityCheck (..),
                      MonadMempoolNormalization, applyBlocksUnsafe,
                      normalizeMempool, rollbackBlocksUnsafe, toSscBlock,
                      toTxpBlock, toUpdateBlock)
-import           Pos.DB.BlockIndex (getTipHeader)
-import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.DB.Block.Logic.SplitByEpoch (splitByEpoch)
+import           Pos.DB.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.DB.Block.Slog.Logic (ShouldCallBListener (..),
                      mustDataBeKnown, slogVerifyBlocks)
+import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Delegation (dlgVerifyBlocks)
 import qualified Pos.DB.GState.Common as GS (getTip, writeBatchGState)
 import           Pos.DB.Ssc (sscVerifyBlocks)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import           Pos.DB.Update (getAdoptedBV, getConsensusEra, usApplyBlocks, usVerifyBlocks)
+import           Pos.DB.Update (getAdoptedBV, getConsensusEra, usApplyBlocks,
+                     usVerifyBlocks)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (logDebug)
@@ -187,7 +188,7 @@ rollingVerifyAndApply genesisConfig curSlot rollback blunds (prefix : suffix) = 
 
     if isLeft prefixHead
         then do
-            -- This is an EEB for the Original era.
+            -- This is an EBB for the Original era.
             logDebug $ "Rolling: Calculating LRC if needed for epoch "
                     <> pretty epochIndex
             lift $ lrcSingleShot genesisConfig epochIndex

@@ -100,7 +100,8 @@ import           Pos.Chain.Update.BlockVersion (BlockVersion,
 import           Pos.Chain.Update.SoftwareVersion (HasSoftwareVersion (..),
                      SoftwareVersion)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..), addressHash)
+import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..),
+                     addressHash)
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      HasEpochIndex (..), HasEpochOrSlot (..), SlotCount (..),
                      SlotId (..), flattenSlotId, slotIdF)
@@ -185,6 +186,10 @@ headerLastSlotInfo slotCount = \case
     convert bh =
         LastSlotInfo
             (flattenSlotId slotCount . _mcdSlot $ _gbhConsensus bh)
+            -- Since _mcdLeaderKey is confirmed (see comment in function
+            -- `mkMainHeaderExplicit`) to be the delegator's key, we will be
+            -- enforcing block-minting-count thresholds by the delegator's key,
+            -- which is the desired behavior.
             (addressHash . _mcdLeaderKey $ _gbhConsensus bh)
 
 --------------------------------------------------------------------------------
@@ -427,6 +432,17 @@ mkMainHeaderExplicit pm prevHash difficulty slotId sk pske body extra =
                (BlockSignature $ sign pm SignMainBlock sk toSign)
                (makeSignature toSign)
                pske
+    -- If `pske :: ProxySKBlockInfo` is Just, indicating delegation, we use
+    -- the PublicKey of the delegator (in Original era, this is the Stakeholder
+    -- whose stake was selected by FTS. In OBFT era, this is the Genesis
+    -- Stakeholder, selected via round-robin. In both cases, the delegator is
+    -- delegating the right to mint a block to the delegatee).
+    --
+    -- If `pske :: ProxySKBlockInfo` is Nothing, we use `toPublic` of the `pk`
+    -- provided, which should be provided by the node issuing the block who was
+    -- thus selected themselves. See `db/src/Pos/DB/Block/Logic/Creation.hs`
+    -- for the top of the function call chain which provides the `pk` which
+    -- makes its way down to here.
     leaderPk = maybe (toPublic sk) snd pske
     consensus =
         MainConsensusData

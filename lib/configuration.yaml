@@ -15297,7 +15297,7 @@ obft_testnet_short: &devnet
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
-      bvMajor: 0
+      bvMajor: 1
       bvMinor: 0
       bvAlt: 0
     systemTag: none

@@ -26,6 +26,7 @@ import           Formatting (int, sformat, (%))
 import           Pos.Chain.Block (BlockHeader, HasBlockConfiguration,
                      HasSlogGState, HeaderHash, LastSlotInfo (..), fixedTimeCQ,
                      headerHash, prevBlockL)
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Core (BlockCount, FlatSlotId, SlotCount, Timestamp (..),
                      difficultyL, flattenSlotId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -33,7 +34,7 @@ import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Slotting (MonadSlots (..), getCurrentSlotFlat,
                      slotFromTimestamp)
 import           Pos.DB.Block.GState.BlockExtra (isBlockInMainChain)
-import           Pos.DB.Block.Slog.Context (slogGetLastSlots)
+import           Pos.DB.Block.Slog.Context (slogGetLastBlkSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead)
 import           Pos.Util (_neHead)
@@ -110,7 +111,7 @@ calcChainQualityM
     -> FlatSlotId
     -> m (Maybe res)
 calcChainQualityM k newSlot = do
-    OldestFirst lastSlots <- slogGetLastSlots
+    lastSlots <- LastBlkSlots.getList <$> slogGetLastBlkSlots
     let len = length lastSlots
     case nonEmpty lastSlots of
         Nothing -> return Nothing
@@ -172,7 +173,7 @@ calcChainQualityFixedTime epochSlots = do
     (,) <$> slotFromTimestamp epochSlots olderTime <*> getCurrentSlotFlat epochSlots >>= \case
         (Just (flattenSlotId epochSlots -> olderSlotId), Just currentSlotId) ->
             calcChainQualityFixedTimeDo olderSlotId currentSlotId <$>
-                (lsiFlatSlotId <<$>> slogGetLastSlots)
+                (fmap lsiFlatSlotId . LastBlkSlots.lbsList <$> slogGetLastBlkSlots)
         _ -> return Nothing
   where
     -- 'lastSlots' contains slots of last 'k' blocks.

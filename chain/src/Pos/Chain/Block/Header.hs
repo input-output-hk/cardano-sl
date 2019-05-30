@@ -100,7 +100,7 @@ import           Pos.Chain.Update.BlockVersion (BlockVersion,
 import           Pos.Chain.Update.SoftwareVersion (HasSoftwareVersion (..),
                      SoftwareVersion)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
+import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..), addressHash)
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      HasEpochIndex (..), HasEpochOrSlot (..), SlotCount (..),
                      SlotId (..), flattenSlotId, slotIdF)
@@ -185,7 +185,7 @@ headerLastSlotInfo slotCount = \case
     convert bh =
         LastSlotInfo
             (flattenSlotId slotCount . _mcdSlot $ _gbhConsensus bh)
-            (_mcdLeaderKey $ _gbhConsensus bh)
+            (addressHash . _mcdLeaderKey $ _gbhConsensus bh)
 
 --------------------------------------------------------------------------------
 -- HeaderHash

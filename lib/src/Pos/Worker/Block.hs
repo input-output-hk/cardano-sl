@@ -29,6 +29,7 @@ import           Pos.Chain.Block (BlockHeader (..), HasBlockConfiguration,
                      scCQkMonitorState, scCrucialValuesLabel,
                      scDifficultyMonitorState, scEpochMonitorState,
                      scGlobalSlotMonitorState, scLocalSlotMonitorState)
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
@@ -52,7 +53,7 @@ import           Pos.DB (gsIsBootstrapEra)
 import           Pos.DB.Block (calcChainQualityFixedTime, calcChainQualityM,
                      calcOverallChainQuality, createGenesisBlockAndApply,
                      createMainBlockAndApply, getBlund, lrcSingleShot,
-                     normalizeMempool, rollbackBlocks, slogGetLastSlots)
+                     normalizeMempool, rollbackBlocks, slogGetLastBlkSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
@@ -419,7 +420,7 @@ metricWorker
     :: BlockWorkMode ctx m
     => BlockCount -> SlotId -> m ()
 metricWorker k curSlot = do
-    OldestFirst lastSlots <- slogGetLastSlots
+    lastSlots <- LastBlkSlots.lbsList <$> slogGetLastBlkSlots
     reportTotalBlocks
     reportSlottingData (kEpochSlots k) curSlot
     reportCrucialValues k
@@ -428,7 +429,7 @@ metricWorker k curSlot = do
     -- 1. Usually after we deploy cluster we monitor it manually for a while.
     -- 2. Sometimes we deploy after start time, so chain quality may indeed by
     --    poor right after launch.
-    case nonEmpty lastSlots of
+    case nonEmpty (getOldestFirst lastSlots) of
         Nothing -> pass
         Just slotsNE
             | length slotsNE < fromIntegral k -> pass

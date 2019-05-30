@@ -30,6 +30,7 @@ import           Data.Validated
 import           Universum
 
 import           Pos.Chain.Block
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Chain.Genesis
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
@@ -244,7 +245,7 @@ verifyBlocksPrefix era blocks txValRules =
         era
         Nothing
         ccInitLeaders
-        (OldestFirst [])
+        (LastBlkSlots.create 0) -- WTF? This is be because copy-paste.
         (Right <$> geb ::  OldestFirst NE Block)
     validateSuccEpoch :: ProtocolMagic
                       -> TxValidationRules
@@ -259,7 +260,7 @@ verifyBlocksPrefix era blocks txValRules =
         Nothing
         -- FIXME: Hardcoded `Original`
         (OriginalLeaders (ebb ^. gbBody . gbLeaders))
-        (OldestFirst []) -- ^ TODO pass these?
+        (LastBlkSlots.create 0) -- WTF? This is be because copy-paste.
         (Right <$> emb)
 
 -- | Blocks inside an epoch

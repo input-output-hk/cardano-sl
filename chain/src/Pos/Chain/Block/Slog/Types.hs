@@ -3,7 +3,6 @@
 module Pos.Chain.Block.Slog.Types
        ( LastBlkSlots
        , LastSlotInfo (..)
-       , noLastBlkSlots
 
        , ConsensusEraLeaders (..)
 
@@ -19,49 +18,18 @@ module Pos.Chain.Block.Slog.Types
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet as CC
 import           Control.Lens (makeClassy)
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.ByteString.Char8 as BS
-import           Formatting (Format, bprint, int, later, string, (%))
-import qualified Formatting.Buildable as Buildable
+import           Formatting (Format, bprint, later)
 
 import           System.Metrics.Label (Label)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Chain.Block.Slog.LastBlkSlots (LastBlkSlots, LastSlotInfo (..))
 import           Pos.Core (BlockCount, ChainDifficulty, EpochIndex, FlatSlotId,
                      LocalSlotIndex, SlotCount, SlotLeaders, StakeholderId,
                      slotIdF, unflattenSlotId)
-import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Reporting (MetricMonitorState)
-import           Pos.Crypto (PublicKey (..))
 
-
-data LastSlotInfo = LastSlotInfo
-    { lsiFlatSlotId       :: !FlatSlotId
-    -- ^ The flattened SlotId of this block.
-    , lsiLeaderPubkeyHash :: !PublicKey
-    -- ^ The hash of the public key of the slot leader for this slot.
-    } deriving (Eq, Show, Generic)
-
-instance Buildable LastSlotInfo where
-    build (LastSlotInfo i (PublicKey pk)) =
-        bprint ( "LastSlotInfo "% int %" "% string)
-            i (take 16 . BS.unpack . B16.encode $ CC.xpubPublicKey pk)
-
-instance NFData LastSlotInfo
-
--- | This type contains 'FlatSlotId's of the blocks whose depth is
--- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
--- 'SlotId', because the main use case is chain quality calculation,
--- for which flat slot is more convenient.
--- Version 1 of this data type was:
---      type LastBlkSlots = OldestFirst [] FlatSlotId
-type LastBlkSlots = OldestFirst [] LastSlotInfo
-
-
-noLastBlkSlots :: LastBlkSlots
-noLastBlkSlots = OldestFirst []
 
 -- | This data type is used for block verification. It specifies which slot
 -- leader verification algorithm to use and the parameters required to do so.
@@ -146,10 +114,3 @@ deriveSimpleBi ''SlogUndo [
     Cons 'SlogUndo [
         Field [| getSlogUndo  :: Maybe FlatSlotId |]
     ]]
-
-deriveSimpleBi ''LastSlotInfo [
-    Cons 'LastSlotInfo [
-        Field [| lsiFlatSlotId :: FlatSlotId |],
-        Field [| lsiLeaderPubkeyHash :: PublicKey |]
-        ]
-    ]

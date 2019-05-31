@@ -438,10 +438,10 @@ mkMainHeaderExplicit pm prevHash difficulty slotId sk pske body extra =
     -- Stakeholder, selected via round-robin. In both cases, the delegator is
     -- delegating the right to mint a block to the delegatee).
     --
-    -- If `pske :: ProxySKBlockInfo` is Nothing, we use `toPublic` of the `pk`
+    -- If `pske :: ProxySKBlockInfo` is Nothing, we use `toPublic` of the `sk`
     -- provided, which should be provided by the node issuing the block who was
     -- thus selected themselves. See `db/src/Pos/DB/Block/Logic/Creation.hs`
-    -- for the top of the function call chain which provides the `pk` which
+    -- for the top of the function call chain which provides the `sk` which
     -- makes its way down to here.
     leaderPk = maybe (toPublic sk) snd pske
     consensus =

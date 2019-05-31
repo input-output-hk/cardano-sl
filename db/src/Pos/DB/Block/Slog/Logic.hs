@@ -36,9 +36,10 @@ import           Pos.Chain.Block (Block, Blund, ConsensusEraLeaders (..),
                      HasSlogGState, LastBlkSlots, LastSlotInfo (..),
                      SlogUndo (..), blockLastSlotInfo, genBlockLeaders,
                      headerHash, headerHashG, prevBlockL, verifyBlocks)
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
-                     configGenesisWStakeholders, configK)
+                     configGenesisWStakeholders)
 import           Pos.Chain.Txp (mkLiveTxValidationRules)
 import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
                      ObftConsensusStrictness (..), UpdateConfiguration,
@@ -55,7 +56,8 @@ import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
 import           Pos.DB.Block.Load (putBlunds)
-import           Pos.DB.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
+import           Pos.DB.Block.Slog.Context (slogGetLastBlkSlots,
+                     slogPutLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
@@ -136,7 +138,7 @@ type MonadSlogVerify ctx m =
 -- 2.  Call pure verification. If it fails, throw.
 -- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
-    :: MonadSlogVerify ctx m
+    :: (MonadSlogVerify ctx m, HasSlogGState ctx)
     => Genesis.Config
     -> Maybe SlotId -- ^ current slot
     -> OldestFirst NE Block
@@ -149,7 +151,7 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
 
 
-    lastSlots <- lift GS.getLastSlots
+    lastBlkSlots <- slogGetLastBlkSlots
 
     leaders <- case era of
         Original ->
@@ -177,7 +179,7 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
             pure $
                 ObftLenientLeaders (Set.fromList gStakeholders)
                                    (configBlkSecurityParam genesisConfig)
-                                   lastSlots
+                                   lastBlkSlots
 
 
     -- This is pretty much equivalent to performing a case on `era` since the
@@ -220,14 +222,8 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     let newSlots :: [LastSlotInfo]
         newSlots =
             mapMaybe (blockLastSlotInfo (configEpochSlots genesisConfig)) $ toList blocks
-    let combinedSlots :: LastBlkSlots
-        combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
-    -- these slots will be removed if we apply all blocks, because we store
-    -- only limited number of slots
-    let removedSlots :: LastBlkSlots
-        removedSlots =
-            combinedSlots & _Wrapped %~
-                (take $ length combinedSlots - configK genesisConfig)
+
+    let removedSlots = snd $ LastBlkSlots.updateManyR lastBlkSlots (OldestFirst newSlots)
 
     -- Note: here we exploit the fact that genesis block can be only 'head'.
     -- If we have genesis block, then size of 'newSlots' will be less than
@@ -295,7 +291,7 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
         newestDifficulty = newestBlock ^. difficultyL
     let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
 
-    lastSlots <- slogGetLastSlots
+    lastSlots <- slogGetLastBlkSlots
     slogPutLastSlots $ newLastSlots lastSlots
 
     putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
@@ -315,24 +311,16 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
         toList $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
 
+    blockExtraBatch :: [GS.BlockExtraOp]
+    blockExtraBatch =
+        mconcat [forwardLinksBatch, inMainBatch]
+
     newSlots :: [LastSlotInfo]
     newSlots = mapMaybe (blockLastSlotInfo (kEpochSlots k)) $ toList blocks
 
     newLastSlots :: LastBlkSlots -> LastBlkSlots
-    newLastSlots = OldestFirst . updateLastSlots . getOldestFirst
-
-    -- Slots are in 'OldestFirst' order. So we put new slots to the
-    -- end and drop old slots from the beginning.
-    updateLastSlots :: [LastSlotInfo] -> [LastSlotInfo]
-    updateLastSlots lastSlots =
-        leaveAtMostN (fromIntegral k) (lastSlots ++ newSlots)
-
-    leaveAtMostN :: Int -> [a] -> [a]
-    leaveAtMostN n lst = drop (length lst - n) lst
-
-    blockExtraBatch :: [GS.BlockExtraOp]
-    blockExtraBatch =
-        mconcat [forwardLinksBatch, inMainBatch]
+    newLastSlots lbs =
+        LastBlkSlots.updateMany lbs $ OldestFirst newSlots
 
 
 newtype BypassSecurityCheck = BypassSecurityCheck Bool
@@ -390,7 +378,7 @@ slogRollbackBlocks genesisConfig (BypassSecurityCheck bypassSecurity) (ShouldCal
             SomeBatchOp $ GS.PutTip $
             (NE.last $ getNewestFirst blunds) ^. prevBlockL
 
-    lastSlots <- slogGetLastSlots
+    lastSlots <- slogGetLastBlkSlots
     slogPutLastSlots $ newLastSlots lastSlots
 
     return $
@@ -403,36 +391,19 @@ slogRollbackBlocks genesisConfig (BypassSecurityCheck bypassSecurity) (ShouldCal
     forwardLinksBatch =
         map (GS.RemoveForwardLink . view prevBlockL) $ toList blocks
 
+    blockExtraBatch :: [GS.BlockExtraOp]
+    blockExtraBatch =
+        mconcat [forwardLinksBatch, inMainBatch]
+
     lastSlotsToAppend :: [LastSlotInfo]
     lastSlotsToAppend =
         mapMaybe (blockLastSlotInfo (configEpochSlots genesisConfig) . fst)
             $ toList (toOldestFirst blunds)
 
     newLastSlots :: LastBlkSlots -> LastBlkSlots
-    newLastSlots = OldestFirst . updateLastSlots . getOldestFirst
+    newLastSlots lbs =
+        LastBlkSlots.updateMany lbs $ OldestFirst lastSlotsToAppend
 
-    -- 'lastSlots' is what we currently store. It contains at most
-    -- 'blkSecurityParam' slots. 'lastSlotsToAppend' are slots for
-    -- main blocks which are 'blkSecurityParam' far from the blocks we
-    -- want to rollback.  Concatenation of these lists contains slots
-    -- of some sequence of blocks. The last block in this sequence is
-    -- the last block we rollback. The length of this sequence is
-    -- 'min(total, n + blkSecurityParam)', where 'n' is the number of
-    -- main blocks we want to rollback and 'total' is the total number
-    -- of main blocks in our chain. So the final step is to drop last
-    -- 'n' slots from this list.
-
-    updateLastSlots :: [LastSlotInfo] -> [LastSlotInfo]
-    updateLastSlots lastSlots =
-        dropEnd (length $ filter isRight $ toList blocks) $
-            lastSlots ++ lastSlotsToAppend
-
-    blockExtraBatch :: [GS.BlockExtraOp]
-    blockExtraBatch =
-        mconcat [forwardLinksBatch, inMainBatch]
-
-dropEnd :: Int -> [a] -> [a]
-dropEnd n xs = take (length xs - n) xs
 
 isGenesis0 :: HasEpochIndex s => Either s b -> Bool
 isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0

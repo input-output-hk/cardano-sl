@@ -28,6 +28,7 @@ import           Serokell.Util (listJson)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block
+import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Genesis (GenesisData (..))
 import           Pos.Chain.Txp
@@ -238,7 +239,7 @@ verifyBlocksPrefix
     -> LastBlkSlots        -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify VerifyBlocksException (OldestFirst NE Undo)
-verifyBlocksPrefix pm txValRules tip era curSlot leaders lastSlots blocks = do
+verifyBlocksPrefix pm txValRules tip era curSlot leaders lastBlkSlots blocks = do
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
 
@@ -246,7 +247,7 @@ verifyBlocksPrefix pm txValRules tip era curSlot leaders lastSlots blocks = do
 
     -- Verify block envelope
     slogUndos <- mapVerifyErrors VerifyBlocksError $
-                   slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks
+                   slogVerifyBlocks era curSlot txValRules leaders lastBlkSlots blocks
 
     -- We skip SSC verification
     {-
@@ -307,7 +308,7 @@ slogVerifyBlocks
     -> LastBlkSlots         -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify Text (OldestFirst NE SlogUndo)
-slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
+slogVerifyBlocks era curSlot txValRules leaders lastBlkSlots blocks = do
     adoptedBVD <- gsAdoptedBVData
 
     case leaders of
@@ -323,7 +324,7 @@ slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
         ObftStrictLeaders _ -> pass
         ObftLenientLeaders {} -> pass
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
-        lastBlkSlotsAndK = Just (lastSlots, dummyK)
+        lastBlkSlotsAndK = Just (lastBlkSlots, dummyK)
     -- eos assumes `curSlot` is in fact the current slot
     verResToMonadError formatAllErrors $
         verifyBlocks dummyConfig
@@ -340,14 +341,10 @@ slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
     -- these slots will be added if we apply all blocks
     let newSlots = mapMaybe (blockLastSlotInfo dummyEpochSlots) $ toList blocks
-    let combinedSlots :: LastBlkSlots
-        combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
-    -- these slots will be removed if we apply all blocks, because we store
-    -- only limited number of slots
-    let removedSlots :: LastBlkSlots
-        removedSlots =
-            combinedSlots & _Wrapped %~
-            (take $ length combinedSlots - fromIntegral dummyK)
+
+
+    let removedSlots = snd $ LastBlkSlots.updateManyR lastBlkSlots (OldestFirst newSlots)
+
     -- Note: here we exploit the fact that genesis block can be only 'head'.
     -- If we have genesis block, then size of 'newSlots' will be less than
     -- number of blocks we verify. It means that there will definitely

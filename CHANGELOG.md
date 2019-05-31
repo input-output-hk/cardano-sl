@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Cardano SL 3.0.2
+
+### Fixes
+
+- Fix issue that caused the node to lose sync with the chain in the OBFT era and then fail to re-sync once out of sync ([CBR-525]https://iohk.myjetbrains.com/youtrack/issue/CBR-525) [#4153](https://github.com/input-output-hk/cardano-sl/pull/4153))
+
 ## Cardano SL 3.0.1
 
 ### Fixes

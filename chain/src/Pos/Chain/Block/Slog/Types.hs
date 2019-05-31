@@ -24,7 +24,8 @@ import           Formatting (Format, bprint, later)
 import           System.Metrics.Label (Label)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Chain.Block.Slog.LastBlkSlots (LastBlkSlots, LastSlotInfo (..))
+import           Pos.Chain.Block.Slog.LastBlkSlots (LastBlkSlots,
+                     LastSlotInfo (..))
 import           Pos.Core (BlockCount, ChainDifficulty, EpochIndex, FlatSlotId,
                      LocalSlotIndex, SlotCount, SlotLeaders, StakeholderId,
                      slotIdF, unflattenSlotId)

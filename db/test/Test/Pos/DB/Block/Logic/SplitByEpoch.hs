@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Test.Pos.DB.Block.Logic.SplitByEpoch
   ( tests
@@ -17,7 +17,7 @@ import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import           Pos.Core (HasEpochIndex (..), EpochIndex (..))
+import           Pos.Core (EpochIndex (..), HasEpochIndex (..))
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.DB.Block (concatEpochs, splitByEpoch)
 

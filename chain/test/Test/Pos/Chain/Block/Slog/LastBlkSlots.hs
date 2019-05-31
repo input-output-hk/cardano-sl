@@ -14,7 +14,8 @@ import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import           Pos.Chain.Block.Slog.LastBlkSlots (LastSlotInfo (..), LastBlkSlots)
+import           Pos.Chain.Block.Slog.LastBlkSlots (LastBlkSlots,
+                     LastSlotInfo (..))
 import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Core (AddressHash, unsafeAddressHash)
 import           Pos.Core.Chrono (OldestFirst (..))
@@ -41,7 +42,7 @@ getNextLastSlotInfo :: [LastSlotInfo] -> Gen LastSlotInfo
 getNextLastSlotInfo xs = do
     lsi <- case xs of
                 [] -> Gen.word64 $ Range.linear 0 20000
-                _ -> pure $ 1 + List.last (map lsiFlatSlotId xs)
+                _  -> pure $ 1 + List.last (map lsiFlatSlotId xs)
     LastSlotInfo (lsi + 1) <$> genPublicKeyAddressHash
 
 genLastBlkSlots :: Gen LastBlkSlots

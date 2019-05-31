@@ -56,7 +56,8 @@ import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
 import           Pos.DB.Block.Load (putBlunds)
-import           Pos.DB.Block.Slog.Context (slogGetLastBlkSlots, slogPutLastSlots)
+import           Pos.DB.Block.Slog.Context (slogGetLastBlkSlots,
+                     slogPutLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS

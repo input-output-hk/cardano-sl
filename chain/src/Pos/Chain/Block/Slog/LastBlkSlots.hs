@@ -66,8 +66,8 @@ instance NFData LastSlotInfo
 --          } deriving (Eq, Show, Generic)
 data LastBlkSlots = LastBlkSlots
     { lbsCount :: !Int
-    , lbsList :: !(OldestFirst [] LastSlotInfo)
-    , lbsMap :: !(Map (AddressHash PublicKey) Int)
+    , lbsList  :: !(OldestFirst [] LastSlotInfo)
+    , lbsMap   :: !(Map (AddressHash PublicKey) Int)
     } deriving (Eq, Show, Generic)
 
 instance NFData LastBlkSlots
@@ -129,7 +129,7 @@ increment :: Map (AddressHash PublicKey) Int -> AddressHash PublicKey -> Map (Ad
 increment m k =
     Map.alter incr k m
   where
-    incr Nothing = Just 1
+    incr Nothing  = Just 1
     incr (Just x) = Just $ x + 1
 
 decrement :: Map (AddressHash PublicKey) Int -> AddressHash PublicKey -> Map (AddressHash PublicKey) Int

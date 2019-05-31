@@ -19,7 +19,8 @@ import qualified System.Metrics as Ekg
 import           Pos.Chain.Block (HasBlockConfiguration, HasSlogGState (..),
                      LastBlkSlots, SlogContext (..), SlogGState (..),
                      fixedTimeCQSec, sgsLastBlkSlots)
-import           Pos.Chain.Genesis as Genesis (Config (..), configBlkSecurityParam)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam)
 import           Pos.Core (BlockCount (..))
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 import           Pos.Core.Reporting (MetricMonitorState, mkMetricMonitorState)

@@ -43,8 +43,8 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot), SlotId (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.GState.BlockExtra as GS
-import           Pos.DB.Block.Slog.Context (slogGetLastBlkSlots)
 import           Pos.DB.Block.Load (loadHeadersByDepth)
+import           Pos.DB.Block.Slog.Context (slogGetLastBlkSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
 import qualified Pos.DB.GState.Common as GS (getTip)

@@ -35,8 +35,7 @@ import           Pos.Chain.Block.Header (BlockHeader (..), HasHeaderHash (..),
                      mainHeaderLeaderKey, verifyBlockHeader)
 import           Pos.Chain.Block.IsHeader (headerSlotL)
 import           Pos.Chain.Block.Main (mebAttributes, mehAttributes)
-import           Pos.Chain.Block.Slog (ConsensusEraLeaders (..),
-                     LastBlkSlots)
+import           Pos.Chain.Block.Slog (ConsensusEraLeaders (..), LastBlkSlots)
 import qualified Pos.Chain.Block.Slog.LastBlkSlots as LastBlkSlots
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxValidationRules)

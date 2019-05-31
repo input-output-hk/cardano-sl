@@ -50,13 +50,13 @@ splitByEpoch splitFirst input =
     handleEpoch :: [a] -> [OldestFirst NE a]
     handleEpoch xs =
         case xs of
-            [] -> []
-            [x] -> [OldestFirst $ x :| []]
+            []       -> []
+            [x]      -> [OldestFirst $ x :| []]
             (x:y:ys) -> map OldestFirst [x :| [], y :| ys]
 
 -- The reverse of 'splitByEpoch'.
 concatEpochs :: [OldestFirst NE a] -> Maybe (OldestFirst NE a)
 concatEpochs xs =
     case concatMap (NE.toList . getOldestFirst) xs of
-        [] -> Nothing
+        []     -> Nothing
         (y:ys) -> Just (OldestFirst $ y :| ys)

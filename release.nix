@@ -244,6 +244,7 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       jobsets.tests.shellcheck
       jobsets.tests.stylishHaskell
       jobsets.tests.swaggerSchemaValidation
+      jobsets.cardano-sl-explorer-frontend.x86_64-linux
       (recursiveFlattenAttrs jobsets.nix-tools.benchmarks)
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.libs)))
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.exes)))

@@ -20,7 +20,8 @@ let
   wallet = connect {
     inherit environment stateDir;
 
-    # This will limit heap size to 1GB, along with the usual RTS options.
+    # This will limit heap size to 1GB, and add heap profiling, along
+    # with the usual RTS options.
     ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G -h";
   };
 
@@ -156,7 +157,6 @@ in
     hp2pretty cardano-node.hp
 
     if [ -n "$BUILDKITE" ]; then
-      buildkite-agent artifact upload cardano-node.hp
       buildkite-agent artifact upload cardano-node.svg
       printf '\033]1338;url='"artifact://cardano-node.svg"';alt='"Heap profile"'\a\n'
     fi

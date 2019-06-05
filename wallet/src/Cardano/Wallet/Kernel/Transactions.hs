@@ -35,10 +35,11 @@ import           Data.Default (def)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
+import           Serokell.Data.Memory.Units (toBytes)
 import qualified System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Formatting (bprint, build, sformat, (%), shown)
+import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
 
 import           Cardano.Crypto.Wallet (DerivationIndex)
@@ -82,8 +83,8 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
                      PublicKey, RedeemSecretKey, SafeSigner (..),
                      ShouldCheckPassphrase (..), Signature (..), hash,
                      redeemToPublic)
-import           UTxO.Util (shuffleNE)
 import           Pos.Util.Wlog
+import           UTxO.Util (shuffleNE)
 
 {-------------------------------------------------------------------------------
   Generating payments and estimating fees
@@ -177,7 +178,7 @@ pay activeWallet spendingPassword opts accountId payees = do
              Left e      -> return (Left $ PaymentNewTransactionError e)
              Right (txAux, partialMeta, _utxo) -> do
                  let sz = fromIntegral $ BL.length $ serialize txAux
-                 maxSz <- Node.getMaxTxSize (walletPassive activeWallet ^. walletNode)
+                 maxSz <- toBytes <$> Node.getMaxTxSize (walletPassive activeWallet ^. walletNode)
                  if sz >= maxSz then
                      return
                      . Left

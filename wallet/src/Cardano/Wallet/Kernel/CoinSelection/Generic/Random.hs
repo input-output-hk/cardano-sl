@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.Wallet.Kernel.CoinSelection.Generic.Random (
     PrivacyMode(..)
@@ -33,10 +33,24 @@ random :: forall utxo m. (MonadRandom m, PickFromUtxo utxo)
        -> Word64              -- ^ Maximum number of inputs
        -> [Output (Dom utxo)] -- ^ Outputs to include
        -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
-random privacyMode = coinSelPerGoal $ \maxNumInputs goal ->
-    defCoinSelResult goal <$>
-      inRange maxNumInputs (target privacyMode (outVal goal))
+random privacyMode maxNumInputs outs =
+    coinSelPerGoal step maxNumInputs outs
   where
+    -- | Perform a coin selection on the next output using the remaining
+    -- inputs. `coinSelPerGoal` reduces the UTxO (and the number of allowed)
+    -- inputs as it maps over the outputs. So, in the first iteration we have:
+    --
+    -- `remainingNumInputs == maxNumInputs`, and for the second one, we have
+    --
+    -- `remainingNumInputs == maxNumInputs - k`, where `k` is the number of
+    -- inputs selected during the first iteration.
+    step
+        :: Word64
+        -> Output (Dom utxo)
+        -> CoinSelT utxo CoinSelHardErr m (CoinSelResult (Dom utxo))
+    step remainingNumInputs out = defCoinSelResult out <$>
+        inRange remainingNumInputs (target privacyMode (outVal out))
+
     target :: PrivacyMode -> Value (Dom utxo) -> TargetRange (Dom utxo)
     target PrivacyModeOn  val = fromMaybe (target PrivacyModeOff val)
                                           (idealRange val)

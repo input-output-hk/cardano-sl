@@ -35,6 +35,7 @@ import           Data.Default (def)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
+import           Serokell.Data.Memory.Units (toBytes)
 import qualified System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
@@ -177,7 +178,7 @@ pay activeWallet spendingPassword opts accountId payees = do
              Left e      -> return (Left $ PaymentNewTransactionError e)
              Right (txAux, partialMeta, _utxo) -> do
                  let sz = fromIntegral $ BL.length $ serialize txAux
-                 maxSz <- Node.getMaxTxSize (walletPassive activeWallet ^. walletNode)
+                 maxSz <- toBytes <$> Node.getMaxTxSize (walletPassive activeWallet ^. walletNode)
                  if sz >= maxSz then
                      return
                      . Left

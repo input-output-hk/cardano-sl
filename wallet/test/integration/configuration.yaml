@@ -22,10 +22,10 @@ default: &default
           seed: 0
         blockVersionData: &default_core_genesis_spec_blockVersionData
           scriptVersion:     0
-          slotDuration:      10000
+          slotDuration:      5000
           maxBlockSize:      2000000
           maxHeaderSize:     2000000
-          maxTxSize:         4096 # 4 Kb
+          maxTxSize:         1024 # 1kb
           maxProposalSize:   700 # 700 bytes
           mpcThd:            0.01 # 1% of stake
           heavyDelThd:       0.005 # 0.5% of stake

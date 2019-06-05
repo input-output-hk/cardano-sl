@@ -12,6 +12,71 @@ import           Test.Integration.Framework.Scenario (Scenario)
 
 spec :: Scenarios Context
 spec = do
+    let oneAda = 1000000
+
+    scenario "REG CO-450: fallback works correctly" $ do
+        fixtureSource <- setup $ defaultSetup
+            & initialCoins .~ [oneAda, oneAda, oneAda, oneAda]
+        fixtureDest <- setup $ defaultSetup
+        accountDest <- successfulRequest $ Client.getAccount
+            $- (fixtureDest ^. wallet . walletId)
+            $- defaultAccountId
+
+        -- NOTE (1)
+        -- We use an artificially low `maxTxSize` in integration
+        -- tests which limit the maximum number of inputs to `4`.
+        --
+        -- NOTE (2)
+        -- The random-improve algorithm tries to improve the selection on each
+        -- output, one after the other. "Improving" the selection means, trying
+        -- to select new inputs to get closer to an ideal value (2x the output).
+
+        -- Before any fix, this would fail with:
+        -- CoinSelHardErrUtxoExhausted
+        --   { balance: 4000000 coin(s)
+        --   , value:   2500000 coin(s)
+        --   }
+        -- because the random-improve algorithm would consume the first 4 inputs
+        -- to satisfy the first output. And then, nothing would be left for the
+        -- second output. After the fix, the algorithm will fallback to a
+        -- largest-first approach for all outputs, and pick only two coins for
+        -- the first input, and another one for the second input.
+        let distribution = customDistribution $ NonEmpty.fromList
+                [ (accountDest, 2*oneAda)
+                , (accountDest, oneAda `div` 2)
+                ]
+        resp <- request $ Client.postTransaction $- Payment
+            (defaultSource fixtureSource)
+            distribution
+            defaultGroupingPolicy
+            (Just $ fixtureSource ^. spendingPassword)
+        verify resp
+            [ expectSuccess
+            ]
+
+    scenario "REG CO-450: coin selection error reports correct balance" $ do
+        fixtureSource <- setup $ defaultSetup
+            & initialCoins .~ [oneAda, oneAda, oneAda]
+        fixtureDest <- setup $ defaultSetup
+
+        accountDest <- successfulRequest $ Client.getAccount
+            $- (fixtureDest ^. wallet . walletId)
+            $- defaultAccountId
+
+        let distribution = customDistribution $ NonEmpty.fromList
+                [ (accountDest, oneAda)
+                , (accountDest, 3*oneAda)
+                ]
+        resp <- request $ Client.postTransaction $- Payment
+            (defaultSource fixtureSource)
+            distribution
+            defaultGroupingPolicy
+            (Just $ fixtureSource ^. spendingPassword)
+
+        verify resp
+            [ expectWalletError $
+                NotEnoughMoney $ ErrAvailableBalanceIsInsufficient $ 3*oneAda
+            ]
 
     -- estimated fee amount for this transaction is 187946
     multioutputTransactionScenario
@@ -323,7 +388,7 @@ spec = do
     --   fee+   : 171905         fee+   : 228815
     --
     --           Actual fee: 228903 (+88)
-    coinSelectionScenario "needs many extra inputs" (replicate 8 30000) 42
+    coinSelectionScenario "needs many extra inputs" (replicate 4 50000) 42
   where
     coinSelectionScenario :: String -> [Word64] -> Word64 -> Scenarios Context
     coinSelectionScenario title coins amt =

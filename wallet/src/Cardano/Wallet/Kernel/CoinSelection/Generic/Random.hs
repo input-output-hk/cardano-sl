@@ -37,7 +37,8 @@ random :: forall utxo m. (MonadRandom m, PickFromUtxo utxo)
 random privacyMode maxNumInputs outs = do
     balance <- gets utxoBalance
     mapCoinSelErr (withTotalBalance balance) $
-        coinSelPerGoal step maxNumInputs outs
+        coinSelPerGoal step maxNumInputs outs `catchError`
+            (\_ -> LargestFirst.largestFirst maxNumInputs outs)
   where
     -- | Perform a coin selection on the next output using the remaining
     -- inputs. `coinSelPerGoal` reduces the UTxO (and the number of allowed)

@@ -14,6 +14,27 @@ spec :: Scenarios Context
 spec = do
     let oneAda = 1000000
 
+    scenario "REG CO-449: extra guard for too big transactions" $ do
+        fixtureSource <- setup $ defaultSetup
+            & initialCoins .~ [oneAda, oneAda, oneAda, oneAda, oneAda]
+        fixtureDest <- setup $ defaultSetup
+        accountDest <- successfulRequest $ Client.getAccount
+            $- (fixtureDest ^. wallet . walletId)
+            $- defaultAccountId
+        let distribution = customDistribution $ NonEmpty.fromList
+                [ (accountDest, 2*oneAda)
+                , (accountDest, 2*oneAda)
+                ]
+        resp <- request $ Client.postTransaction $- Payment
+            (defaultSource fixtureSource)
+            distribution
+            defaultGroupingPolicy
+            (Just $ fixtureSource ^. spendingPassword)
+        verify resp
+            [ expectWalletError TooBigTransaction
+              -- Additionally, check logs for 'CoinSelHardErrMaxInputsReached2'
+            ]
+
     scenario "REG CO-450: fallback works correctly" $ do
         fixtureSource <- setup $ defaultSetup
             & initialCoins .~ [oneAda, oneAda, oneAda, oneAda]

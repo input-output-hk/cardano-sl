@@ -82,6 +82,7 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
                      PublicKey, RedeemSecretKey, SafeSigner (..),
                      ShouldCheckPassphrase (..), Signature (..), hash,
                      redeemToPublic)
+
 import           UTxO.Util (shuffleNE)
 
 {-------------------------------------------------------------------------------

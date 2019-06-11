@@ -1,5 +1,5 @@
 name:                cardano-sl-client
-version:             3.0.1
+version:             3.0.2
 synopsis:            Cardano SL client modules
 description:         Cardano SL client modules
 license:             MIT

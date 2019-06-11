@@ -1,5 +1,5 @@
 name:                cardano-sl-tools-post-mortem
-version:             3.0.1
+version:             3.0.2
 synopsis:            Cardano SL - post-mortem tool
 description:         Cardano SL - post-mortem tool
 license:             MIT

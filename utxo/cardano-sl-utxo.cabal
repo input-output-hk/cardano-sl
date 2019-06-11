@@ -1,5 +1,5 @@
 name:                cardano-sl-utxo
-version:             3.0.1
+version:             3.0.2
 synopsis:            Abstract definitions of UTxO based accounting
 -- description:
 homepage:            https://github.com/input-output-hk/cardano-sl/#readme

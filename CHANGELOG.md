@@ -6,6 +6,12 @@
 
 - Fix issue that caused the node to lose sync with the chain in the OBFT era and then fail to re-sync once out of sync ([CBR-525]https://iohk.myjetbrains.com/youtrack/issue/CBR-525) [#4153](https://github.com/input-output-hk/cardano-sl/pull/4153))
 
+- Fix wrong balance and payment reporting on coin selection failures ([CO-450](https://iohk.myjetbrains.com/youtrack/issue/CBR-450) [#4159](https://github.com/input-output-hk/cardano-sl/pull/4159))
+
+- Additional coin selection fallback to cope with transaction filling up during random-improve selection ([CO-450](https://iohk.myjetbrains.com/youtrack/issue/CBR-450) [#4159](https://github.com/input-output-hk/cardano-sl/pull/4159))
+
+- Additional guard to prevent too big transactions to be submitted ([CO-449](https://iohk.myjetbrains.com/youtrack/issue/CBR-449) [#4131](https://github.com/input-output-hk/cardano-sl/pull/4131))
+
 ## Cardano SL 3.0.1
 
 ### Fixes

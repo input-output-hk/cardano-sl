@@ -1,4 +1,5 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.Wallet.Kernel.CoinSelection.Generic.Random (
     PrivacyMode(..)
@@ -33,10 +34,48 @@ random :: forall utxo m. (MonadRandom m, PickFromUtxo utxo)
        -> Word64              -- ^ Maximum number of inputs
        -> [Output (Dom utxo)] -- ^ Outputs to include
        -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
-random privacyMode = coinSelPerGoal $ \maxNumInputs goal ->
-    defCoinSelResult goal <$>
-      inRange maxNumInputs (target privacyMode (outVal goal))
+random privacyMode maxNumInputs outs = do
+    balance <- gets utxoBalance
+    mapCoinSelErr (withTotalBalance balance) $
+        coinSelPerGoal step maxNumInputs outs `catchError`
+            (\_ -> LargestFirst.largestFirst maxNumInputs outs)
   where
+    -- | Perform a coin selection on the next output using the remaining
+    -- inputs. `coinSelPerGoal` reduces the UTxO (and the number of allowed)
+    -- inputs as it maps over the outputs. So, in the first iteration we have:
+    --
+    -- `remainingNumInputs == maxNumInputs`, and for the second one, we have
+    --
+    -- `remainingNumInputs == maxNumInputs - k`, where `k` is the number of
+    -- inputs selected during the first iteration.
+    step
+        :: Word64
+        -> Output (Dom utxo)
+        -> CoinSelT utxo CoinSelHardErr m (CoinSelResult (Dom utxo))
+    step remainingNumInputs out = defCoinSelResult out <$>
+        inRange remainingNumInputs (target privacyMode (outVal out))
+
+    -- | Because of the recursive and stateful nature of `coinSelPerGoal`,
+    -- errors are thrown within each step using values available at the moment
+    -- where the error gets thrown. As a result, errors reports non-sensical
+    -- balances and UTxO state.
+    -- As a work-around, we remap errors to what they ought to be...
+    withTotalBalance
+        :: Value (Dom utxo)
+        -> CoinSelHardErr
+        -> CoinSelHardErr
+    withTotalBalance balance = \case
+        e@CoinSelHardErrOutputCannotCoverFee{} -> e
+        e@CoinSelHardErrOutputIsRedeemAddress{} -> e
+        e@CoinSelHardErrCannotCoverFee{} -> e
+        CoinSelHardErrMaxInputsReached _ -> CoinSelHardErrMaxInputsReached
+            (show maxNumInputs)
+        CoinSelHardErrUtxoExhausted _ _ -> CoinSelHardErrUtxoExhausted
+            (pretty balance)
+            (pretty payment)
+      where
+        payment = unsafeValueSum $ outVal <$> outs
+
     target :: PrivacyMode -> Value (Dom utxo) -> TargetRange (Dom utxo)
     target PrivacyModeOn  val = fromMaybe (target PrivacyModeOff val)
                                           (idealRange val)

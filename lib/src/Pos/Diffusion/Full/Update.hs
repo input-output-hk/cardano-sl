@@ -85,7 +85,7 @@ proposalRelay logic =
     InvReqData
         NoMempool $
         InvReqDataParams
-           { invReqMsgType = MsgTransaction
+           { invReqMsgType = MsgMPC
            , contentsToKey = KV.toKey kv
            , handleInv = \_ -> KV.handleInv kv
            , handleReq = \_ -> KV.handleReq kv
@@ -104,7 +104,7 @@ voteRelay logic =
     InvReqData
         NoMempool $
         InvReqDataParams
-           { invReqMsgType = MsgTransaction
+           { invReqMsgType = MsgMPC
            , contentsToKey = KV.toKey kv
            , handleInv = \_ -> KV.handleInv kv
            , handleReq = \_ -> KV.handleReq kv

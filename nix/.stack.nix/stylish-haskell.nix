@@ -11,7 +11,7 @@
       specVersion = "1.8";
       identifier = {
         name = "stylish-haskell";
-        version = "0.9.2.0";
+        version = "0.9.2.2";
       };
       license = "BSD-3-Clause";
       copyright = "2012 Jasper Van der Jeugt";
@@ -83,8 +83,8 @@
     };
   } // {
     src = pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/stylish-haskell.git";
-      rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
-      sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
+      url = "https://github.com/jaspervdj/stylish-haskell";
+      rev = "f253f37362be840bafe2c82a8d7fb284046fda48";
+      sha256 = "070lwddjvawaf42p8mvxl6fam44nhn98nc85gsk5688fygccv5qw";
     };
   }

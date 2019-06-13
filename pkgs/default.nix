@@ -74115,12 +74115,12 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "stylish-haskell";
-version = "0.9.2.0";
+version = "0.9.2.2";
 src = fetchgit {
 
-url = "https://github.com/input-output-hk/stylish-haskell.git";
-sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
-rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
+url = "https://github.com/jaspervdj/stylish-haskell";
+sha256 = "070lwddjvawaf42p8mvxl6fam44nhn98nc85gsk5688fygccv5qw";
+rev = "f253f37362be840bafe2c82a8d7fb284046fda48";
 fetchSubmodules = true;
 
 };

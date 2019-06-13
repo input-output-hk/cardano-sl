@@ -29,3 +29,4 @@ https://github.com/input-output-hk/cardano-crypto 45e1a0eafac774c109704be44ca06f
 https://github.com/avieth/network-transport-tcp 2634e5e32178bb0456d800d133f8664321daa2ef . 03shp9prflhgqzw7pymw1pq2q7s1wf46pyjm2csx8646snrhf35i network-transport-tcp .stack.nix/network-transport-tcp.nix
 https://github.com/input-output-hk/haskell-hedgehog.git e63fb354bfbad07f3befdd43b382c655944218be hedgehog 1p2yzlaiqj34pkk26cgg0dkvkm1zwjpgx1zk95md5xj0cijb34gj hedgehog .stack.nix/hedgehog.nix
 https://github.com/hedgehogqa/haskell-hedgehog.git a20005f4d584f19ea05524320f1c9a90a44c81db hedgehog 1lca47ilzg75ibv2qbb1pl466rba6ir8ra0cg4qlji63dsbpkiks hedgehog .stack.nix/hedgehog.nix
+https://github.com/jaspervdj/stylish-haskell f253f37362be840bafe2c82a8d7fb284046fda48 . 070lwddjvawaf42p8mvxl6fam44nhn98nc85gsk5688fygccv5qw stylish-haskell .stack.nix/stylish-haskell.nix

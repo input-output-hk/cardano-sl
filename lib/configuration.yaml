@@ -15267,7 +15267,6 @@ obft_testnet_short: &devnet
         blockVersionData:
           <<: *mainnet_base_blockVersionData
           slotDuration:      20000 # set to desired value
-          maxBlockSize:    3000000
           maxHeaderSize:      2000
           maxProposalSize:   70000 # 70KB
           maxTxSize:         65536 # 64KiB

@@ -9,7 +9,6 @@ import qualified Data.ByteString as BS (pack, zipWith)
 import qualified Data.ByteString.Char8 as BSC (pack)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Semigroup (Semigroup (..))
-import           Formatting (formatToString)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F, formatBase16)
 import qualified Serokell.Util.Base16 as B16
@@ -19,7 +18,7 @@ import           Text.JSON.Canonical (FromJSON (..), JSValue (..),
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Constants (sharedSeedLength)
-import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Canonical (formatJSString)
 import           Pos.Util.Json.Parse (tryParseString)
 
 -- | This is a shared seed used for follow-the-satoshi. This seed is
@@ -42,7 +41,7 @@ instance Monoid SharedSeed where
     mconcat = foldl' mappend mempty
 
 instance Monad m => ToJSON m SharedSeed where
-    toJSON (SharedSeed seed) = pure . JSString . formatToString base16F $ seed
+    toJSON (SharedSeed seed) = pure . JSString . formatJSString base16F $ seed
 
 instance ReportSchemaErrors m => FromJSON m SharedSeed where
     fromJSON = fmap SharedSeed . tryParseString B16.decode

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Pos.Crypto.Configuration
        ( ProtocolMagic (..)
@@ -15,8 +16,8 @@ import qualified Data.Aeson as A
 import           Data.Aeson.Types (typeMismatch)
 import           Data.List (lookup)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Text.JSON.Canonical (FromJSON (..), JSValue (..), ToJSON (..),
-                     expected)
+import           Text.JSON.Canonical (FromJSON (..), JSValue (..), ToJSON (..), JSString, 
+                     expected, toJSString)
 
 import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Util (toAesonError)
@@ -148,8 +149,8 @@ instance MonadError SchemaError m => FromJSON m ProtocolMagic where
             expected "RequiresNoMagic | RequiresMagic" (Just (show other))
 
 expectLookup :: (MonadError SchemaError m, FromJSON m a)
-             => String -> String -> [(String, JSValue)] -> m a
-expectLookup msg key dict = case lookup key dict of
+             => String -> String -> [(JSString, JSValue)] -> m a
+expectLookup msg key dict = case lookup (toJSString key) dict of
     Nothing -> expected msg Nothing
     Just x  -> fromJSON x
 

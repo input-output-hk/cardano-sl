@@ -1,3 +1,4 @@
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- | Signing done with public/private keys.
@@ -48,7 +49,7 @@ import           Data.Hashable (Hashable)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, build, fitLeft, formatToString,
+import           Formatting (Format, bprint, build, fitLeft,
                      later, sformat, (%), (%.))
 import qualified Formatting.Buildable as B
 import           Prelude (show)
@@ -61,6 +62,7 @@ import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Orphans ()
+import           Pos.Util.Json.Canonical (formatJSString)
 import           Pos.Util.Json.Parse (tryParseString)
 import           Pos.Util.Util (cerealError, toAesonError, toCborError)
 
@@ -87,7 +89,7 @@ instance FromJSON PublicKey where
     parseJSON v = parseJSON v >>= toAesonError . fmsg "PublicKey" . parseFullPublicKey
 
 instance Monad m => TJC.ToJSON m PublicKey where
-    toJSON = pure . JSString . formatToString fullPublicKeyF
+    toJSON = pure . JSString . formatJSString fullPublicKeyF
 
 instance ReportSchemaErrors m => TJC.FromJSON m PublicKey where
     fromJSON = tryParseString parseFullPublicKey
@@ -176,7 +178,7 @@ instance ToJSON (Signature w) where
     toJSON = toJSON . sformat fullSignatureHexF
 
 instance Monad m => TJC.ToJSON m (Signature w) where
-    toJSON = pure . JSString . formatToString fullSignatureHexF
+    toJSON = pure . JSString . formatJSString fullSignatureHexF
 
 instance (Typeable x, ReportSchemaErrors m) => TJC.FromJSON m (Signature x) where
     fromJSON = tryParseString parseFullSignature
@@ -247,7 +249,7 @@ instance FromJSON (ProxyCert w) where
     parseJSON v = parseJSON v >>= toAesonError . fmsg "Signature" . parseFullProxyCert
 
 instance Monad m => TJC.ToJSON m (ProxyCert w) where
-    toJSON = pure . JSString . formatToString fullProxyCertHexF
+    toJSON = pure . JSString . formatJSString fullProxyCertHexF
 
 instance (Typeable w, ReportSchemaErrors m) => TJC.FromJSON m (ProxyCert w) where
     fromJSON = tryParseString parseFullProxyCert

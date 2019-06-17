@@ -13250,6 +13250,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , containers
+, deepseq
 , fetchgit
 , parsec
 , pretty
@@ -13258,12 +13259,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "canonical-json";
-version = "0.5.0.1";
+version = "0.6.0.0";
 src = fetchgit {
 
-url = "https://github.com/input-output-hk/canonical-json.git";
-sha256 = "0cqa4vnrj3wqqgzzg9v7p3ddrfsf5fx63dv2jnwnlfaczs007dkq";
-rev = "f66762e4c4fe484ed109d28ad541fc55cc841c2c";
+url = "https://github.com/well-typed/canonical-json.git";
+sha256 = "02fzn1xskis1lc1pkz0j92v6ipd89ww0k2p3dvwpm3yap5dpnm7k";
+rev = "ddfe3593b80b5ceb88842bb7a6f2268df75d2c2f";
 fetchSubmodules = true;
 
 };
@@ -13271,11 +13272,13 @@ libraryHaskellDepends = [
 base
 bytestring
 containers
+deepseq
 parsec
 pretty
 ];
 doHaddock = false;
 doCheck = false;
+homepage = "https://github.com/well-typed/canonical-json";
 description = "Canonical JSON for signing and hashing JSON values";
 license = stdenv.lib.licenses.bsd3;
 

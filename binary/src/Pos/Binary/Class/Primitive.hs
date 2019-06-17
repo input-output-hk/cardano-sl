@@ -205,7 +205,7 @@ instance SafeCopy (AsBinary a) where
     putCopy = contain . safePut . getAsBinary
 
 instance Monad m => ToJSON m (AsBinary smth) where
-    toJSON = pure . JSString . formatToString base64F . getAsBinary
+    toJSON = pure . JSString . fromString . formatToString base64F . getAsBinary
 
 instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
     fromJSON = fmap AsBinary . tryParseString B64.decode

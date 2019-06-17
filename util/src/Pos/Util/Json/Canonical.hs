@@ -4,20 +4,23 @@
 
 module Pos.Util.Json.Canonical
        ( SchemaError(..)
+       , formatJSString
        ) where
 
 import           Universum
 
 import           Control.Monad.Except (MonadError (..))
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Lazy.Builder as Builder (fromText)
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as Builder (fromText, toLazyText)
 import           Data.Time.Units (Millisecond)
+import qualified Formatting as F
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text (readDecimal, readUnsignedDecimal)
 import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..),
                      JSValue (..), JSString, ReportSchemaErrors (expected), ToJSON (..),
-                     ToObjectKey (..), expectedButGotValue, fromJSObject)
+                     ToObjectKey (..), expectedButGotValue, fromJSObject, toJSString)
 
 import           Pos.Util.Json.Parse (tryParseString)
 
@@ -104,3 +107,6 @@ instance ReportSchemaErrors m => FromJSON m Byte where
 
 instance ReportSchemaErrors m => FromJSON m Millisecond where
     fromJSON = fmap fromInteger . fromJSON
+
+formatJSString :: F.Format JSString a -> a
+formatJSString m = F.runFormat m (toJSString . TL.unpack . Builder.toLazyText)

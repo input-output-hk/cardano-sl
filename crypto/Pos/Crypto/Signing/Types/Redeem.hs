@@ -1,3 +1,4 @@
+{-# LANGUAGE MonoLocalBinds #-}
 module Pos.Crypto.Signing.Types.Redeem
        ( RedeemSecretKey (..)
        , RedeemPublicKey (..)
@@ -27,7 +28,7 @@ import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as Builder (fromText)
-import           Formatting (Format, bprint, fitLeft, formatToString, later,
+import           Formatting (Format, bprint, fitLeft, later,
                      sformat, (%), (%.))
 import qualified Formatting.Buildable as B
 import           Serokell.Util.Base64 (formatBase64)
@@ -37,6 +38,7 @@ import           Text.JSON.Canonical (FromObjectKey (..), JSValue (..),
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Crypto.Orphans ()
+import           Pos.Util.Json.Canonical (formatJSString)
 import           Pos.Util.Json.Parse (tryParseString)
 import           Pos.Util.Util (toAesonError)
 
@@ -49,7 +51,7 @@ newtype RedeemPublicKey = RedeemPublicKey Ed25519.PublicKey
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
 instance Monad m => ToObjectKey m RedeemPublicKey where
-    toObjectKey = pure . formatToString redeemPkB64UrlF
+    toObjectKey = pure . formatJSString redeemPkB64UrlF
 
 instance ReportSchemaErrors m => FromObjectKey m RedeemPublicKey where
     fromObjectKey =

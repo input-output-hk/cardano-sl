@@ -68,7 +68,7 @@ import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet,
                      decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Formatting (Format, bprint, build, builder, formatToString,
+import           Formatting (Format, bprint, build, builder, 
                      later, sformat, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
@@ -91,7 +91,7 @@ import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
 import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
                      RedeemPublicKey, SecretKey, deterministicKeyGen,
                      emptyPassphrase, encToPublic, noPassEncrypt)
-import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Canonical (formatJSString)
 import           Pos.Util.Json.Parse (tryParseString)
 import           Pos.Util.Util (toAesonError)
 
@@ -143,7 +143,7 @@ instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize
 
 instance Monad m => ToObjectKey m Address where
-    toObjectKey = pure . formatToString addressF
+    toObjectKey = pure . formatJSString addressF
 
 instance ReportSchemaErrors m => FromObjectKey m Address where
     fromObjectKey = fmap Just . tryParseString decodeTextAddress . JSString

@@ -49,7 +49,7 @@ pskHeavyRelay
     :: Logic IO
     -> Relay
 pskHeavyRelay logic = Data $ DataParams
-    MsgTransaction
+    MsgMPC
     (\_ _ -> postPskHeavy logic)
     -- The message size limit for ProxySKHeavy: a ProxySecretKey with an
     -- EpochIndex.
@@ -60,4 +60,4 @@ sendPskHeavy
     -> EnqueueMsg
     -> ProxySKHeavy
     -> IO ()
-sendPskHeavy logTrace enqueue = dataFlow logTrace "pskHeavy" enqueue (MsgTransaction OQ.OriginSender)
+sendPskHeavy logTrace enqueue = dataFlow logTrace "pskHeavy" enqueue (MsgMPC OQ.OriginSender)

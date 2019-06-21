@@ -242,3 +242,4 @@ venv.bak/
 nix/.stack.nix/*.nix linguist-generated=true
 .stack-to-nix.cache linguist-generated=true
 nix/.stack-pkgs.nix linguist-generated=true
+script-runner/states

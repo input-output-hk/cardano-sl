@@ -44,7 +44,7 @@ let
 in
 { system ? builtins.currentSystem
 , crossSystem ? null
-, config ? {}  # The nixpkgs configuration file
+, config ? import ./nix/config.nix  # The nixpkgs configuration file
 
 # Use a pinned version nixpkgs.
 , pkgs ? localLib.importPkgs { inherit system crossSystem config; }

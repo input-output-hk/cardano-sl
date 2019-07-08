@@ -191,7 +191,7 @@ library
                      , mono-traversable
                      , mtl
                      , neat-interpolation
-                     , parsec
+                     , megaparsec
                      , QuickCheck
                      , reflection
                      , safecopy

@@ -87,7 +87,6 @@ library
                      , monad-control
                      , mtl
                      , optparse-applicative
-                     , parsec
                      , process
                      , reflection
                      , resourcet

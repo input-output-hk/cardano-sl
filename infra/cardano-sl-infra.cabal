@@ -119,7 +119,6 @@ library
   build-depends:        aeson
                       , async
                       , base
-                      , parsec
                       , base64-bytestring
                       , bytestring
                       , cardano-sl-binary
@@ -148,6 +147,7 @@ library
                       , iproute
                       , kademlia
                       , lens
+                      , megaparsec
                       , mtl
                       , network-info
                       , network-transport

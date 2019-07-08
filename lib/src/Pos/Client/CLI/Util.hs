@@ -10,11 +10,11 @@ module Pos.Client.CLI.Util
        , stakeholderIdParser
        ) where
 
-import           Universum hiding (try)
+import           Universum
 
-import           Text.Parsec (parserFail, try)
-import qualified Text.Parsec.Char as P
-import qualified Text.Parsec.Text as P
+import           Text.Megaparsec (Parsec)
+import qualified Text.Megaparsec as P
+import qualified Text.Megaparsec.Char as P
 
 import           Pos.Chain.Security (AttackTarget (..), AttackType (..))
 import           Pos.Core (StakeholderId)
@@ -23,20 +23,20 @@ import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Util.Wlog (LoggerConfig (..), parseLoggerConfig,
                      productionB)
 
-attackTypeParser :: P.Parser AttackType
+attackTypeParser :: Parsec () String AttackType
 attackTypeParser = P.string "No" >>
     AttackNoBlocks <$ (P.string "Blocks") <|>
     AttackNoCommitments <$ (P.string "Commitments")
 
-stakeholderIdParser :: P.Parser StakeholderId
+stakeholderIdParser :: Parsec () String StakeholderId
 stakeholderIdParser = do
-    token <- some P.alphaNum
-    either (parserFail . toString) return $
+    token <- some P.alphaNumChar
+    either (fail . toString) return $
         decodeAbstractHash (toText token)
 
-attackTargetParser :: P.Parser AttackTarget
+attackTargetParser :: Parsec () String AttackTarget
 attackTargetParser =
-    (PubKeyAddressTarget <$> try stakeholderIdParser) <|>
+    (PubKeyAddressTarget <$> P.try stakeholderIdParser) <|>
     (NetworkAddressTarget <$> addrParser)
 
 -- | Default logger config. Will be used if `--log-config` argument is

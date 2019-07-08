@@ -65,7 +65,7 @@ import qualified Options.Applicative as Parser
 import           Options.Applicative.Help.Chunk (Chunk (..))
 import qualified Safe
 import           Servant.Client (BaseUrl (..), Scheme (..))
-import qualified Text.Parsec as Parsec
+import qualified Text.Megaparsec as Parsec
 
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
 import           Pos.Infra.Network.DnsDomains (NodeAddr (..))
@@ -238,7 +238,7 @@ unsafeIntFromString str =
 
 unsafeNetworkAddressFromString :: String -> NetworkAddress
 unsafeNetworkAddressFromString str =
-    case Parsec.parse addrParser "" (toText str) of
+    case Parsec.parse addrParser "" str of
         Left err ->
             error $ "Tried to convert a 'String' to a 'NetworkAddress' but failed: "
                 <> toText str <> ", " <> show err

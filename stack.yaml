@@ -175,16 +175,16 @@ packages:
 # Custom Universum prelude, that brings back some of the
 # formatting logic, as well as `pretty`.
 - location:
-    git: https://github.com/input-output-hk/universum.git
-    commit: 7f1b2483f71cacdfd032fe447064d6e0a1df50fc
+    git: https://github.com/input-output-hk/universum
+    commit: 15f7db758ff5a24b874de2247f6f7a4576562da5
   extra-dep: true
 
 
 # Need to adjust version bounds on serokell-util.
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
-    git: https://github.com/input-output-hk/serokell-util.git
-    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
+    git: https://github.com/input-output-hk/serokell-util
+    commit: e592ae9b9387184519b393c066edbf8b4ed91737
   extra-dep: true
 
 # Inspector, as used in cardano-crypto
@@ -230,6 +230,9 @@ extra-deps:
 - micro-recursion-schemes-5.0.2.2
 - token-bucket-0.1.0.1
 - lzma-clib-5.2.2
+- megaparsec-7.0.4
+- neat-interpolation-0.3.2.4
+- config-ini-0.2.4.0
 
 # katip-0.6.3.0 conflicts with Win32-2.6.1.0
 allow-newer: true

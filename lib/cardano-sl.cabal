@@ -193,7 +193,7 @@ library
                       , network
                       , network-transport
                       , optparse-applicative
-                      , parsec
+                      , megaparsec
                       , pvss
                       , QuickCheck
                       , quickcheck-instances

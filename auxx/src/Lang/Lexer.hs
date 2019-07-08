@@ -45,10 +45,11 @@ import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..),
                      genericArbitrary, genericShrink)
 import qualified Test.QuickCheck.Gen as QC
 import           Test.QuickCheck.Instances ()
-import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof,
-                     getPosition, manyTill, notFollowedBy, parseMaybe,
-                     skipMany, takeP, takeWhile1P, try, unPos, (<?>))
-import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar,
+import           Text.Megaparsec (Parsec, SourcePos (..), anySingle, between,
+                     choice, eof, getSourcePos, manyTill, notFollowedBy,
+                     parseMaybe, satisfy, skipMany, takeP, takeWhile1P, try,
+                     unPos, (<?>))
+import           Text.Megaparsec.Char (char, spaceChar,
                      string)
 import           Text.Megaparsec.Char.Lexer (decimal, scientific, signed)
 
@@ -177,13 +178,13 @@ pToken = withPosition (try pToken' <|> pUnknown) <* pSkip
         ( fromIntegral . unPos $ sourceLine
         , fromIntegral . unPos $ sourceColumn)
     withPosition p = do
-        pos1 <- posToLoc <$> getPosition
+        pos1 <- posToLoc <$> getSourcePos
         t <- p
-        pos2 <- posToLoc <$> getPosition
+        pos2 <- posToLoc <$> getSourcePos
         return (spanFromTo pos1 pos2, t)
 
 pUnknown :: Lexer Token
-pUnknown = TokenUnknown . UnknownChar <$> anyChar
+pUnknown = TokenUnknown . UnknownChar <$> anySingle
 
 pSkip :: Lexer ()
 pSkip = skipMany (void spaceChar)
@@ -223,7 +224,7 @@ pText = do
   where
     loop :: [Char] -> Lexer [Char]
     loop !acc = do
-        next <- anyChar
+        next <- anySingle
         case next of
             -- Check for double double quotes. If it's a single double quote,
             -- it's the end of the string.
@@ -287,7 +288,7 @@ pFilePath = FilePath' <$> do
   where
     pFilePathChar :: Lexer Char
     pFilePathChar =
-        char '\\' *> anyChar <|>
+        char '\\' *> anySingle <|>
         satisfy isFilePathChar
 
 pIdent :: Lexer Token

@@ -134,7 +134,7 @@ library
                      , hashable
                      , http-api-data
                      , lens
-                     , parsec
+                     , megaparsec
                      , memory
                      , mmorph
                      , monad-control

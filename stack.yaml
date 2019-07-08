@@ -1,4 +1,4 @@
-resolver: lts-12.17
+resolver: lts-12.26
 
 flags:
   ether:
@@ -133,7 +133,7 @@ packages:
     git: https://github.com/well-typed/canonical-json.git
     commit: ddfe3593b80b5ceb88842bb7a6f2268df75d2c2f
   extra-dep: true
-  
+
 
 # The latest release of clock on hackage is *way* too old (0.7.2)
 # and can not be cross compiled.  As

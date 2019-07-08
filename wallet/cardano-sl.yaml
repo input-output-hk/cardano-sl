@@ -1,5 +1,5 @@
 name: cardano-sl
-resolver: lts-12.17
+resolver: lts-12.26
 packages:
 - Chart-1.9
 - Chart-diagrams-1.9

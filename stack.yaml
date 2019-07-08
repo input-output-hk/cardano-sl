@@ -1,4 +1,4 @@
-resolver: lts-12.17
+resolver: lts-12.26
 
 flags:
   ether:

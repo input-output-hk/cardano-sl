@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "acid-state-exts";
-        version = "0.14.2";
-      };
+      identifier = { name = "acid-state-exts"; version = "0.14.2"; };
       license = "LicenseRef-PublicDomain";
       copyright = "";
       maintainer = "Lemmih <lemmih@gmail.com>";
@@ -22,7 +13,7 @@
       synopsis = "Add ACID guarantees to any serializable Haskell data structure.";
       description = "Use regular Haskell data structures as your database and get stronger ACID guarantees than most RDBMS offer.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -35,9 +26,7 @@
           (hsPkgs.mtl)
           (hsPkgs.safecopy)
           (hsPkgs.time-units)
-        ] ++ pkgs.lib.optional (system.isWindows) (hsPkgs.Win32);
+          ] ++ (pkgs.lib).optional (system.isWindows) (hsPkgs.Win32);
+        };
       };
-    };
-  } // rec {
-    src = .././../acid-state-exts;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././acid-state-exts; }

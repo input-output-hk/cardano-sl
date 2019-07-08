@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-wallet";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-wallet"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "operations@iohk.io";
@@ -22,7 +13,7 @@
       synopsis = "The Wallet Backend for a Cardano node.";
       description = "Please see README.md";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -118,8 +109,8 @@
           (hsPkgs.warp)
           (hsPkgs.x509)
           (hsPkgs.zlib)
-        ];
-      };
+          ];
+        };
       exes = {
         "cardano-node" = {
           depends = [
@@ -128,8 +119,8 @@
             (hsPkgs.cardano-sl-util)
             (hsPkgs.cardano-wallet)
             (hsPkgs.universum)
-          ];
-        };
+            ];
+          };
         "cardano-generate-swagger-file" = {
           depends = [
             (hsPkgs.base)
@@ -141,9 +132,9 @@
             (hsPkgs.optparse-applicative)
             (hsPkgs.swagger2)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
-      };
       tests = {
         "unit" = {
           depends = [
@@ -198,8 +189,8 @@
             (hsPkgs.time-units)
             (hsPkgs.universum)
             (hsPkgs.vector)
-          ];
-        };
+            ];
+          };
         "nightly" = {
           depends = [
             (hsPkgs.base)
@@ -215,8 +206,8 @@
             (hsPkgs.serokell-util)
             (hsPkgs.text)
             (hsPkgs.universum)
-          ];
-        };
+            ];
+          };
         "integration" = {
           depends = [
             (hsPkgs.base)
@@ -251,10 +242,8 @@
             (hsPkgs.template-haskell)
             (hsPkgs.text)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../wallet;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././wallet; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-db";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-db"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - basic DB interfaces";
       description = "Cardano SL - basic DB interfaces";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -64,11 +55,11 @@
           (hsPkgs.universum)
           (hsPkgs.unliftio)
           (hsPkgs.unordered-containers)
-        ];
+          ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       tests = {
         "db-test" = {
           depends = [
@@ -91,8 +82,8 @@
             (hsPkgs.temporary)
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec { src = .././../db; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././db; }

@@ -1,12 +1,13 @@
 { writeScriptBin, dockerTools
 
 , glibcLocales, iana-etc, openssl, bashInteractive, coreutils, utillinux, iproute, iputils, curl, socat
-, cardano-sl-node-static, cardano-sl-config, version
+, cardano-node-simple, cardanoConfig
 
 , environment ? "mainnet"
 , type ? null
 , connect
 , connectArgs ? {}
+, version ? "unstable"
 }:
 
 # assertOneOf "type" type [ "wallet" "explorer" "node" ];
@@ -46,12 +47,12 @@ let
       exit 1
 
       cd /state
-      node_args="--db-path /state/db --rebuild-db --listen 0.0.0.0:3000 --json-log /state/logs/node.json --logs-prefix /state/logs --log-config /state/logs/log-config-node.yaml --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --configuration-file ${cardano-sl-config}/lib/configuration.yaml --configuration-key ${confKey}"
+      node_args="--db-path /state/db --rebuild-db --listen 0.0.0.0:3000 --json-log /state/logs/node.json --logs-prefix /state/logs --log-config /state/logs/log-config-node.yaml --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --configuration-file ${cardanoConfig}/lib/configuration.yaml --configuration-key ${confKey}"
 
-      exec ${cardano-sl-node-static}/bin/cardano-node-simple $node_args "$@"
+      exec ${cardano-node-simple}/bin/cardano-node-simple $node_args "$@"
     '')
   ];
-  
+
 in dockerTools.buildImage {
   name = "cardano-sl";
   tag = "${version}${if (type != null) then "-" + type else ""}-${environment}";
@@ -67,4 +68,7 @@ in dockerTools.buildImage {
       "8000/tcp" = {}; # ekg
     };
   };
+  created = "2019-07-11T00:00:00Z";
+  extraCommands = ''
+  '';
 }

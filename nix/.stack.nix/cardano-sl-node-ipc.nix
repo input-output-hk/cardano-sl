@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-node-ipc";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-node-ipc"; version = "3.0.2"; };
       license = "MIT";
       copyright = "";
       maintainer = "cleverca22@gmail.com";
@@ -22,7 +13,7 @@
       synopsis = "";
       description = "";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -35,9 +26,7 @@
           (hsPkgs.Cabal)
           (hsPkgs.mtl)
           (hsPkgs.universum)
-        ];
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../node-ipc;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././node-ipc; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-auxx";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-auxx"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - Auxx";
       description = "Cardano SL - Auxx";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -76,11 +67,11 @@
           (hsPkgs.unliftio)
           (hsPkgs.unordered-containers)
           (hsPkgs.validation)
-        ] ++ pkgs.lib.optional (!system.isWindows) (hsPkgs.unix);
+          ] ++ (pkgs.lib).optional (!system.isWindows) (hsPkgs.unix);
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       exes = {
         "cardano-auxx" = {
           depends = [
@@ -98,12 +89,12 @@
             (hsPkgs.safe-exceptions)
             (hsPkgs.universum)
             (hsPkgs.formatting)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
-      };
       tests = {
         "cardano-auxx-test" = {
           depends = [
@@ -114,12 +105,12 @@
             (hsPkgs.cardano-sl-crypto)
             (hsPkgs.hspec)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
       };
-    };
-  } // rec { src = .././../auxx; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././auxx; }

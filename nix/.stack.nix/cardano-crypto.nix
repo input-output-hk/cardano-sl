@@ -1,21 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = {
-      golden-tests = false;
-      golden-tests-exe = false;
-    };
+    flags = { golden-tests = false; golden-tests-exe = false; };
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-crypto";
-        version = "1.1.0";
-      };
+      identifier = { name = "cardano-crypto"; version = "1.1.0"; };
       license = "MIT";
       copyright = "2016-2017 IOHK";
       maintainer = "contact@typed.io";
@@ -25,7 +13,7 @@
       synopsis = "Cryptography primitives for cardano";
       description = "";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -39,8 +27,8 @@
           (hsPkgs.cryptonite-openssl)
           (hsPkgs.hashable)
           (hsPkgs.integer-gmp)
-        ];
-      };
+          ];
+        };
       exes = {
         "golden-tests" = {
           depends = [
@@ -51,9 +39,9 @@
             (hsPkgs.bytestring)
             (hsPkgs.cryptonite)
             (hsPkgs.cardano-crypto)
-          ] ++ pkgs.lib.optional (flags.golden-tests-exe) (hsPkgs.inspector);
+            ] ++ (pkgs.lib).optional (flags.golden-tests-exe) (hsPkgs.inspector);
+          };
         };
-      };
       tests = {
         "cardano-crypto-test" = {
           depends = [
@@ -64,8 +52,8 @@
             (hsPkgs.cardano-crypto)
             (hsPkgs.basement)
             (hsPkgs.foundation)
-          ];
-        };
+            ];
+          };
         "cardano-crypto-golden-tests" = {
           depends = [
             (hsPkgs.base)
@@ -75,9 +63,9 @@
             (hsPkgs.bytestring)
             (hsPkgs.cryptonite)
             (hsPkgs.cardano-crypto)
-          ] ++ pkgs.lib.optional (flags.golden-tests) (hsPkgs.inspector);
+            ] ++ (pkgs.lib).optional (flags.golden-tests) (hsPkgs.inspector);
+          };
         };
-      };
       benchmarks = {
         "cardano-crypto-bench" = {
           depends = [
@@ -87,14 +75,14 @@
             (hsPkgs.cryptonite)
             (hsPkgs.cardano-crypto)
             (hsPkgs.gauge)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // {
-    src = pkgs.fetchgit {
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/cardano-crypto";
-      rev = "45e1a0eafac774c109704be44ca06fd8cae193ba";
-      sha256 = "1jyzai4sn9hi3p6r97h54f9a7an7vk38lwrbl4mds9zmdsw5f5ad";
-    };
-  }
+      rev = "4590efa638397e952a51a8994b5543e4ea3c1ecd";
+      sha256 = "0hl2n3bba5v2j0lmxhs7hs01z3aznh2bwf9cb434icq2g0bl8ms3";
+      });
+    }

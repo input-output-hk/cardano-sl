@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-util-test";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-util-test"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - general utilities (tests)";
       description = "QuickCheck Arbitrary instances for the Cardano SL general\nutilities package.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -53,12 +44,10 @@
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
           (hsPkgs.yaml)
-        ];
+          ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../util/test;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././util/test; }

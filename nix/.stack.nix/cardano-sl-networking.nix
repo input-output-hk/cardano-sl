@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = { benchmarks = false; };
     package = {
       specVersion = "1.20";
-      identifier = {
-        name = "cardano-sl-networking";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-networking"; version = "3.0.2"; };
       license = "MIT";
       copyright = "";
       maintainer = "";
@@ -22,7 +13,7 @@
       synopsis = "";
       description = "";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -56,8 +47,8 @@
           (hsPkgs.time-units)
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
-        ];
-      };
+          ];
+        };
       exes = {
         "ping-pong" = {
           depends = [
@@ -71,8 +62,8 @@
             (hsPkgs.network-transport)
             (hsPkgs.network-transport-tcp)
             (hsPkgs.random)
-          ];
-        };
+            ];
+          };
         "bench-sender" = {
           depends = [
             (hsPkgs.async)
@@ -90,8 +81,8 @@
             (hsPkgs.serokell-util)
             (hsPkgs.time)
             (hsPkgs.time-units)
-          ];
-        };
+            ];
+          };
         "bench-receiver" = {
           depends = [
             (hsPkgs.base)
@@ -103,8 +94,8 @@
             (hsPkgs.safe-exceptions)
             (hsPkgs.serokell-util)
             (hsPkgs.text)
-          ];
-        };
+            ];
+          };
         "bench-log-reader" = {
           depends = [
             (hsPkgs.base)
@@ -121,9 +112,9 @@
             (hsPkgs.text)
             (hsPkgs.formatting)
             (hsPkgs.unliftio-core)
-          ];
+            ];
+          };
         };
-      };
       tests = {
         "cardano-sl-networking-test" = {
           depends = [
@@ -146,12 +137,12 @@
             (hsPkgs.serokell-util)
             (hsPkgs.stm)
             (hsPkgs.time-units)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            ];
+          };
         };
-      };
       benchmarks = {
         "qdisc-simulation" = {
           depends = [
@@ -165,10 +156,8 @@
             (hsPkgs.statistics)
             (hsPkgs.vector)
             (hsPkgs.time)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../networking;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././networking; }

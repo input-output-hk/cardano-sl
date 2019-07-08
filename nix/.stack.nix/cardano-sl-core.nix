@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = { asserts = true; };
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-core";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-core"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - core";
       description = "Cardano SL - core";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -51,7 +42,7 @@
           (hsPkgs.hashable)
           (hsPkgs.http-api-data)
           (hsPkgs.lens)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.memory)
           (hsPkgs.mmorph)
           (hsPkgs.monad-control)
@@ -76,11 +67,11 @@
           (hsPkgs.unliftio)
           (hsPkgs.unliftio-core)
           (hsPkgs.unordered-containers)
-        ];
+          ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       tests = {
         "core-test" = {
           depends = [
@@ -108,12 +99,12 @@
             (hsPkgs.time-units)
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
       };
-    };
-  } // rec { src = .././../core; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././core; }

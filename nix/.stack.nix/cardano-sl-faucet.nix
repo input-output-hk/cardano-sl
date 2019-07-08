@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-faucet";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-faucet"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "ben.ford@tweag.io";
@@ -22,7 +13,7 @@
       synopsis = "";
       description = "Cardano SL - faucet";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -71,8 +62,8 @@
           (hsPkgs.wai)
           (hsPkgs.wai-app-static)
           (hsPkgs.wreq)
-        ];
-      };
+          ];
+        };
       exes = {
         "cardano-faucet" = {
           depends = [
@@ -92,9 +83,9 @@
             (hsPkgs.text)
             (hsPkgs.universum)
             (hsPkgs.warp)
-          ];
+            ];
+          };
         };
-      };
       tests = {
         "faucet-test" = {
           depends = [
@@ -106,10 +97,8 @@
             (hsPkgs.hspec)
             (hsPkgs.time)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../faucet;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././faucet; }

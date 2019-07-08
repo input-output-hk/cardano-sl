@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "2.0";
-      identifier = {
-        name = "log-warper";
-        version = "1.8.10.1";
-      };
+      identifier = { name = "log-warper"; version = "1.8.10.1"; };
       license = "MIT";
       copyright = "2016-2018 Serokell";
       maintainer = "Serokell <hi@serokell.io>";
@@ -22,10 +13,10 @@
       synopsis = "Flexible, configurable, monadic and pretty logging";
       description = "This package implements nice and featureful wrapper around hslogger library.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.aeson)
           (hsPkgs.ansi-terminal)
@@ -49,11 +40,11 @@
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
           (hsPkgs.yaml)
-        ] ++ pkgs.lib.optional (!system.isWindows) (hsPkgs.unix);
-      };
+          ] ++ (pkgs.lib).optional (!system.isWindows) (hsPkgs.unix);
+        };
       tests = {
         "log-test" = {
-          depends  = [
+          depends = [
             (hsPkgs.async)
             (hsPkgs.base)
             (hsPkgs.data-default)
@@ -66,17 +57,17 @@
             (hsPkgs.QuickCheck)
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            ];
+          };
         };
       };
-    };
-  } // {
-    src = pkgs.fetchgit {
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/log-warper.git";
       rev = "0b7d4d48310f139d75829d31883aaa87ce53312c";
       sha256 = "0m9inw7m42yj0kn3x3ip5ipv72pr34l4744myzlidbpqa2wf4b7g";
-    };
-  }
+      });
+    }

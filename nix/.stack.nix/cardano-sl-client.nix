@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-client";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-client"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2017 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL client modules";
       description = "Cardano SL client modules";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -48,11 +39,11 @@
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
           (hsPkgs.QuickCheck)
-        ];
+          ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       tests = {
         "cardano-client-test" = {
           depends = [
@@ -74,14 +65,12 @@
             (hsPkgs.QuickCheck)
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../client;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././client; }

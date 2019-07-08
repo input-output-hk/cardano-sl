@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-mnemonic";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-mnemonic"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "operations@iohk.io";
@@ -22,7 +13,7 @@
       synopsis = "TODO";
       description = "See README";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -45,8 +36,8 @@
           (hsPkgs.text)
           (hsPkgs.time)
           (hsPkgs.universum)
-        ];
-      };
+          ];
+        };
       exes = {
         "cardano-generate-mnemonic" = {
           depends = [
@@ -56,9 +47,9 @@
             (hsPkgs.bytestring)
             (hsPkgs.text)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
-      };
       tests = {
         "cardano-sl-mnemonic-test" = {
           depends = [
@@ -72,10 +63,8 @@
             (hsPkgs.data-default)
             (hsPkgs.aeson)
             (hsPkgs.cardano-crypto)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../mnemonic;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././mnemonic; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-crypto";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-crypto"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - cryptography primitives";
       description = "This package contains cryptography primitives used in Cardano SL.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -54,11 +45,11 @@
           (hsPkgs.formatting)
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
-        ];
+          ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       tests = {
         "crypto-test" = {
           depends = [
@@ -81,13 +72,11 @@
             (hsPkgs.text)
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../crypto;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././crypto; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-infra";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-infra"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,14 +13,13 @@
       synopsis = "Cardano SL - infrastructural";
       description = "Cardano SL - infrastructural";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
           (hsPkgs.aeson)
           (hsPkgs.async)
           (hsPkgs.base)
-          (hsPkgs.parsec)
           (hsPkgs.base64-bytestring)
           (hsPkgs.bytestring)
           (hsPkgs.cardano-sl-binary)
@@ -58,6 +48,7 @@
           (hsPkgs.iproute)
           (hsPkgs.kademlia)
           (hsPkgs.lens)
+          (hsPkgs.megaparsec)
           (hsPkgs.mtl)
           (hsPkgs.network-info)
           (hsPkgs.network-transport)
@@ -78,11 +69,11 @@
           (hsPkgs.unliftio)
           (hsPkgs.unordered-containers)
           (hsPkgs.yaml)
-        ] ++ pkgs.lib.optional (!system.isWindows) (hsPkgs.unix);
+          ] ++ (pkgs.lib).optional (!system.isWindows) (hsPkgs.unix);
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       tests = {
         "infra-test" = {
           depends = [
@@ -110,10 +101,8 @@
             (hsPkgs.kademlia)
             (hsPkgs.universum)
             (hsPkgs.yaml)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../infra;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././infra; }

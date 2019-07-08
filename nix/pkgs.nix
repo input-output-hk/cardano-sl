@@ -75,7 +75,7 @@ let
       }
       (hackage: {
           hsc2hs = hackage.hsc2hs."0.68.4".revisions.default;
-          # stackage 12.17 beautifully omitts the Win32 pkg
+          # stackage 12.26 beautifully omitts the Win32 pkg
           Win32 = hackage.Win32."2.6.2.0".revisions.default;
       })
     ];

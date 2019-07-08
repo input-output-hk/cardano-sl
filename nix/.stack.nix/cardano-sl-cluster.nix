@@ -46,7 +46,7 @@
           (hsPkgs.iproute)
           (hsPkgs.lens)
           (hsPkgs.optparse-applicative)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.safe)
           (hsPkgs.servant-client)
           (hsPkgs.temporary)

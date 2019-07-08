@@ -52,7 +52,6 @@
           (hsPkgs.monad-control)
           (hsPkgs.mtl)
           (hsPkgs.optparse-applicative)
-          (hsPkgs.parsec)
           (hsPkgs.process)
           (hsPkgs.reflection)
           (hsPkgs.resourcet)

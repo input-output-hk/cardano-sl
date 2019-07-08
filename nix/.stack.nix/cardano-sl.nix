@@ -78,7 +78,7 @@
           (hsPkgs.network)
           (hsPkgs.network-transport)
           (hsPkgs.optparse-applicative)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.pvss)
           (hsPkgs.QuickCheck)
           (hsPkgs.quickcheck-instances)

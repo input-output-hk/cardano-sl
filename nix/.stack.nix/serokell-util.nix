@@ -25,7 +25,7 @@
     };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.aeson)
           (hsPkgs.ansi-terminal)
@@ -42,7 +42,7 @@
           (hsPkgs.microlens-mtl)
           (hsPkgs.mtl)
           (hsPkgs.o-clock)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.process)
           (hsPkgs.QuickCheck)
           (hsPkgs.quickcheck-instances)
@@ -58,7 +58,7 @@
       };
       tests = {
         "serokell-test" = {
-          depends  = [
+          depends = [
             (hsPkgs.aeson)
             (hsPkgs.base)
             (hsPkgs.extra)
@@ -79,8 +79,8 @@
     };
   } // {
     src = pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/serokell-util.git";
-      rev = "4ead9809e119483e7832da5f8224b0c4d4a2d5d6";
-      sha256 = "0h4wcvp126w021bc2kglsbfywyvc9z3yf1sh1k4yy1an4ckh51jd";
+      url = "https://github.com/input-output-hk/serokell-util";
+      rev = "e592ae9b9387184519b393c066edbf8b4ed91737";
+      sha256 = "11nhmikaqmhfs4cyhs3rq07bi4hmqyfg9vl7q8779h07i629zsz3";
     };
   }

@@ -51,7 +51,7 @@
           (hsPkgs.hashable)
           (hsPkgs.http-api-data)
           (hsPkgs.lens)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.memory)
           (hsPkgs.mmorph)
           (hsPkgs.monad-control)

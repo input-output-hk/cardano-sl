@@ -31,3 +31,6 @@ https://github.com/input-output-hk/haskell-hedgehog.git e63fb354bfbad07f3befdd43
 https://github.com/hedgehogqa/haskell-hedgehog.git a20005f4d584f19ea05524320f1c9a90a44c81db hedgehog 1lca47ilzg75ibv2qbb1pl466rba6ir8ra0cg4qlji63dsbpkiks hedgehog .stack.nix/hedgehog.nix
 https://github.com/jaspervdj/stylish-haskell f253f37362be840bafe2c82a8d7fb284046fda48 . 070lwddjvawaf42p8mvxl6fam44nhn98nc85gsk5688fygccv5qw stylish-haskell .stack.nix/stylish-haskell.nix
 https://github.com/well-typed/canonical-json.git ddfe3593b80b5ceb88842bb7a6f2268df75d2c2f . 02fzn1xskis1lc1pkz0j92v6ipd89ww0k2p3dvwpm3yap5dpnm7k canonical-json .stack.nix/canonical-json.nix
+https://github.com/input-output-hk/cardano-crypto 4590efa638397e952a51a8994b5543e4ea3c1ecd . 0hl2n3bba5v2j0lmxhs7hs01z3aznh2bwf9cb434icq2g0bl8ms3 cardano-crypto .stack.nix/cardano-crypto.nix
+https://github.com/input-output-hk/universum 15f7db758ff5a24b874de2247f6f7a4576562da5 . 127bs29zpjcc40777dv7figk05gd00b9ja57sp11w440qr5h72hk universum .stack.nix/universum.nix
+https://github.com/input-output-hk/serokell-util e592ae9b9387184519b393c066edbf8b4ed91737 . 11nhmikaqmhfs4cyhs3rq07bi4hmqyfg9vl7q8779h07i629zsz3 serokell-util .stack.nix/serokell-util.nix

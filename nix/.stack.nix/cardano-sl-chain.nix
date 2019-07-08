@@ -64,7 +64,7 @@
           (hsPkgs.mono-traversable)
           (hsPkgs.mtl)
           (hsPkgs.neat-interpolation)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.QuickCheck)
           (hsPkgs.reflection)
           (hsPkgs.safecopy)

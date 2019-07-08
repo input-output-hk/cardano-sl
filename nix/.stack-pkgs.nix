@@ -26,6 +26,10 @@
         "micro-recursion-schemes" = hackage.micro-recursion-schemes."5.0.2.2".revisions.default;
         "token-bucket" = hackage.token-bucket."0.1.0.1".revisions.default;
         "lzma-clib" = hackage.lzma-clib."5.2.2".revisions.default;
+        "megaparsec" = hackage.megaparsec."7.0.4".revisions.default;
+        "neat-interpolation" = hackage.neat-interpolation."0.3.2.4".revisions.default;
+        "config-ini" = hackage.config-ini."0.2.4.0".revisions.default;
+        "stylish-haskell" = hackage.stylish-haskell."0.9.2.2".revisions.default;
       } // {
         cardano-sl-util = ./.stack.nix/cardano-sl-util.nix;
         cardano-sl-util-test = ./.stack.nix/cardano-sl-util-test.nix;
@@ -76,11 +80,10 @@
         rocksdb-haskell-ng = ./.stack.nix/rocksdb-haskell-ng.nix;
         log-warper = ./.stack.nix/log-warper.nix;
         hedgehog = ./.stack.nix/hedgehog.nix;
-        stylish-haskell = ./.stack.nix/stylish-haskell.nix;
         universum = ./.stack.nix/universum.nix;
         serokell-util = ./.stack.nix/serokell-util.nix;
         inspector = ./.stack.nix/inspector.nix;
       };
     };
-  resolver = "lts-12.17";
+  resolver = "lts-12.26";
 }

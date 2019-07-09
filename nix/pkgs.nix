@@ -20,27 +20,27 @@ let
   nixpkgs' = import (import ./fetch-nixpkgs.nix) {};
   # all packages from hackage as nix expressions
   hackage = import (overrideWith "hackage"
-                    (nixpkgs'.fetchFromGitHub { owner  = "angerman";
+                    (nixpkgs'.fetchFromGitHub { owner  = "input-output-hk";
                                                 repo   = "hackage.nix";
-                                                rev    = "d8e03ec0e3c99903d970406ae5bceac7d993035d";
-                                                sha256 = "0c7camspw7v5bg23hcas0r10c40fnwwwmz0adsjpsxgdjxayws3v";
+                                                rev    = "77ccf6764809a70947d2d3c34be7f886ebef4222";
+                                                sha256 = "10csn7v77ry769xri6rmh9kxn0z0ynqybqa2g0dvg58mmcp1g6jx";
                                                 name   = "hackage-exprs-source"; }))
                    ;
   # a different haskell infrastructure
   haskell = import (overrideWith "haskell"
-                    (nixpkgs'.fetchFromGitHub { owner  = "angerman";
+                    (nixpkgs'.fetchFromGitHub { owner  = "input-output-hk";
                                                 repo   = "haskell.nix";
-                                                rev    = "03026b7bb95a6713f4d50b841abadabb343f83d2";
-                                                sha256 = "05ma2qmmn4p2xcgyy8waissfj953b7wyq97yx80d936074gyyw4s";
+                                                rev    = "9d251db79ad7736c1d3d38e5005f07e5e44e86d4";
+                                                sha256 = "0aalg19bksnqq5a5xaz90pghjsagfysbcpgwbwz5hfqrrl7mplgg";
                                                 name   = "haskell-lib-source"; }))
                    hackage;
 
   # the set of all stackage snapshots
   stackage = import (overrideWith "stackage"
-                     (nixpkgs'.fetchFromGitHub { owner  = "angerman";
+                     (nixpkgs'.fetchFromGitHub { owner  = "input-output-hk";
                                                  repo   = "stackage.nix";
-                                                 rev    = "67675ea78ae5c321ed0b8327040addecc743a96c";
-                                                 sha256 = "1ds2xfsnkm2byg8js6c9032nvfwmbx7lgcsndjgkhgq56bmw5wap";
+                                                 rev    = "c34653026c97ce01a237212d5ed7a9c8fc607810";
+                                                 sha256 = "0cawknjg7qg467d6cmf8zx957cfwk35sfwblsn8sl64z5c2jfcs8";
                                                  name   = "stackage-snapshot-source"; }))
                    ;
 

@@ -47,7 +47,7 @@ pureLogic
     => Logic m
 pureLogic = Logic
     { getSerializedBlock = \_ -> pure (Just serializedBlock)
-    , streamBlocks       = \_ -> pure ()
+    , streamBlocks       = \_ k -> k (pure ())
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))

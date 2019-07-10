@@ -122,8 +122,8 @@ packages:
 # We forked it because it has some unacceptable version bounds. We didn't
 # add any features nor fix any bugs.
 - location:
-    git: https://github.com/input-output-hk/engine.io.git
-    commit: 8f9216b8f9c7bd96cb1feeb82db5271744d67fcd
+    git: https://github.com/input-output-hk/engine.io
+    commit: d3c55f51bb81cee7d0d551de930ce65fe7d76756
   extra-dep: true
   subdirs:
     - socket-io
@@ -155,16 +155,8 @@ packages:
 # Because log-warper mainline depends on a lifted-async which depends upon a
 # buggy async
 - location:
-    git: https://github.com/input-output-hk/log-warper.git
-    commit: 0b7d4d48310f139d75829d31883aaa87ce53312c
-  extra-dep: true
-
-# Use hedgehog 1.0 tag from git rather than Hackage because Nix is a dumbass.
-- location:
-    git: https://github.com/hedgehogqa/haskell-hedgehog.git
-    commit: a20005f4d584f19ea05524320f1c9a90a44c81db
-  subdirs:
-    - hedgehog
+    git: https://github.com/input-output-hk/log-warper
+    commit: 5271ab6c33541b8155ca203e714875974ec116be
   extra-dep: true
 
 # Custom Universum prelude, that brings back some of the
@@ -179,7 +171,7 @@ packages:
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
     git: https://github.com/input-output-hk/serokell-util
-    commit: e592ae9b9387184519b393c066edbf8b4ed91737
+    commit: 457f1d149c6e238841f283a1faf7bc8fb021b27d
   extra-dep: true
 
 # Inspector, as used in cardano-crypto
@@ -202,7 +194,7 @@ extra-deps:
 - normaldistribution-1.1.0.3
 
 # This used to be Serokell.Aeson.Options
-- aeson-options-0.0.0
+- aeson-options-0.1.0
 - servant-swagger-ui-redoc-0.3.0.1.21.2
 
 # Needed to LTS-12.16 compatibility
@@ -229,6 +221,7 @@ extra-deps:
 - neat-interpolation-0.3.2.4
 - config-ini-0.2.4.0
 - stylish-haskell-0.9.2.2
+- hedgehog-1.0
 
 # katip-0.6.3.0 conflicts with Win32-2.6.1.0
 allow-newer: true

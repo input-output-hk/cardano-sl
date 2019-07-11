@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
@@ -21,7 +20,6 @@ import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import           System.Exit (ExitCode (..))
 
-import           Pos.Binary ()
 import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
                      streamWindow)
 import           Pos.Chain.Genesis as Genesis (Config (..))

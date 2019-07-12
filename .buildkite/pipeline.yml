@@ -1,11 +1,11 @@
 steps:
-  - label: 'stack2nix'
-    command: 'scripts/check-stack2nix.sh'
+  - label: Check Hydra evaluation of release.nix
+    command: 'nix-build -A check-hydra lib.nix -o check-hydra.sh && ./check-hydra.sh'
     agents:
       system: x86_64-linux
 
-  - label: 'release.nix'
-    command: 'scripts/ci/check-hydra.sh'
+  - label: Check auto-generated Nix
+    command: 'nix-build -A check-nix-tools lib.nix -o check-nix-tools.sh && ./check-nix-tools.sh'
     agents:
       system: x86_64-linux
 

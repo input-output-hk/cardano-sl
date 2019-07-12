@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "Serokell <hi@serokell.io>";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL main implementation";
       description = "Please see README.md";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = ([
@@ -78,7 +69,7 @@
           (hsPkgs.network)
           (hsPkgs.network-transport)
           (hsPkgs.optparse-applicative)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.pvss)
           (hsPkgs.QuickCheck)
           (hsPkgs.quickcheck-instances)
@@ -115,11 +106,11 @@
           (hsPkgs.x509-validation)
           (hsPkgs.yaml)
           (hsPkgs.cborg)
-        ] ++ pkgs.lib.optional (!system.isWindows) (hsPkgs.unix)) ++ pkgs.lib.optional (!system.isWindows && !system.isFreebsd) (hsPkgs.systemd);
+          ] ++ (pkgs.lib).optional (!system.isWindows) (hsPkgs.unix)) ++ (pkgs.lib).optional (!system.isWindows && !system.isFreebsd) (hsPkgs.systemd);
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       tests = {
         "cardano-test" = {
           depends = [
@@ -167,13 +158,13 @@
             (hsPkgs.time-units)
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
-      };
       benchmarks = {
         "cardano-bench-criterion" = {
           depends = [
@@ -200,11 +191,11 @@
             (hsPkgs.network-transport-inmemory)
             (hsPkgs.optparse-applicative)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
       };
-    };
-  } // rec { src = .././../lib; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././lib; }

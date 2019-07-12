@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-crypto-test";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-crypto-test"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - arbitrary instances for cardano-sl-crypto";
       description = "This package contains arbitrary instances for the cryptography primitives used in Cardano SL.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -41,9 +32,7 @@
           (hsPkgs.memory)
           (hsPkgs.quickcheck-instances)
           (hsPkgs.universum)
-        ];
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../crypto/test;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././crypto/test; }

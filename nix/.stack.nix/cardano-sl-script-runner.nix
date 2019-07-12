@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-script-runner";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-script-runner"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "operations@iohk.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - Script Runner";
       description = "Cardano SL - ScriptRunner";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -63,8 +54,8 @@
           (hsPkgs.vector)
           (hsPkgs.vty)
           (hsPkgs.yaml)
-        ];
-      };
+          ];
+        };
       exes = {
         "testcases" = {
           depends = [
@@ -87,10 +78,8 @@
             (hsPkgs.time-units)
             (hsPkgs.turtle)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../script-runner;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././script-runner; }

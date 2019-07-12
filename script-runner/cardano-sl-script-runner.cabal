@@ -61,6 +61,8 @@ library
   ghc-options:         -Wall -Weverything
                        -Wno-unsafe -Wno-missing-import-lists
                        -O2
+  if os(windows)
+    buildable: False
 
 executable testcases
   main-is:              TestCases.hs
@@ -89,3 +91,5 @@ executable testcases
                        -Wall -Weverything
                        -Wno-unsafe -Wno-missing-import-lists
                        -O2
+  if os(windows)
+    buildable: False

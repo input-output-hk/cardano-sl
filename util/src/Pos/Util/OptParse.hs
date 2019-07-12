@@ -5,8 +5,8 @@ module Pos.Util.OptParse
 import           Universum
 
 import           Options.Applicative (ReadM, eitherReader)
-import           Text.Parsec (Parsec, parse)
+import           Text.Megaparsec (Parsec, parse)
 
-fromParsec :: Parsec Text () a -> ReadM a
+fromParsec :: Parsec () String a -> ReadM a
 fromParsec parser =
-    eitherReader $ first show . parse parser "<CLI options>" . toText
+    eitherReader $ first show . parse parser "<CLI options>"

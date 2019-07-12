@@ -2,7 +2,7 @@
 
 let
   cardanoPkgs = import ../.. args;
-  frontend = cardanoPkgs.cardano-sl-explorer-frontend;
+  frontend = nix-tools.exes.cardano-sl-explorer-frontend;
 
 in
   # fixme: cardano-sl-explorer source is not filtered enough, so

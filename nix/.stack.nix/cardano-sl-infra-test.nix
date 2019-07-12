@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-infra-test";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-infra-test"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "IOHK <support@iohk.io>";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - generators for cardano-sl-infra";
       description = "This package contains generators for the infrastructural data types used in Cardano SL.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -49,9 +40,7 @@
           (hsPkgs.kademlia)
           (hsPkgs.universum)
           (hsPkgs.yaml)
-        ];
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../infra/test;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././infra/test; }

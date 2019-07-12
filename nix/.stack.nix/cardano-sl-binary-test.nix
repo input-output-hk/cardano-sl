@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-binary-test";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-binary-test"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - binary serializarion (tests)";
       description = "This package contains test helpers for cardano-sl-binary.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -45,12 +36,10 @@
           (hsPkgs.serokell-util)
           (hsPkgs.text)
           (hsPkgs.universum)
-        ];
+          ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../binary/test;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././binary/test; }

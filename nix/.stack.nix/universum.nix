@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.18";
-      identifier = {
-        name = "universum";
-        version = "1.2.0";
-      };
+      identifier = { name = "universum"; version = "1.2.0"; };
       license = "MIT";
       copyright = "2016 Stephen Diehl, 2016-2018 Serokell";
       maintainer = "Serokell <hi@serokell.io>";
@@ -22,10 +13,10 @@
       synopsis = "Custom prelude used in Serokell";
       description = "See README.md file for more details.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.bytestring)
           (hsPkgs.containers)
@@ -45,11 +36,11 @@
           (hsPkgs.vector)
           (hsPkgs.formatting)
           (hsPkgs.fmt)
-        ];
-      };
+          ];
+        };
       tests = {
         "universum-test" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.universum)
             (hsPkgs.bytestring)
@@ -58,32 +49,28 @@
             (hsPkgs.hedgehog)
             (hsPkgs.tasty)
             (hsPkgs.tasty-hedgehog)
-          ];
-        };
+            ];
+          };
         "universum-doctest" = {
-          depends  = [
-            (hsPkgs.base)
-            (hsPkgs.doctest)
-            (hsPkgs.Glob)
-          ];
+          depends = [ (hsPkgs.base) (hsPkgs.doctest) (hsPkgs.Glob) ];
+          };
         };
-      };
       benchmarks = {
         "universum-benchmark" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.universum)
             (hsPkgs.containers)
             (hsPkgs.gauge)
             (hsPkgs.unordered-containers)
-          ] ++ pkgs.lib.optional (compiler.isGhc && compiler.version.eq "7.10.3") (hsPkgs.semigroups);
+            ] ++ (pkgs.lib).optional (compiler.isGhc && (compiler.version).eq "7.10.3") (hsPkgs.semigroups);
+          };
         };
       };
-    };
-  } // {
-    src = pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/universum.git";
-      rev = "7f1b2483f71cacdfd032fe447064d6e0a1df50fc";
-      sha256 = "12ppiszywj0dsspwlhb8bzhsrlgszk8rvlhcy8il3ppz99mlnw5g";
-    };
-  }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/universum";
+      rev = "15f7db758ff5a24b874de2247f6f7a4576562da5";
+      sha256 = "127bs29zpjcc40777dv7figk05gd00b9ja57sp11w440qr5h72hk";
+      });
+    }

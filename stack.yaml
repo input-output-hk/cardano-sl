@@ -1,4 +1,5 @@
-resolver: lts-12.17
+resolver: lts-12.26
+compiler: ghc-8.4.4
 
 flags:
   ether:
@@ -43,6 +44,7 @@ packages:
 - x509
 - cluster
 - mnemonic
+- yaml-validation
 
 # IOHK projects:
 
@@ -53,7 +55,7 @@ packages:
 
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 45e1a0eafac774c109704be44ca06fd8cae193ba
+    commit: 4590efa638397e952a51a8994b5543e4ea3c1ecd
   extra-dep: true
 # to be removed when haskell-ip is in the current stackage version
 - location:
@@ -133,7 +135,7 @@ packages:
     git: https://github.com/well-typed/canonical-json.git
     commit: ddfe3593b80b5ceb88842bb7a6f2268df75d2c2f
   extra-dep: true
-  
+
 
 # The latest release of clock on hackage is *way* too old (0.7.2)
 # and can not be cross compiled.  As
@@ -165,26 +167,19 @@ packages:
     - hedgehog
   extra-dep: true
 
-# This is upstream version 0.9.2.2 which has been released to Hackage
-# but we cannot use that yet because of Nix problems.
-- location:
-    git: https://github.com/jaspervdj/stylish-haskell
-    commit: f253f37362be840bafe2c82a8d7fb284046fda48
-  extra-dep: true
-
 # Custom Universum prelude, that brings back some of the
 # formatting logic, as well as `pretty`.
 - location:
-    git: https://github.com/input-output-hk/universum.git
-    commit: 7f1b2483f71cacdfd032fe447064d6e0a1df50fc
+    git: https://github.com/input-output-hk/universum
+    commit: 15f7db758ff5a24b874de2247f6f7a4576562da5
   extra-dep: true
 
 
 # Need to adjust version bounds on serokell-util.
 # serokell-util has an upper bound preventing 6.3 for some reason
 - location:
-    git: https://github.com/input-output-hk/serokell-util.git
-    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
+    git: https://github.com/input-output-hk/serokell-util
+    commit: e592ae9b9387184519b393c066edbf8b4ed91737
   extra-dep: true
 
 # Inspector, as used in cardano-crypto
@@ -230,6 +225,10 @@ extra-deps:
 - micro-recursion-schemes-5.0.2.2
 - token-bucket-0.1.0.1
 - lzma-clib-5.2.2
+- megaparsec-7.0.4
+- neat-interpolation-0.3.2.4
+- config-ini-0.2.4.0
+- stylish-haskell-0.9.2.2
 
 # katip-0.6.3.0 conflicts with Win32-2.6.1.0
 allow-newer: true

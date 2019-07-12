@@ -13,7 +13,7 @@ import           Data.Aeson.Options (defaultOptions)
 import qualified Data.Aeson.Types as A
 import           Data.Default (Default (..))
 import qualified Data.Text as T
-import qualified Text.Parsec as Parsec
+import qualified Text.Megaparsec as Parsec
 
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
@@ -99,4 +99,4 @@ instance Exception NodeAttackedError
 
 parseNetworkAddress :: A.Value -> A.Parser NetworkAddress
 parseNetworkAddress = A.withText "NetworkAddress" $ \s ->
-    toAesonError . over _Left show $ Parsec.parse addrParser "" s
+    toAesonError . over _Left show $ Parsec.parse addrParser "" (toString s)

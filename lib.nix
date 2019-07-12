@@ -1,14 +1,19 @@
 let
   # Allow overriding pinned nixpkgs for debugging purposes via cardano_pkgs
-  fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
+  # Imports the iohk-nix library.
+  # The version can be overridden for debugging purposes by setting
+  # NIX_PATH=iohk_nix=/path/to/iohk-nix
+  iohkNix = import (
+    let try = builtins.tryEval <iohk_nix>;
     in if try.success
-    then builtins.trace "using host <cardano_pkgs>" try.value
-    else import ./nix/fetch-nixpkgs.nix;
-
-  # Function to import the pinned nixpkgs with necessary overlays,
-  # applied to the given args.
-  importPkgs = args: import fetchNixPkgs ({ overlays = [ (import ./nix/overlays/jemalloc.nix) ]; } // args);
-
+    then builtins.trace "using host <iohk_nix>" try.value
+    else
+      let
+        spec = builtins.fromJSON (builtins.readFile ./nix/iohk-nix-src.json);
+      in builtins.fetchTarball {
+        url = "${spec.url}/archive/${spec.rev}.tar.gz";
+        inherit (spec) sha256;
+      }) {};
   # Gets the value of an environment variable, with a default if it's
   # unset or empty.
   maybeEnv = env: default:
@@ -18,39 +23,9 @@ let
        then result
        else default;
 
-  # Removes files within a Haskell source tree which won't change the
-  # result of building the package.
-  # This is so that cached build products can be used whenever possible.
-  # It also applies the lib.cleanSource filter from nixpkgs which
-  # removes VCS directories, emacs backup files, etc.
-  cleanSourceTree = src:
-    if (builtins.typeOf src) == "path"
-      then lib.cleanSourceWith {
-        filter = with pkgs.stdenv;
-          name: type: let baseName = baseNameOf (toString name); in ! (
-            # Filter out cabal build products.
-            baseName == "dist" || baseName == "dist-newstyle" ||
-            baseName == "cabal.project.local" ||
-            lib.hasPrefix ".ghc.environment" baseName ||
-            # Filter out stack build products.
-            lib.hasPrefix ".stack-work" baseName ||
-            # Filter out files which are commonly edited but don't
-            # affect the cabal build.
-            lib.hasSuffix ".nix" baseName
-          );
-        src = lib.cleanSource src;
-      } else src;
-
-  pkgs = import fetchNixPkgs {};
+  pkgs = iohkNix.pkgs;
   lib = pkgs.lib;
-in lib // (rec {
-  inherit fetchNixPkgs importPkgs cleanSourceTree;
-  # cardano-crypto is not a cardano-sl package.
-  isCardanoSL = name: lib.hasPrefix "cardano-" name && !(name == "cardano-crypto");
-  isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
-
-  # Insert this into builder scripts where programs require a UTF-8
-  # locale to work.
+in lib // iohkNix // (rec {
   utf8LocaleSetting = ''
     export LC_ALL=en_GB.UTF-8
     export LANG=en_GB.UTF-8
@@ -92,28 +67,5 @@ in lib // (rec {
   forEnvironments = f: lib.mapAttrs
     (name: env: f (env // { environment = name; }))
     environments;
-
-  runHaskell = name: hspkgs: deps: env: code: let
-    ghc = hspkgs.ghcWithPackages deps;
-    flags = lib.optionalString pkgs.stdenv.isDarwin "-liconv";  # https://github.com/NixOS/nixpkgs/issues/46814
-    builtBinary = pkgs.runCommand "${name}-binary" { buildInputs = [ ghc ]; } ''
-      mkdir -p $out/bin/
-      ghc ${pkgs.writeText "${name}.hs" code} ${flags} -o $out/bin/${name}
-    '';
-  in pkgs.runCommand name env ''
-    ${builtBinary}/bin/$name
-  '';
-
-  # Overrides the lib.commitIdFromGitRepo function in nixpkgs
-  commitIdFromGitRepo = import ./nix/commit-id.nix { inherit lib; };
-
-  # Plucks all the cardano-sl packages from the haskellPackages set,
-  # also adding -static variants which contain the gitrev.
-  getCardanoPackages = justStaticExecutablesGitRev: haskellPackages:
-    let
-      cslPackages = lib.filterAttrs (name: drv: isCardanoSL name) haskellPackages;
-      makeStatic = name: drv: lib.nameValuePair (name + "-static") (justStaticExecutablesGitRev drv);
-    in
-      cslPackages // lib.mapAttrs' makeStatic cslPackages;
 
 })

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "2.0";
-      identifier = {
-        name = "serokell-util";
-        version = "0.9.0";
-      };
+      identifier = { name = "serokell-util"; version = "0.9.0"; };
       license = "MIT";
       copyright = "2016-2018 Serokell";
       maintainer = "Serokell <hi@serokell.io>";
@@ -22,10 +13,10 @@
       synopsis = "General-purpose functions by Serokell";
       description = "Serokell-util is a library consisting of functions, which\nare not included in standard libraries, but are useful for\nmultiple projects. This library was created when it was\nfound that in new projects we need to use some utility\nfunctions from existing projects and don't want to\ncopy-paste them.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.aeson)
           (hsPkgs.ansi-terminal)
@@ -42,7 +33,7 @@
           (hsPkgs.microlens-mtl)
           (hsPkgs.mtl)
           (hsPkgs.o-clock)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.process)
           (hsPkgs.QuickCheck)
           (hsPkgs.quickcheck-instances)
@@ -54,11 +45,11 @@
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
-        ];
-      };
+          ];
+        };
       tests = {
         "serokell-test" = {
-          depends  = [
+          depends = [
             (hsPkgs.aeson)
             (hsPkgs.base)
             (hsPkgs.extra)
@@ -70,17 +61,17 @@
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
             (hsPkgs.vector)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            ];
+          };
         };
       };
-    };
-  } // {
-    src = pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/serokell-util.git";
-      rev = "4ead9809e119483e7832da5f8224b0c4d4a2d5d6";
-      sha256 = "0h4wcvp126w021bc2kglsbfywyvc9z3yf1sh1k4yy1an4ckh51jd";
-    };
-  }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/serokell-util";
+      rev = "e592ae9b9387184519b393c066edbf8b4ed91737";
+      sha256 = "11nhmikaqmhfs4cyhs3rq07bi4hmqyfg9vl7q8779h07i629zsz3";
+      });
+    }

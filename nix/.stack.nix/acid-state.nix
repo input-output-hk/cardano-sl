@@ -1,20 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = {
-      skip-state-machine-test = false;
-    };
+    flags = { skip-state-machine-test = false; };
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "acid-state";
-        version = "0.15.0";
-      };
+      identifier = { name = "acid-state"; version = "0.15.0"; };
       license = "LicenseRef-PublicDomain";
       copyright = "";
       maintainer = "Lemmih <lemmih@gmail.com>";
@@ -24,10 +13,10 @@
       synopsis = "Add ACID guarantees to any serializable Haskell data structure.";
       description = "Use regular Haskell data structures as your database and get stronger ACID guarantees than most RDBMS offer.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.array)
           (hsPkgs.base)
           (hsPkgs.bytestring)
@@ -43,13 +32,13 @@
           (hsPkgs.network)
           (hsPkgs.template-haskell)
           (hsPkgs.th-expand-syns)
-        ] ++ (if system.isWindows
+          ] ++ (if system.isWindows
           then [ (hsPkgs.Win32) ]
           else [ (hsPkgs.unix) ]);
-      };
+        };
       tests = {
         "specs" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.acid-state)
             (hsPkgs.deepseq)
@@ -58,13 +47,13 @@
             (hsPkgs.mtl)
             (hsPkgs.safecopy)
             (hsPkgs.template-haskell)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-          ];
-        };
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            ];
+          };
         "state-machine" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.acid-state)
             (hsPkgs.containers)
@@ -73,10 +62,10 @@
             (hsPkgs.hedgehog)
             (hsPkgs.mtl)
             (hsPkgs.safecopy)
-          ];
-        };
+            ];
+          };
         "examples" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.acid-state)
             (hsPkgs.cereal)
@@ -86,12 +75,12 @@
             (hsPkgs.network)
             (hsPkgs.safecopy)
             (hsPkgs.time)
-          ];
+            ];
+          };
         };
-      };
       benchmarks = {
         "loading-benchmark" = {
-          depends  = [
+          depends = [
             (hsPkgs.random)
             (hsPkgs.directory)
             (hsPkgs.system-fileio)
@@ -100,14 +89,14 @@
             (hsPkgs.mtl)
             (hsPkgs.base)
             (hsPkgs.acid-state)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // {
-    src = pkgs.fetchgit {
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/parsonsmatt/acid-state";
       rev = "a1b23e2056f134e53f705a694ab85deeecabec5c";
       sha256 = "0mgdk8252g7wbb0afyn21pcn3bwh4vainy3h2d0xsv4hlpgqgnw8";
-    };
-  }
+      });
+    }

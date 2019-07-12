@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-cluster";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-cluster"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "operations@iohk.io";
@@ -22,7 +13,7 @@
       synopsis = "Utilities to generate and run cluster of nodes";
       description = "See README";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -46,7 +37,7 @@
           (hsPkgs.iproute)
           (hsPkgs.lens)
           (hsPkgs.optparse-applicative)
-          (hsPkgs.parsec)
+          (hsPkgs.megaparsec)
           (hsPkgs.safe)
           (hsPkgs.servant-client)
           (hsPkgs.temporary)
@@ -54,8 +45,8 @@
           (hsPkgs.time)
           (hsPkgs.tls)
           (hsPkgs.universum)
-        ];
-      };
+          ];
+        };
       exes = {
         "cardano-sl-cluster-demo" = {
           depends = [
@@ -70,8 +61,8 @@
             (hsPkgs.formatting)
             (hsPkgs.lens)
             (hsPkgs.universum)
-          ];
-        };
+            ];
+          };
         "cardano-sl-cluster-prepare-environment" = {
           depends = [
             (hsPkgs.base)
@@ -81,9 +72,9 @@
             (hsPkgs.formatting)
             (hsPkgs.lens)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
-      };
       tests = {
         "cardano-sl-cluster-test" = {
           depends = [
@@ -97,10 +88,8 @@
             (hsPkgs.QuickCheck)
             (hsPkgs.time)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../cluster;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././cluster; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-core-test";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-core-test"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "IOHK <support@iohk.io>";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - core functionality (tests)";
       description = "QuickCheck Arbitrary instances for the Cardano SL core\nfunctionality.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -48,9 +39,7 @@
           (hsPkgs.time-units)
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
-        ];
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../core/test;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././core/test; }

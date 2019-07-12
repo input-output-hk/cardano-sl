@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-node";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-node"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "Serokell <hi@serokell.io>";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL simple node executable";
       description = "Provides a 'cardano-node-simple' executable which can\nconnect to the Cardano network and act as a full node\nbut does not have any wallet capabilities.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -62,8 +53,8 @@
           (hsPkgs.warp)
           (hsPkgs.x509)
           (hsPkgs.x509-store)
-        ];
-      };
+          ];
+        };
       exes = {
         "cardano-node-simple" = {
           depends = [
@@ -74,12 +65,12 @@
             (hsPkgs.cardano-sl-node)
             (hsPkgs.cardano-sl)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
-      };
       tests = {
         "property-tests" = {
           depends = [
@@ -97,8 +88,8 @@
             (hsPkgs.text)
             (hsPkgs.universum)
             (hsPkgs.validation)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec { src = .././../node; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././node; }

@@ -13,7 +13,7 @@ import           Control.Exception.Safe (throwString)
 import           Formatting (build, formatToString, shown, (%))
 import qualified Options.Applicative as Opt
 import           Pos.Util.OptParse (fromParsec)
-import           Text.Parsec (eof, parse)
+import           Text.Megaparsec (eof, parse)
 
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
 import           Pos.Infra.DHT.Model.Types (DHTKey, DHTNode, dhtKeyParser,
@@ -66,4 +66,4 @@ readDhtPeersFile path = do
                 ("error when parsing peer "%shown%
                  " from peers file "%build%": "%shown) x path err
             Right a -> return a
-    mapM parseLine xs
+    mapM (parseLine . toString) xs

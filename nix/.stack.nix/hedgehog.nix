@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.8";
-      identifier = {
-        name = "hedgehog";
-        version = "1.0";
-      };
+      identifier = { name = "hedgehog"; version = "1.0"; };
       license = "BSD-3-Clause";
       copyright = "";
       maintainer = "Jacob Stanley <jacob@stanley.io>";
@@ -22,7 +13,7 @@
       synopsis = "Release with confidence.";
       description = "<http://hedgehog.qa/ Hedgehog> automatically generates a comprehensive array\nof test cases, exercising your software in ways human testers would never\nimagine.\n\nGenerate hundreds of test cases automatically, exposing even the\nmost insidious of corner cases. Failures are automatically simplified, giving\ndevelopers coherent, intelligible error messages.\n\nTo get started quickly, see the <https://github.com/hedgehogqa/haskell-hedgehog/tree/master/hedgehog-example examples>.";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -51,8 +42,8 @@
           (hsPkgs.transformers)
           (hsPkgs.transformers-base)
           (hsPkgs.wl-pprint-annotated)
-        ];
-      };
+          ];
+        };
       tests = {
         "test" = {
           depends = [
@@ -65,15 +56,15 @@
             (hsPkgs.semigroups)
             (hsPkgs.text)
             (hsPkgs.transformers)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // {
-    src = pkgs.fetchgit {
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/hedgehogqa/haskell-hedgehog.git";
       rev = "a20005f4d584f19ea05524320f1c9a90a44c81db";
       sha256 = "1lca47ilzg75ibv2qbb1pl466rba6ir8ra0cg4qlji63dsbpkiks";
-    };
+      });
     postUnpack = "sourceRoot+=/hedgehog; echo source root reset to \$sourceRoot";
-  }
+    }

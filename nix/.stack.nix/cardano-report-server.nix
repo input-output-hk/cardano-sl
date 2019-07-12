@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-report-server";
-        version = "0.5.10";
-      };
+      identifier = { name = "cardano-report-server"; version = "0.5.10"; };
       license = "BSD-3-Clause";
       copyright = "2017-2018 IOHK";
       maintainer = "volhovm.cs@gmail.com";
@@ -22,10 +13,10 @@
       synopsis = "Reporting server for CSL";
       description = "Please see README.md";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.aeson)
           (hsPkgs.aeson-pretty)
           (hsPkgs.base)
@@ -56,11 +47,11 @@
           (hsPkgs.warp)
           (hsPkgs.wreq)
           (hsPkgs.lens-aeson)
-        ];
-      };
+          ];
+        };
       exes = {
         "cardano-report-server" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.cardano-report-server)
             (hsPkgs.directory)
@@ -75,12 +66,12 @@
             (hsPkgs.universum)
             (hsPkgs.wai-extra)
             (hsPkgs.warp)
-          ];
+            ];
+          };
         };
-      };
       tests = {
         "cardano-report-server-test" = {
-          depends  = [
+          depends = [
             (hsPkgs.HUnit)
             (hsPkgs.QuickCheck)
             (hsPkgs.aeson)
@@ -93,17 +84,17 @@
             (hsPkgs.time)
             (hsPkgs.transformers)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            ];
+          };
         };
       };
-    };
-  } // {
-    src = pkgs.fetchgit {
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/cardano-report-server.git";
       rev = "93f2246c54436e7f98cc363b4e0f8f1cb5e78717";
       sha256 = "04zsgrmnlyjymry6fsqnz692hdp89ykqb8jyxib8yklw101gdn3x";
-    };
-  }
+      });
+    }

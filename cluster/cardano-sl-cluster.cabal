@@ -47,7 +47,7 @@ library
                , iproute
                , lens
                , optparse-applicative
-               , parsec
+               , megaparsec
                , safe
                , servant-client
                , temporary

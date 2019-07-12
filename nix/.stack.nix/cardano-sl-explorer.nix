@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-explorer";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-explorer"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2017 IOHK";
       maintainer = "IOHK <support@iohk.io>";
@@ -22,7 +13,7 @@
       synopsis = "Cardano explorer";
       description = "Please see README.md";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -76,11 +67,11 @@
           (hsPkgs.wai-extra)
           (hsPkgs.wai-cors)
           (hsPkgs.warp)
-        ];
+          ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs)
-        ];
-      };
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          ];
+        };
       exes = {
         "cardano-explorer" = {
           depends = [
@@ -93,11 +84,11 @@
             (hsPkgs.cardano-sl-util)
             (hsPkgs.optparse-applicative)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
-        };
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         "cardano-explorer-hs2purs" = {
           depends = [
             (hsPkgs.base)
@@ -105,11 +96,11 @@
             (hsPkgs.purescript-bridge)
             (hsPkgs.universum)
             (hsPkgs.optparse-simple)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
-        };
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         "cardano-explorer-swagger" = {
           depends = [
             (hsPkgs.aeson)
@@ -123,23 +114,23 @@
             (hsPkgs.servant-swagger)
             (hsPkgs.swagger2)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
-        };
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         "cardano-explorer-mock" = {
           depends = [
             (hsPkgs.base)
             (hsPkgs.cardano-sl-explorer)
             (hsPkgs.optparse-applicative)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
-      };
       tests = {
         "cardano-explorer-test" = {
           depends = [
@@ -163,13 +154,13 @@
             (hsPkgs.lens)
             (hsPkgs.universum)
             (hsPkgs.warp)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover)
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
-      };
       benchmarks = {
         "cardano-explorer-bench" = {
           depends = [
@@ -181,13 +172,11 @@
             (hsPkgs.criterion)
             (hsPkgs.universum)
             (hsPkgs.weigh)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../explorer;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././explorer; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-x509";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-x509"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "operations@iohk.io";
@@ -22,7 +13,7 @@
       synopsis = "Tool-suite for generating x509 certificates specialized for RSA with SHA-256";
       description = "See README";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -44,8 +35,8 @@
           (hsPkgs.x509-store)
           (hsPkgs.x509-validation)
           (hsPkgs.yaml)
-        ];
-      };
+          ];
+        };
       tests = {
         "cardano-sl-x509-test" = {
           depends = [
@@ -55,8 +46,8 @@
             (hsPkgs.universum)
             (hsPkgs.hedgehog)
             (hsPkgs.cardano-sl-util-test)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec { src = .././../x509; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././x509; }

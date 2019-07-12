@@ -1,20 +1,12 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = {
-      for-installer = false;
-    };
+    flags = { for-installer = false; };
     package = {
       specVersion = "1.10";
       identifier = {
         name = "cardano-sl-tools-post-mortem";
         version = "3.0.2";
-      };
+        };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "operations@iohk.io";
@@ -24,11 +16,11 @@
       synopsis = "Cardano SL - post-mortem tool";
       description = "Cardano SL - post-mortem tool";
       buildType = "Simple";
-    };
+      };
     components = {
       exes = {
         "cardano-post-mortem" = {
-          depends = pkgs.lib.optionals (!flags.for-installer) [
+          depends = (pkgs.lib).optionals (!flags.for-installer) [
             (hsPkgs.Chart)
             (hsPkgs.Chart-diagrams)
             (hsPkgs.MonadRandom)
@@ -55,10 +47,8 @@
             (hsPkgs.text)
             (hsPkgs.time-units)
             (hsPkgs.universum)
-          ];
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../tools/post-mortem;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././tools/post-mortem; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-db-test";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-db-test"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "IOHK <support@iohk.io>";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - arbitrary instances for cardano-sl-db";
       description = "Cardano SL - arbitrary instances for cardano-sl-db";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -38,9 +29,7 @@
           (hsPkgs.generic-arbitrary)
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
-        ];
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../db/test;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././db/test; }

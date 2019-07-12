@@ -1,20 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = {
-      for-installer = false;
-    };
+    flags = { for-installer = false; };
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-tools";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-tools"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";
@@ -24,7 +13,7 @@
       synopsis = "Cardano SL - Tools";
       description = "Cardano SL - Tools";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -39,8 +28,8 @@
           (hsPkgs.text)
           (hsPkgs.trifecta)
           (hsPkgs.universum)
-        ];
-      };
+          ];
+        };
       exes = {
         "cardano-genupdate" = {
           depends = [
@@ -59,10 +48,10 @@
             (hsPkgs.text)
             (hsPkgs.universum)
             (hsPkgs.unix-compat)
-          ];
-        };
+            ];
+          };
         "cardano-keygen" = {
-          depends = pkgs.lib.optionals (!flags.for-installer) [
+          depends = (pkgs.lib).optionals (!flags.for-installer) [
             (hsPkgs.base)
             (hsPkgs.base58-bytestring)
             (hsPkgs.bytestring)
@@ -81,8 +70,8 @@
             (hsPkgs.serokell-util)
             (hsPkgs.text)
             (hsPkgs.universum)
-          ];
-        };
+            ];
+          };
         "cardano-launcher" = {
           depends = [
             (hsPkgs.aeson)
@@ -115,10 +104,10 @@
             (hsPkgs.universum)
             (hsPkgs.unordered-containers)
             (hsPkgs.yaml)
-          ] ++ (if !system.isWindows
+            ] ++ (if !system.isWindows
             then [ (hsPkgs.unix) ]
             else [ (hsPkgs.Win32) ]);
-        };
+          };
         "cardano-addr-convert" = {
           depends = [
             (hsPkgs.base)
@@ -131,10 +120,10 @@
             (hsPkgs.optparse-applicative)
             (hsPkgs.text)
             (hsPkgs.universum)
-          ];
-        };
+            ];
+          };
         "cardano-cli-docs" = {
-          depends = pkgs.lib.optionals (!flags.for-installer) [
+          depends = (pkgs.lib).optionals (!flags.for-installer) [
             (hsPkgs.base)
             (hsPkgs.cardano-sl)
             (hsPkgs.directory)
@@ -144,13 +133,13 @@
             (hsPkgs.process)
             (hsPkgs.text)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
-        };
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         "cardano-blockchain-analyser" = {
-          depends = pkgs.lib.optionals (!flags.for-installer) [
+          depends = (pkgs.lib).optionals (!flags.for-installer) [
             (hsPkgs.ansi-wl-pprint)
             (hsPkgs.base)
             (hsPkgs.cardano-sl)
@@ -170,11 +159,11 @@
             (hsPkgs.tabl)
             (hsPkgs.text)
             (hsPkgs.universum)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
-        };
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         "cardano-x509-certificates" = {
           depends = [
             (hsPkgs.base)
@@ -182,17 +171,17 @@
             (hsPkgs.filepath)
             (hsPkgs.optparse-applicative)
             (hsPkgs.universum)
-          ];
-        };
+            ];
+          };
         "genesis-hash" = {
-          depends = pkgs.lib.optionals (!flags.for-installer) [
+          depends = (pkgs.lib).optionals (!flags.for-installer) [
             (hsPkgs.base)
             (hsPkgs.universum)
             (hsPkgs.bytestring)
             (hsPkgs.cryptonite)
             (hsPkgs.canonical-json)
-          ];
-        };
+            ];
+          };
         "wallet-extractor" = {
           depends = [
             (hsPkgs.base)
@@ -200,9 +189,9 @@
             (hsPkgs.text)
             (hsPkgs.cardano-sl)
             (hsPkgs.cardano-sl-util)
-          ];
+            ];
+          };
         };
-      };
       tests = {
         "cardano-sl-tools-test" = {
           depends = [
@@ -213,13 +202,11 @@
             (hsPkgs.directory)
             (hsPkgs.hspec)
             (hsPkgs.temporary)
-          ];
+            ];
           build-tools = [
-            (hsPkgs.buildPackages.cpphs)
-          ];
+            (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+            ];
+          };
         };
       };
-    };
-  } // rec {
-    src = .././../tools;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././tools; }

@@ -1,18 +1,9 @@
-{ system
-, compiler
-, flags
-, pkgs
-, hsPkgs
-, pkgconfPkgs
-, ... }:
+{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = {
-        name = "cardano-sl-chain-test";
-        version = "3.0.2";
-      };
+      identifier = { name = "cardano-sl-chain-test"; version = "3.0.2"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "rupert.horlick@iohk.io";
@@ -22,7 +13,7 @@
       synopsis = "Cardano SL - arbitrary instances for cardano-sl-chain";
       description = "Cardano SL - arbitrary instances for cardano-sl-chain";
       buildType = "Simple";
-    };
+      };
     components = {
       "library" = {
         depends = [
@@ -55,9 +46,7 @@
           (hsPkgs.universum)
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
-        ];
+          ];
+        };
       };
-    };
-  } // rec {
-    src = .././../chain/test;
-  }
+    } // rec { src = (pkgs.lib).mkDefault ../.././chain/test; }

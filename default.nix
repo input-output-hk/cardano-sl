@@ -1,307 +1,57 @@
-########################################################################
-# default.nix -- The top-level nix build file for cardano-sl.
-#
-# This file defines an attribute set of cardano-sl packages.
-#
-# It contains:
-#
-#   - pkgs -- the nixpkgs set that the build is based on.
-#   - haskellPackages.* -- the package set based on stackage
-#   - haskellPackages.ghc -- the compiler
-#   - cardanoPackages -- just cardano packages
-#
-#   - acceptanceTests -- tests which need network access to connect to
-#                        the actual relay nodes.
-#
-#   - dockerImages -- for exchanges and developers who like docker
-#                     Build these and `docker load -i` the resulting
-#                     file.
-#      - mainnet
-#      - staging
-#      - testnet
-#
-#   - connectScripts -- builds a script which starts a wallet. Run the
-#                       resulting script.
-#      - mainnet.wallet   -- connect a wallet to mainnet
-#      - mainnet.explorer -- explorer node connected to testnet
-#      - staging.*      -- connect scripts for staging
-#      - testnet.*      -- connect scripts for testnet
-#
-# Other files:
-#   - shell.nix   - dev environment, used by nix-shell / nix run.
-#   - release.nix - the Hydra jobset.
-#   - lib.nix     - the localLib common functions.
-#   - nix/*       - other nix code modules used by this file.
-#
-# See also:
-#   - docs/how-to/build-cardano-sl-and-daedalus-from-source-code.md
-#   - docs/nix.md
-#
-########################################################################
-
 let
-  localLib = import ./lib.nix;
-in
-{ system ? builtins.currentSystem
-, crossSystem ? null
-, config ? import ./nix/config.nix  # The nixpkgs configuration file
-
-# Use a pinned version nixpkgs.
-, pkgs ? localLib.importPkgs { inherit system crossSystem config; }
-
-# SHA1 hash which will be embedded in binaries
-, gitrev ? localLib.commitIdFromGitRepo ./.git
-
-# This is set by CI
-, buildId ? null
-
-# Disable running of tests for all cardano-sl packages.
-, forceDontCheck ? false
-
-# Enable profiling for all haskell packages.
-# Profiling slows down performance by 50% so we don't enable it by default.
-, enableProfiling ? false
-
-# Keeps the debug information for all haskell packages.
-, enableDebugging ? false
-
-# Build (but don't run) benchmarks for all cardano-sl packages.
-, enableBenchmarks ? false
-
-# Overrides all nix derivations to add build timing information in
-# their build output.
-, enablePhaseMetrics ? true
-
-# Disables optimization in the build for all cardano-sl packages.
-, fasterBuild ? false
-
-# Whether local options in ./custom-wallet-config.nix should apply to
-# the wallet connect script build.
-, allowCustomConfig ? true
-
-# Makes the demo wallet/cluster/connect scripts use "stack exec"
-# instead of running the nix-built executables.
-, useStackBinaries ? false
+  lib = (import ./lib.nix).pkgs.lib;
+  commitIdFromGitRepo = import ./nix/commit-id.nix { inherit lib; };
+in { customConfig ? {}
+, target ? builtins.currentSystem
+, gitrev ? commitIdFromGitRepo ./.git
 }:
-
-with pkgs.lib;
+#
+#
+# Generated targets include anything from stack.yaml (via nix-tools:stack-to-nix and the nix/regenerate.sh script)
+# or cabal.project (via nix-tools:plan-to-nix), including all
+# version overrides specified there.
+#
+# Nix-tools stack-to-nix will generate the `nix/.stack-pkgs.nix`
+# file which is imported from the `nix/pkgs.nix` where further
+# customizations outside of the ones in stack.yaml/cabal.project
+# can be specified as needed for nix/ci.
+#
+# Please run `nix/regenerate.sh` after modifying stack.yaml
+# or relevant part of cabal configuration files.
+# When switching to recent stackage or hackage package version,
+# you might also need to update the iohk-nix common lib. You
+# can do so by running the `nix/update-iohk-nix.sh` script.
+#
+# More information about iohk-nix and nix-tools is available at:
+# https://github.com/input-output-hk/iohk-nix/blob/master/docs/nix-toolification.org#for-a-stackage-project
+#
 
 let
-  src = localLib.cleanSourceTree ./.;
+  system = if target != "x86_64-windows" then target else builtins.currentSystem;
+  crossSystem = if target == "x86_64-windows" then lib.systems.examples.mingwW64 else null;
+  # commonLib provides iohk-nix tooling and extra libraries specific to cardano-sl.
+  commonLib = import ./lib.nix;
+  pkgs = import commonLib.nixpkgs { inherit system crossSystem; };
+  src = commonLib.cleanSourceHaskell ./.;
 
-  packages = self: ({
-    inherit pkgs;
-
-    # This is the stackage LTS plus overrides, plus the cardano-sl
-    # packages.
-    haskellPackages = self.callPackage ./nix/haskell-packages.nix {
-      inherit forceDontCheck enableProfiling enablePhaseMetrics
-        enableBenchmarks fasterBuild enableDebugging;
-    };
-
-    # fixme: I would like to have these attributes at the top-level,
-    # but am getting problems with infinite recursion. Help me!
-    cardanoPackages = localLib.getCardanoPackages self.justStaticExecutablesGitRev self.haskellPackages;
-
-    # fixme: this is just for CI so should probably only be in release.nix
-    all-cardano-sl = pkgs.buildEnv {
-      name = "all-cardano-sl";
-      paths = attrValues self.cardanoPackages;
-      ignoreCollisions = true;
-    };
-
-
-    ####################################################################
-    # Frontends
-
-    # The explorer frontend, built with Purescript.
-    cardano-sl-explorer-frontend = self.callPackage ./explorer/frontend {
-      cardano-sl-explorer = self.cardanoPackages.cardano-sl-explorer-static;
-    };
-
-    # A demo/development frontend for the faucet API. Override this
-    # derivation to customize URLs, etc.
-    cardano-sl-faucet-frontend = self.callPackage ./faucet/frontend { };
-    # Backwards compat for iohk-ops.
-    makeFaucetFrontend = self.cardano-sl-faucet-frontend;
-
-    ####################################################################
-    # Report Server
-
-    cardano-report-server-static = self.justStaticExecutablesGitRev self.cardano-report-server;
-
-
-    ####################################################################
-    # Daedalus wallet
-
-    # Packages all the configuration required for running a node.
-    cardano-sl-config = self.callPackage ./nix/cardano-sl-config.nix { };
-
-    # Provides the edge node (wallet), tools, and configuration
-    # required for Daedalus.
-    daedalus-bridge = self.callPackage ./nix/daedalus-bridge.nix {
-      cardano-sl-node = self.cardanoPackages.cardano-sl-node-static;
-      cardano-sl-tools = self.cardanoPackages.cardano-sl-tools-static;
-      cardano-wallet = self.cardanoPackages.cardano-wallet-static;
-    };
-
-
-    ####################################################################
-    # Docker images
-
-    dockerImages = let
-      build = args: self.callPackage ./nix/docker.nix ({
-        inherit (self.cardanoPackages) cardano-sl-node-static;
-      } // args);
-      makeDockerImage = { environment, ...}:
-        build { inherit environment; } // {
-          wallet   = build { inherit environment; type = "wallet"; };
-          explorer = build { inherit environment; type = "explorer"; };
-          node     = build { inherit environment; type = "node"; };
-        };
-    in localLib.forEnvironments makeDockerImage;
-
-    ####################################################################
-    # Tests
-
-    tests = {
-      shellcheck = self.callPackage ./scripts/test/shellcheck.nix { inherit src; };
-      hlint = self.callPackage ./scripts/test/hlint.nix { inherit src; };
-      stylishHaskell = self.callPackage ./scripts/test/stylish.nix { inherit (self.haskellPackages) stylish-haskell; inherit src; };
-      swaggerSchemaValidation = self.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix {
-        inherit (self.cardanoPackages) cardano-wallet;
-      };
-      yamlValidation = self.callPackage ./scripts/test/yamlValidation.nix {
-        inherit (self) haskellPackages; inherit (localLib) runHaskell;
-      };
-    };
-
-    # Currently the only acceptance tests here are to sync the wallet
-    # against mainnet and testnet.
-    acceptanceTests = let
-      acceptanceTest = args: self.callPackage ./scripts/test/acceptance ({
-        inherit (self.cardanoPackages)
-          cardano-sl-tools
-          cardano-wallet;
-      } // args);
-      mkTest = { environment, ...}: {
-        full  = acceptanceTest { inherit environment; resume = false; };
-        quick = acceptanceTest { inherit environment; resume = true; };
-      };
-    in localLib.forEnvironments mkTest;
-
-    ####################################################################
-    ## Connect scripts and demo cluster
-
-    # A function to connect a wallet to a network.
-    # The args parameter is an attrset for parameters applied to
-    # ./scripts/launch/connect-to-cluster/default.nix
-    connect = let
-      walletConfigFile = ./custom-wallet-config.nix;
-      walletConfig = if allowCustomConfig
-        then (if builtins.pathExists walletConfigFile then import walletConfigFile else {})
-        else {};
-      in
-        args: self.callPackage ./scripts/launch/connect-to-cluster (args // {
-          inherit (self.cardanoPackages)
-            cardano-wallet-static
-            cardano-sl-explorer-static
-            cardano-sl-tools-static;
-          inherit useStackBinaries;
-        } // walletConfig);
-
-    # Connect scripts for each network
-    connectScripts = localLib.forEnvironments ({ environment, ... }: {
-      wallet = self.connect { inherit environment; };
-      explorer = self.connect { inherit environment; executable = "explorer"; };
-    });
-
-    # Produces a script which starts a cluster of core nodes and a
-    # relay, then connects an edge node (wallet) to it.
-    demoCluster = self.callPackage ./scripts/launch/demo-cluster {
-      inherit useStackBinaries;
-      inherit (self.cardanoPackages)
-        cardano-sl cardano-sl-cluster cardano-wallet;
-    };
-
-    ####################################################################
-    # Build tools
-
-    # Utility which removes all but the statically linked executables
-    # of a haskell package, and stamps them with the git revision.
-    justStaticExecutablesGitRev = self.callPackage ./scripts/set-git-rev {
-      inherit (self.haskellPackages) ghc;
-      inherit gitrev;
-    };
-
-    # Tool for generating ./pkgs/default.nix
-    # stack2nix = self.callPackage ./nix/stack2nix.nix { };
-    # TODO: go back to using our own build of stack2nix, rather than
-    # the version from nixpkgs. The following PRs need to be fixed:
-    # https://github.com/input-output-hk/stack2nix/pull/128
-    # https://github.com/input-output-hk/stack2nix/pull/135
-    inherit (pkgs) stack2nix;
-
-    validateJson = self.callPackage ./tools/src/validate-json {};
-
-    # Add a shell attributes so these can be built and cached by Hydra.
-    shells = {
-      cabal = import ./shell.nix { inherit system config pkgs; iohkPkgs = self; };
-      stack = import ./nix/stack-shell.nix { inherit system config pkgs; iohkPkgs = self; };
-    };
-
-    ####################################################################
-    # Version info
-
-    inherit (self.haskellPackages.cardano-sl) version;
-    inherit gitrev;
-  }
-   # fixme: Temporary fix for hydra evaluation
-   // { inherit (self.cardanoPackages)
-          cardano-sl
-          cardano-sl-auxx
-          cardano-sl-script-runner
-          cardano-sl-chain
-          cardano-sl-cluster
-          cardano-sl-core
-          cardano-sl-crypto
-          cardano-sl-db
-          cardano-sl-explorer
-          cardano-sl-explorer-static
-          cardano-sl-generator
-          cardano-sl-infra
-          cardano-sl-networking
-          cardano-sl-node-static
-          cardano-sl-tools
-          cardano-sl-tools-post-mortem
-          cardano-sl-util
-          cardano-sl-x509
-          cardano-wallet
-          cardano-wallet-static;
-        inherit (self.haskellPackages)
-          cardano-report-server; }
-  # nix-tools setup
-  // (with builtins; with pkgs.lib; let nix-tools = import ./nix/pkgs.nix { nixpkgs = _: pkgs; }; in
-  {
-    nix-tools = { _raw = nix-tools; }
-      # some shorthands
-      // { libs = mapAttrs (k: v: if   v.components ? "library"
-                                  then v.components.library
-                                  else null) nix-tools; }
-      // { exes = mapAttrs (k: v: if   length (attrValues v.components.exes) > 0
-                                  then (if pkgs.stdenv.targetPlatform.isWindows then pkgs.copyJoin else pkgs.symlinkJoin)
-                                       { name = "${k}-exes"; paths = attrValues v.components.exes; }
-                                  else null) nix-tools; }
-      // { tests = mapAttrs (k: v: if length (attrValues v.components.tests) > 0
-                                   then v.components.tests
-                                   else null) nix-tools; }
-      // { benchmarks = mapAttrs (k: v: if length (attrValues v.components.benchmarks) > 0
-                                   then v.components.benchmarks
-                                   else null) nix-tools; }
-      ;
-  })
-  );
-
-in
-  # The top-level package set
-  pkgs.lib.makeScope pkgs.newScope packages
+  # nixTools contains all the haskell binaries and libraries built by haskell.nix
+  nixTools = import ./nix/nix-tools.nix { inherit system crossSystem; };
+  cardanoConfig = pkgs.callPackage ./nix/cardano-sl-config.nix {};
+  # scripts contains connectScripts, dockerImages and demoCluster
+  scripts = import ./nix/scripts.nix {
+    inherit commonLib nixTools customConfig cardanoConfig;
+  };
+  # Tests contains code quality tests like shellcheck, yaml validation, and haskell style requirements to pass CI
+  tests = import ./nix/tests.nix {
+    inherit commonLib src nixTools;
+  };
+  # daedalus bridge contains the binaries and config files daedalus requires
+  daedalus-bridge = pkgs.callPackage ./nix/daedalus-bridge.nix {
+    inherit nixTools cardanoConfig gitrev;
+    version = nixTools.nix-tools._raw.cardano-sl.identifier.version;
+  };
+in {
+  inherit pkgs;
+  inherit daedalus-bridge tests;
+  inherit (nixTools) nix-tools;
+} // scripts

@@ -50,8 +50,20 @@ let
     inherit nixTools cardanoConfig gitrev;
     version = nixTools.nix-tools._raw.cardano-sl.identifier.version;
   };
+  # Currently the only acceptance tests here are to sync the wallet
+  # against mainnet and testnet.
+  acceptanceTests = let
+    acceptanceTest = args: pkgs.callPackage ./nix/acceptance {
+      inherit (scripts) connect;
+    };
+    mkTest = { environment, ...}: {
+      full  = acceptanceTest { inherit environment; resume = false; };
+      quick = acceptanceTest { inherit environment; resume = true; };
+    };
+  in commonLib.forEnvironments mkTest;
 in {
   inherit pkgs;
+  inherit acceptanceTests;
   inherit daedalus-bridge tests;
   inherit (nixTools) nix-tools;
 } // scripts

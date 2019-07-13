@@ -24,6 +24,8 @@ let
     inherit (nixTools.nix-tools.cexes.cardano-wallet) cardano-node;
   };
 in {
+  # connect function required for acceptanceTests
+  inherit connect;
   connectScripts = commonLib.forEnvironments ({ environment, ... }:
   {
     wallet = connect { inherit environment; };

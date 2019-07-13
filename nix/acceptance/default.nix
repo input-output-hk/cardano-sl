@@ -1,10 +1,8 @@
-with import ../../../lib.nix;
+with import ../../lib.nix;
 
 { stdenv, writeScript
 , jq, coreutils, curl, gnused, openssl, time, haskellPackages
-
 , connect
-, cardano-sl-tools, cardano-wallet
 
 ## Parameters for the test script
 , stateDir ? maybeEnv "CARDANO_STATE_DIR" "./state-acceptance-test-${environment}"
@@ -13,9 +11,8 @@ with import ../../../lib.nix;
 }:
 
 let
-  cardanoDeps = [ cardano-sl-tools cardano-wallet ];
   testRunnerDeps = [ jq coreutils curl gnused openssl time haskellPackages.hp2pretty ];
-  allDeps = testRunnerDeps ++ cardanoDeps;
+  allDeps = testRunnerDeps;
 
   wallet = connect {
     inherit environment stateDir;

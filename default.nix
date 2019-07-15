@@ -62,8 +62,6 @@ let
     };
   in commonLib.forEnvironments mkTest;
 in {
-  inherit pkgs;
-  inherit acceptanceTests;
-  inherit daedalus-bridge tests;
+  inherit pkgs acceptanceTests daedalus-bridge tests cardanoConfig;
   inherit (nixTools) nix-tools;
 } // scripts

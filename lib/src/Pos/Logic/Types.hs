@@ -33,7 +33,7 @@ import           Pos.DB.Class (SerializedBlock)
 data Logic m = Logic
     { -- | Get serialized block, perhaps from a database.
       getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
-    , streamBlocks       :: HeaderHash -> ConduitT () SerializedBlock m ()
+    , streamBlocks       :: forall t . HeaderHash -> (ConduitT () SerializedBlock m () -> m t) -> m t
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- TODO CSL-2089 use conduits in this and the following methods
@@ -98,10 +98,15 @@ data Logic m = Logic
 --   *monad morphism* and not just any natural transformation. This means,
 --   roughly, that `foo a >> foo b` should behave the same as `foo (a >> b)`.
 --   `foo = flip evalState 1`, for example, does not satisfy this requirement.
-hoistLogic :: Monad m => (forall x . m x -> n x) -> Logic m -> Logic n
-hoistLogic nat logic = logic
+hoistLogic
+  :: ( Monad m )
+  => (forall x . m x -> n x)
+  -> (forall x . n x -> m x)
+  -> Logic m
+  -> Logic n
+hoistLogic nat rnat logic = logic
     { getSerializedBlock = nat . getSerializedBlock logic
-    , streamBlocks = transPipe nat . streamBlocks logic
+    , streamBlocks = \hh k -> nat (streamBlocks logic hh (rnat . k . transPipe nat))
     , getBlockHeader = nat . getBlockHeader logic
     , getHashesRange = \a b c -> nat (getHashesRange logic a b c)
     , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
@@ -177,7 +182,7 @@ dummyKeyVal = KeyVal
 dummyLogic :: Monad m => Logic m
 dummyLogic = Logic
     { getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
-    , streamBlocks       = \_ -> pure ()
+    , streamBlocks       = \_ k -> k (pure ())
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
     , getLcaMainChain    = \_ -> pure (NewestFirst [], OldestFirst [])

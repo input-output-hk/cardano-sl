@@ -5,7 +5,7 @@
         "fmt" = (((hackage.fmt)."0.6").revisions).default;
         "servant-multipart" = (((hackage.servant-multipart)."0.11.2").revisions).default;
         "normaldistribution" = (((hackage.normaldistribution)."1.1.0.3").revisions).default;
-        "aeson-options" = (((hackage.aeson-options)."0.0.0").revisions).default;
+        "aeson-options" = (((hackage.aeson-options)."0.1.0").revisions).default;
         "servant-swagger-ui-redoc" = (((hackage.servant-swagger-ui-redoc)."0.3.0.1.21.2").revisions).default;
         "wai-middleware-throttle" = (((hackage.wai-middleware-throttle)."0.3.0.0").revisions).default;
         "ether" = (((hackage.ether)."0.5.1.0").revisions).default;
@@ -30,6 +30,7 @@
         "neat-interpolation" = (((hackage.neat-interpolation)."0.3.2.4").revisions).default;
         "config-ini" = (((hackage.config-ini)."0.2.4.0").revisions).default;
         "stylish-haskell" = (((hackage.stylish-haskell)."0.9.2.2").revisions).default;
+        "hedgehog" = (((hackage.hedgehog)."1.0").revisions).default;
         } // {
         cardano-sl-util = ./cardano-sl-util.nix;
         cardano-sl-util-test = ./cardano-sl-util-test.nix;
@@ -80,7 +81,6 @@
         clock = ./clock.nix;
         rocksdb-haskell-ng = ./rocksdb-haskell-ng.nix;
         log-warper = ./log-warper.nix;
-        hedgehog = ./hedgehog.nix;
         universum = ./universum.nix;
         serokell-util = ./serokell-util.nix;
         inspector = ./inspector.nix;

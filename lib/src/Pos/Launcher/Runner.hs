@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
@@ -21,7 +20,6 @@ import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import           System.Exit (ExitCode (..))
 
-import           Pos.Binary ()
 import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
                      streamWindow)
 import           Pos.Chain.Genesis as Genesis (Config (..))
@@ -96,7 +94,10 @@ runRealMode uc genesisConfig txpConfig nr@NodeResources {..} act =
     logic = logicFull genesisConfig txpConfig jsonLog
     pm = configProtocolMagic genesisConfig
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode uc pm nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic
+      (elimRealMode uc pm nr diffusion)
+      liftIO
+      logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
         let diffusion' = hoistDiffusion liftIO (elimRealMode uc pm nr diffusion) diffusion

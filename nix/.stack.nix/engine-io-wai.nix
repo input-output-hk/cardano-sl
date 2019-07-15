@@ -3,7 +3,7 @@
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = { name = "engine-io-wai"; version = "1.0.9"; };
+      identifier = { name = "engine-io-wai"; version = "1.0.8"; };
       license = "BSD-3-Clause";
       copyright = "";
       maintainer = "brandon@codedmart.com";
@@ -36,9 +36,9 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/engine.io.git";
-      rev = "8f9216b8f9c7bd96cb1feeb82db5271744d67fcd";
-      sha256 = "1kamjl01k8njlw6jcwr6nzcd2218wvpk30n5v1f8233hw6qw5x3m";
+      url = "https://github.com/input-output-hk/engine.io";
+      rev = "d3c55f51bb81cee7d0d551de930ce65fe7d76756";
+      sha256 = "139c0yfnj57cpwg4k0am2rp35sh959394nvlb98011rjy68200qc";
       });
     postUnpack = "sourceRoot+=/engine-io-wai; echo source root reset to \$sourceRoot";
     }

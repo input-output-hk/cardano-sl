@@ -71,7 +71,7 @@
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/input-output-hk/serokell-util";
-      rev = "e592ae9b9387184519b393c066edbf8b4ed91737";
-      sha256 = "11nhmikaqmhfs4cyhs3rq07bi4hmqyfg9vl7q8779h07i629zsz3";
+      rev = "457f1d149c6e238841f283a1faf7bc8fb021b27d";
+      sha256 = "0llbryqna9p03db3ka4933vzf4jw1yxdbsf7cqi2pivsy1vp6kp0";
       });
     }

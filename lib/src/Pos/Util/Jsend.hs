@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeOperators  #-}
 
@@ -103,8 +104,11 @@ gconsInfos
     -> SOP.NP SOP.ConstructorInfo (SOP.Code a)
 gconsInfos pa = case SOP.datatypeInfo pa of
     SOP.Newtype _ _ conInfo -> conInfo SOP.:* SOP.Nil
+#if MIN_VERSION_generics_sop(5,0,0)
+    SOP.ADT _ _ consInfo _  -> consInfo
+#else
     SOP.ADT _ _ consInfo    -> consInfo
-
+#endif
 
 -- | This class helps us define generically errors JSON instances without
 -- relying on partial field in records.

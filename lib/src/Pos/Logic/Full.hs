@@ -107,9 +107,15 @@ logicFull genesisConfig txpConfig jsonLogTx =
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock genesisHash
 
-        streamBlocks :: HeaderHash -> ConduitT () SerializedBlock m ()
-        streamBlocks = Block.streamBlocks (DB.dbGetSerBlock genesisHash)
-                                          Block.resolveForwardLink
+        streamBlocks
+          :: forall t .
+             HeaderHash
+          -> (ConduitT () SerializedBlock m () -> m t)
+          -> m t
+        streamBlocks = \hh k -> k $
+          Block.streamBlocks (DB.dbGetSerBlock genesisHash)
+                             Block.resolveForwardLink
+                             hh
 
         getTip :: m Block
         getTip = DB.getTipBlock genesisHash

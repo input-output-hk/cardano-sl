@@ -42,6 +42,40 @@
           (hsPkgs.yaml)
           ] ++ (pkgs.lib).optional (!system.isWindows) (hsPkgs.unix);
         };
+      exes = {
+        "play-log" = {
+          depends = [
+            (hsPkgs.log-warper)
+            (hsPkgs.universum)
+            (hsPkgs.microlens)
+            (hsPkgs.monad-control)
+            (hsPkgs.yaml)
+            ] ++ (pkgs.lib).optional (compiler.isGhc && (compiler.version).ge "8.2.2") (hsPkgs.o-clock);
+          };
+        "how-to" = {
+          depends = [
+            (hsPkgs.base)
+            (hsPkgs.log-warper)
+            (hsPkgs.markdown-unlit)
+            (hsPkgs.text)
+            ];
+          build-tools = [
+            (hsPkgs.buildPackages.markdown-unlit or (pkgs.buildPackages.markdown-unlit))
+            ];
+          };
+        "pure-how-to" = {
+          depends = [
+            (hsPkgs.base)
+            (hsPkgs.log-warper)
+            (hsPkgs.markdown-unlit)
+            (hsPkgs.mtl)
+            (hsPkgs.text)
+            ];
+          build-tools = [
+            (hsPkgs.buildPackages.markdown-unlit or (pkgs.buildPackages.markdown-unlit))
+            ];
+          };
+        };
       tests = {
         "log-test" = {
           depends = [
@@ -66,8 +100,8 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "https://github.com/input-output-hk/log-warper.git";
-      rev = "0b7d4d48310f139d75829d31883aaa87ce53312c";
-      sha256 = "0m9inw7m42yj0kn3x3ip5ipv72pr34l4744myzlidbpqa2wf4b7g";
+      url = "https://github.com/input-output-hk/log-warper";
+      rev = "5271ab6c33541b8155ca203e714875974ec116be";
+      sha256 = "1h14004a8iwr8nw31pqq6kfdhfsyzzl8a50hrmj2acjqq6mbdl2m";
       });
     }

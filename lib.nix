@@ -44,8 +44,18 @@ in lib // iohkNix // (rec {
       private = false;
     };
     testnet = {
-      relays = "relays.cardano-testnet.iohkdev.io";
+      relays = "relays.new.cardano-testnet.iohkdev.io";
       confKey = "testnet_full";
+      private = false;
+    };
+    shelley_staging = {
+      relays = "relays.shelley-staging.aws.iohkdev.io";
+      confKey = "shelley_staging_full";
+      private = false;
+    };
+    shelley_staging_short = {
+      relays = "relays.staging-shelley-short.aws.iohkdev.io";
+      confKey = "shelley_staging_short_full";
       private = false;
     };
     demo = {

@@ -31,7 +31,7 @@ in {
     wallet = connect { inherit environment; };
     explorer = connect { inherit environment; executable = "explorer"; };
     proposal-ui = pkgs.callPackage ./launch/proposal-ui {
-      inherit cardanoConfig;
+      inherit cardanoConfig environment;
       inherit (nixTools.nix-tools.cexes.cardano-sl-script-runner) testcases;
     };
 

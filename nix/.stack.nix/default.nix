@@ -65,7 +65,6 @@
         cardano-sl-cluster = ./cardano-sl-cluster.nix;
         cardano-sl-mnemonic = ./cardano-sl-mnemonic.nix;
         yaml-validation = ./yaml-validation.nix;
-        cardano-report-server = ./cardano-report-server.nix;
         cardano-crypto = ./cardano-crypto.nix;
         ip = ./ip.nix;
         time-units = ./time-units.nix;

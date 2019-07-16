@@ -80,7 +80,6 @@
             (hsPkgs.async)
             (hsPkgs.base)
             (hsPkgs.bytestring)
-            (hsPkgs.cardano-report-server)
             (hsPkgs.cardano-sl)
             (hsPkgs.cardano-sl-chain)
             (hsPkgs.cardano-sl-core)

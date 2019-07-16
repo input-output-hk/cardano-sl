@@ -29,7 +29,6 @@
           (hsPkgs.cardano-sl-db)
           (hsPkgs.cardano-sl-networking)
           (hsPkgs.cardano-sl-util)
-          (hsPkgs.cardano-report-server)
           (hsPkgs.clock)
           (hsPkgs.conduit)
           (hsPkgs.containers)

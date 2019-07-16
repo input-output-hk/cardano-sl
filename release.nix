@@ -56,7 +56,9 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     "cardano-sl-db"
     "cardano-sl-generator"
     "cardano-sl-infra"
+    "cardano-sl-faucet"
     "cardano-sl-networking"
+    "cardano-sl-node"
     "cardano-sl-tools"
     "cardano-sl-util"
     "cardano-sl-x509"
@@ -65,7 +67,7 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     "cardano-sl-cluster"
   ];
   extraBuilds = {
-    inherit (default) tests demoCluster;
+    inherit (default) tests demoCluster explorerFrontend faucetFrontend;
     daedalus-bridge = commonLib.pkgs.lib.mapAttrs (k: v: (getArchDefault k).daedalus-bridge) {
       x86_64-linux = 1;
       x86_64-darwin = 1;
@@ -73,6 +75,10 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     };
   } // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" "demo" "testnet" ]));
   required-targets = jobs: [
+    jobs.nix-tools.exes.cardano-sl-node.x86_64-linux
+    jobs.nix-tools.exes.cardano-sl-auxx.x86_64-linux
+    jobs.nix-tools.exes.cardano-sl-faucet.x86_64-linux
+    jobs.nix-tools.exes.cardano-sl-explorer.x86_64-linux
     jobs.nix-tools.exes.cardano-wallet.x86_64-linux
     jobs.nix-tools.exes.cardano-wallet.x86_64-darwin
   ] ++ (builtins.attrValues jobs.tests)

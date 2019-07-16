@@ -49,11 +49,6 @@ packages:
 # IOHK projects:
 
 - location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 93f2246c54436e7f98cc363b4e0f8f1cb5e78717
-  extra-dep: true
-
-- location:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 4590efa638397e952a51a8994b5543e4ea3c1ecd
   extra-dep: true

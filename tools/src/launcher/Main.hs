@@ -20,7 +20,7 @@ import           Universum
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel,
                      poll, wait, waitAny, withAsync, withAsyncWithUnmask)
-import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
+import           Control.Exception.Safe (handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
 import           Data.Aeson (FromJSON, ToJSON,
                      Value (Array, Bool, Object, String), fromJSON,
@@ -29,13 +29,12 @@ import qualified Data.Aeson as AE
 import           Data.Aeson.Options (defaultOptions)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
-import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
 import qualified Data.Yaml as Y
-import           Formatting (build, int, sformat, shown, stext, string, (%))
+import           Formatting (int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
 import           Options.Applicative (Parser, ParserInfo, ParserResult (..),
                      defaultPrefs, execParserPure, footerDoc, fullDesc,
@@ -68,7 +67,6 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
 import           Pos.Chain.Genesis (Config (..))
-import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (Timestamp (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -79,20 +77,16 @@ import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault,
                      dbGetDefault, dbIterSourceDefault, dbPutDefault,
                      dbWriteBatchDefault, openNodeDBs)
 import           Pos.DB.Update (affirmUpdateInstalled)
-import           Pos.Infra.Reporting.Http (sendReport)
-import           Pos.Infra.Reporting.Wlog (compressLogs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
 import           Pos.Network.Update.Download (installerHash)
-import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Util (HasLens (..), directory, logException,
                      postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo,
+import           Pos.Util.CompileInfo (HasCompileInfo,
                      withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
                      LogSecurityLevel (..), defaultInteractiveConfiguration,
-                     lcBasePath, lcLoggerTree, ltHandlers, ltMinSeverity,
-                     retrieveLogFiles)
+                     lcBasePath, lcLoggerTree, ltHandlers, ltMinSeverity)
 import           Pos.Util.Trace (Trace, contramap, fromTypeclassWlog)
 import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Info), logError,
                      logInfo, logNotice, logWarning, removeAllHandlers,
@@ -758,36 +752,14 @@ customLogger hndl loggerName logStr = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: HasCompileInfo
-    => ProtocolMagic
+    :: ProtocolMagic
     -> ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Log prefix
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
     -> M ()
-reportNodeCrash pm exitCode _ logConfPath reportServ = do
-    logConfig <- readLoggerConfig (toString <$> logConfPath)
-    -- TODO   this should be moved where we have access to logfiles
-    let logFileNames =
-            map ((fromMaybe "" (logConfig ^. lcBasePath) </>) . snd) $
-            retrieveLogFiles logConfig
-        -- The log files are computed purely: they're only hypothetical. They
-        -- are the file names that the logger config *would* create, but they
-        -- don't necessarily exist on disk. 'compressLogs' assumes that all
-        -- of the paths given indeed exist, and it will throw an exception if
-        -- any of them do not (or if they're not tar-appropriate paths).
-        hyptheticalLogFiles = filter (".pub" `isSuffixOf`) logFileNames
-        ec = case exitCode of
-            ExitSuccess   -> 0
-            ExitFailure n -> n
-        handler = logError . sformat ("Failed to report node crash: "%build)
-        sendIt logFiles = bracket (compressLogs logFiles) (liftIO . removeFile) $ \txz ->
-            liftIO $ sendReport pm compileInfo (Just txz) (RCrash ec) "cardano-node" reportServ
-    logFiles <- liftIO $ filterM doesFileExist hyptheticalLogFiles
-    -- We catch synchronous exceptions and do not re-throw! This is a crash
-    -- handler. It runs if some other part of the system crashed. We wouldn't
-    -- want a crash in the crash handler to shadow an existing crash.
-    liftIO (sendIt logFiles) `catchAny` handler
+reportNodeCrash _pm _exitCode _ _logConfPath _reportServ =
+    pure ()
 
 -- Taken from the 'turtle' library and modified
 system'

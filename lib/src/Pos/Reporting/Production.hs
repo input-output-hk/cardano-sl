@@ -17,7 +17,7 @@ import           Pos.Infra.Reporting.Http (reportNode)
 import           Pos.Infra.Reporting.NodeInfo (extendWithNodeInfo)
 import           Pos.Infra.Reporting.Wlog (LoggerConfig, withWlogTempFile)
 import           Pos.Util.CompileInfo (CompileTimeInfo)
-import           Pos.Util.Trace (Severity (Error), Trace, traceWith)
+import           Pos.Util.Trace (Severity, Trace)
 
 data ProductionReporterParams = ProductionReporterParams
     { prpServers         :: ![Text]
@@ -43,7 +43,5 @@ productionReporter params diffusion = Reporter $ \rt -> withWlogTempFile logConf
     compileTimeInfo = prpCompileTimeInfo params
     logTrace = prpTrace params
     --
-    reportExnHandler rt e =
-        let msgToLog = "reportNode encountered IOException `" <> show e
-                    <> "` while trying to report the message:" <> show rt
-         in liftIO (traceWith logTrace (Error, msgToLog))
+    reportExnHandler _rt _e =
+        pure ()

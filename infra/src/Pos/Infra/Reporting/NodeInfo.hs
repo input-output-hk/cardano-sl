@@ -12,10 +12,13 @@ import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Serokell.Util.Text (listBuilderJSON)
 
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.ReportServer.Report (ReportType (..))
 
-extendWithNodeInfo :: MonadIO m => Diffusion m -> ReportType -> m ReportType
-extendWithNodeInfo oq rt = flip extendRTDesc rt <$> getNodeInfo oq
+-- The cardano-report-server has been switched off and removing code that
+-- depends on it makes building other projects like cardano-byron-proxy
+-- easier. We leave the API here, but turn all operations into a NO-OP.
+
+extendWithNodeInfo :: MonadIO m => Diffusion m -> reportType -> m reportType
+extendWithNodeInfo _oq rt = pure rt
 
 -- | Uses a 'Diffusion' to get a text representation of the current network
 -- state as seen by this node. Also includes this node's external IP addresses.
@@ -39,8 +42,5 @@ ipv4Local w =
     b1 = w .&. 0xff
     b2 = (w `shiftR` 8) .&. 0xff
 
-extendRTDesc :: Text -> ReportType -> ReportType
-extendRTDesc text (RError reason)                  = RError $ reason <> text
-extendRTDesc text (RMisbehavior isCritical reason) = RMisbehavior isCritical $ reason <> text
-extendRTDesc text' (RInfo text)                    = RInfo $ text <> text'
-extendRTDesc _ x                                   = x
+extendRTDesc :: Text -> reportType -> reportType
+extendRTDesc _ x = x

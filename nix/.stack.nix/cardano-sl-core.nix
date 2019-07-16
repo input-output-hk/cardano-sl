@@ -24,7 +24,6 @@
           (hsPkgs.base58-bytestring)
           (hsPkgs.bytestring)
           (hsPkgs.canonical-json)
-          (hsPkgs.cardano-report-server)
           (hsPkgs.cardano-sl-binary)
           (hsPkgs.cardano-sl-crypto)
           (hsPkgs.cardano-sl-util)

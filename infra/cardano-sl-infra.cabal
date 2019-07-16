@@ -128,7 +128,6 @@ library
                       , cardano-sl-db
                       , cardano-sl-networking
                       , cardano-sl-util
-                      , cardano-report-server >= 0.4.5
                       , clock
                       , conduit
                       , containers

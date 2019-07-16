@@ -130,7 +130,6 @@ executable cardano-launcher
                      , async
                      , base
                      , bytestring
-                     , cardano-report-server >= 0.2.1
                      , cardano-sl
                      , cardano-sl-chain
                      , cardano-sl-core

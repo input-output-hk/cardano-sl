@@ -116,7 +116,6 @@ library
                      , base58-bytestring
                      , bytestring
                      , canonical-json
-                     , cardano-report-server >= 0.4.5
                      , cardano-sl-binary
                      , cardano-sl-crypto
                      , cardano-sl-util

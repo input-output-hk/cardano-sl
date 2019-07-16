@@ -10,27 +10,9 @@ module Pos.Infra.Reporting.Http
 
 import           Universum
 
-import           Control.Exception (Exception (..))
-import           Control.Exception.Safe (catchAny, try)
-import           Data.Aeson (encode)
-import qualified Data.List.NonEmpty as NE
-import           Data.Time.Clock (getCurrentTime)
-import           Data.Version (showVersion)
-import           Formatting (sformat, shown, string, (%))
-import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
-import qualified Network.HTTP.Client.MultipartFormData as Form
-import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Pos.ReportServer.Report (BackendVersion (..), ReportInfo (..),
-                     ReportType (..), Version (..))
-import           System.FilePath (takeFileName)
-import           System.Info (arch, os)
-
-import           Paths_cardano_sl_infra (version)
-import           Pos.Crypto (ProtocolMagic (..), getProtocolMagic)
-import           Pos.Infra.Reporting.Exceptions (ReportingError (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo)
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
-import           Pos.Util.Util ((<//>))
+import           Pos.Util.Trace (Severity (..), Trace)
 
 
 -- | Given optional log file and report type, sends reports to URI
@@ -42,43 +24,12 @@ sendReport
     :: ProtocolMagic
     -> CompileTimeInfo
     -> Maybe FilePath   -- ^ Log file to read from
-    -> ReportType
+    -> reportType
     -> Text             -- ^ Application name
     -> String           -- ^ URI of the report server
     -> IO ()
-sendReport pm compileInfo mLogFile reportType appName reportServerUri = do
-    curTime <- getCurrentTime
-    rq0 <- parseUrlThrow $ reportServerUri <//> "report"
-    let pathsPart = partFile' <$> maybe [] pure mLogFile
-    let payloadPart =
-            Form.partLBS "payload"
-            (encode $ mkReportInfo curTime)
-    -- If performance will ever be a concern, moving to a global manager
-    -- should help a lot.
-    reportManager <- newManager tlsManagerSettings
-
-    -- Assemble the `Request` out of the Form data.
-    rq <- Form.formDataBody (payloadPart : pathsPart) rq0
-
-    -- Actually perform the HTTP `Request`.
-    e  <- try $ httpLbs rq reportManager
-    whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError e'
-  where
-    partFile' fp = Form.partFile (toFileName fp) fp
-    toFileName = toText . takeFileName
-    mkReportInfo curTime =
-        ReportInfo
-        { rApplication = appName
-        -- We are using version of 'cardano-sl-infra' here. We agreed
-        -- that the version of 'cardano-sl' and it subpackages should
-        -- be same.
-        , rVersion = BackendVersion . Version . fromString . showVersion $ version
-        , rBuild = pretty compileInfo
-        , rOS = toText (os <> "-" <> arch)
-        , rMagic = getProtocolMagic pm
-        , rDate = curTime
-        , rReportType = reportType
-        }
+sendReport _pm _compileInfo _mLogFile _reportType _appName _reportServerUri =
+    pure ()
 
 -- | Common code across node sending: tries to send logs to at least one
 -- reporting server.
@@ -88,24 +39,10 @@ sendReportNodeImpl
     -> CompileTimeInfo
     -> [Text]         -- ^ Report server URIs
     -> Maybe FilePath -- ^ Optional path to log file to send.
-    -> ReportType
+    -> reportType
     -> IO ()
-sendReportNodeImpl logTrace protocolMagic compileInfo servers mLogFile reportType = do
-    if null servers
-    then onNoServers
-    else do
-        errors <-
-            fmap lefts $ forM servers $
-            try . sendReport protocolMagic compileInfo mLogFile reportType "cardano-node" . toString
-        whenNotNull errors $ throwSE . NE.head
-  where
-    onNoServers =
-        traceWith logTrace
-            (Info
-            , "sendReportNodeImpl: not sending report " <>
-              "because no reporting servers are specified"
-            )
-    throwSE (e :: SomeException) = throwM e
+sendReportNodeImpl _logTrace _protocolMagic _compileInfo _servers _mLogFile _reportType =
+    pure ()
 
 -- | Send a report to a given list of servers.
 --
@@ -123,31 +60,7 @@ reportNode
     -> CompileTimeInfo
     -> [Text]         -- ^ Servers
     -> Maybe FilePath -- ^ Logs.
-    -> ReportType
+    -> reportType
     -> IO ()
-reportNode logTrace protocolMagic compileInfo reportServers mLogs reportType =
-    reportNodeDo `catchAny` handler
-  where
-    reportNodeDo = do
-        logReportType reportType
-        sendReportNodeImpl logTrace protocolMagic compileInfo reportServers mLogs reportType
-
-    handler :: SomeException -> IO ()
-    handler e =
-        traceWith logTrace $ (,) Error $
-        sformat ("Didn't manage to report "%shown%
-                 " because of exception '"%string%"' raised while sending")
-        reportType (displayException e)
-
-    logReportType :: ReportType -> IO ()
-    logReportType (RCrash i) = traceWith logTrace (Error, "Reporting crash with code " <> show i)
-    logReportType (RError reason) =
-        traceWith logTrace (Error, "Reporting error with reason \"" <> reason <> "\"")
-    logReportType (RMisbehavior True reason) =
-        traceWith logTrace (Error, "Reporting critical misbehavior with reason \"" <> reason <> "\"")
-    logReportType (RMisbehavior False reason) =
-        traceWith logTrace (Warning, "Reporting non-critical misbehavior with reason \"" <> reason <> "\"")
-    logReportType (RInfo text) =
-        traceWith logTrace (Info, "Reporting info with text \"" <> text <> "\"")
-    logReportType (RCustomReport{}) =
-        traceWith logTrace (Info, "Reporting custom report")
+reportNode _logTrace _protocolMagic _compileInfo _reportServers _mLogs _reportType =
+    pure ()

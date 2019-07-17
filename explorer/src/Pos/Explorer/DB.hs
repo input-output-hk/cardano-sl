@@ -24,6 +24,9 @@ module Pos.Explorer.DB
        -- * For testing
        , convertToPagedMap
        , findEpochMaxPages
+
+       -- * temporary for testing
+       , targetAddress
        ) where
 
 import           Universum hiding (id)
@@ -47,7 +50,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData)
 import           Pos.Chain.Txp (Tx, TxId, TxOut (..), TxOutAux (..),
                      genesisUtxo, utxoToAddressCoinPairs)
 import           Pos.Core (Address, Coin, EpochIndex (..), coinToInteger,
-                     unsafeAddCoin)
+                     unsafeAddCoin, decodeTextAddress)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      MonadDB, MonadDBRead (dbGet), RocksBatchOp (..),
@@ -412,6 +415,11 @@ sanityCheckBalances = do
           threadDelay 100000
           exitImmediately $ ExitFailure 42
         throwM $ DBMalformed "sanityCheckBalances"
+
+targetAddress :: Address
+targetAddress =
+    either (const $ error "Unable to decode specical targetAddress") identity $
+        decodeTextAddress "DdzFFzCqrht76xxGMz5xZofX9ZzUud3KPGBrjqX92Zf1mgcNRtWX8q2TLgQN35irxA1xgFTkGfSWjwGfiv5fN2nkZnSoBH8LnpXEiuob"
 
 ----------------------------------------------------------------------------
 -- Keys

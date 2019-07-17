@@ -32,6 +32,7 @@ import           Pos.Core (Address, Coin, EpochIndex, Timestamp, mkCoin,
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
+import           Pos.Explorer.DB (targetAddress)
 import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
                      ExplorerExtraM)
 import qualified Pos.Explorer.Txp.Toil.Monad as ToilM
@@ -211,11 +212,14 @@ updateAddrBalances balances = mapM_ updater $ combineBalanceUpdates balances
     updater (addr, (Minus, coin)) = do
         maybeBalance <- ToilM.getAddrBalance addr
         case maybeBalance of
-            Nothing ->
+            Nothing -> do
                 logError $
                     sformat ("updateAddrBalances: attempted to subtract "%build%
                              " from unknown address "%build)
                     coin addr
+                logError $
+                    sformat ("targetAddress: "%build) targetAddress
+
             Just currentBalance
                 | currentBalance < coin ->
                     logError $

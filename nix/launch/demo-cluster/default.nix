@@ -49,7 +49,7 @@ in writeScript "demo-cluster" ''
   export DEMO_SYSTEM_START=$(($(date +%s) + 14))
   ${ifAssetLock "export DEMO_ASSET_LOCK_FILE=${assetLockFile}"}
   ${ifDisableClientAuth "export DEMO_NO_CLIENT_AUTH=True"}
-  ${ifCustomConfiguration "export DEMO_CONFIGURATION_FILE=${cardanoConfig}/configurations/${customConfigurationFile}"}
+  ${ifCustomConfiguration "export DEMO_CONFIGURATION_FILE=${customConfigurationFile}"}
   # Set to 0 (passing) by default. Tests using this cluster can set this variable
   # to force the `stop_cardano` function to exit with a different code.
   EXIT_STATUS=0

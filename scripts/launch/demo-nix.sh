@@ -7,7 +7,7 @@ display_help() {
     echo "   -d               run with client auth disabled"
     echo "   -w               enable wallet"
     echo "   -i INT           number of wallets to import (default: 0)"
-    echo "   -c               Use a custom config file (from nix/launch/demo-cluster/configurations)"
+    echo "   -c               Absolute path to a custom config file"
     echo
     echo "$0 is used to launch a demo cluster with limited parameters."
 

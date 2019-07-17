@@ -15,6 +15,10 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
+flag asserts
+  default:     True
+  manual:      True
+
 library
   hs-source-dirs:      src
   exposed-modules:
@@ -140,6 +144,8 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
 
 test-suite util-test
   main-is:             test.hs

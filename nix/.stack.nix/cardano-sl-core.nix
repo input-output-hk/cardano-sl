@@ -1,6 +1,6 @@
 { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = { asserts = true; };
+    flags = {};
     package = {
       specVersion = "1.10";
       identifier = { name = "cardano-sl-core"; version = "3.0.2"; };

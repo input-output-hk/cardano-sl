@@ -1,6 +1,6 @@
 { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = {};
+    flags = { asserts = true; };
     package = {
       specVersion = "1.10";
       identifier = { name = "cardano-sl-util"; version = "3.0.2"; };

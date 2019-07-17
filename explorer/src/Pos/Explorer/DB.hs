@@ -36,7 +36,7 @@ import           Data.List (groupBy)
 import           Data.Map (fromList)
 import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
-import           Formatting (sformat, (%))
+import           Formatting (sformat, (%), build, Format)
 import           Serokell.Util (Color (Red), colorize, mapJson)
 import           UnliftIO (MonadUnliftIO)
 
@@ -57,6 +57,10 @@ import           Pos.DB.Txp (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Util.Wlog (WithLogger, logError)
+
+import System.Exit
+import Data.Text (pack,intercalate)
+import qualified Data.HashMap.Strict
 
 explorerInitDB
     :: forall ctx m
@@ -393,6 +397,22 @@ sanityCheckBalances = do
         logError $ colorize Red msg
         logError . colorize Red . sformat ("Actual utxo is: " %utxoF) =<<
             getAllPotentiallyHugeUtxo
+        let
+          f2 :: Format r (Address -> Coin -> r)
+          f2 = build % "==" % build
+          f3 :: (Address, Coin) -> Text
+          f3 (addr, coin) = sformat f2 addr coin
+          f :: HashMap Address Coin -> Text
+          f hm = Data.Text.intercalate "\n" (map f3 thing)
+            where
+              thing :: [(Address, Coin)]
+              thing = Data.HashMap.Strict.toList hm
+          set1 = f storedMap
+          set2 = f computedFromUtxoMap
+        liftIO $ do
+          writeFile "explorer.txt" set1
+          writeFile "utxo.txt" set2
+          System.Exit.exitWith $ ExitFailure 42
         throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------

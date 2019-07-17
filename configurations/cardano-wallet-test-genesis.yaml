@@ -1,0 +1,107 @@
+default: &default
+  core: &default_core
+    requiresNetworkMagic: RequiresMagic
+    dbSerializeVersion: 0
+
+    genesis: &default_core_genesis
+      spec: &default_core_genesis_spec
+        initializer:
+          testBalance:
+            poors:        1
+            richmen:      4
+            richmenShare: 0.90
+            useHDAddresses: True
+            totalBalance: 1000000000000000000
+          fakeAvvmBalance:
+            count: 0
+            oneBalance: 1
+          avvmBalanceFactor: 1
+          useHeavyDlg: True
+          seed: 0
+        blockVersionData: &default_core_genesis_spec_blockVersionData
+          scriptVersion:     0
+          slotDuration:      10000
+          maxBlockSize:      2000000
+          maxHeaderSize:     2000000
+          maxTxSize:         65536 # 64 Kb
+          maxProposalSize:   700 # 700 bytes
+          mpcThd:            0.01 # 1% of stake
+          heavyDelThd:       0.005 # 0.5% of stake
+          updateVoteThd:     0.001 # 0.1% of total stake
+          updateProposalThd: 0.1 # 10% of total stake
+          updateImplicit:    10 # slots
+          softforkRule:
+            initThd:        0.9 # 90% of total stake
+            minThd:         0.6 # 60% of total stake
+            thdDecrement:   0.05 # 5% of total stake
+          txFeePolicy:
+            txSizeLinear:
+              a: 155381 # absolute minimal fees per transaction
+              b: 43.946 # additional minimal fees per byte of transaction size
+          unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
+        protocolConstants: &default_core_genesis_spec_protocolConstants
+          k: 2160
+          protocolMagic: 1097911063
+          vssMinTTL: 2
+          vssMaxTTL: 6
+        ftsSeed: "kmFzYSBvcGFzYSBza292b3JvZGEgR2d1cmRhIGJvcm9kYSBwcm92b2Rh"
+        heavyDelegation: {}
+        avvmDistr: {}
+
+  txValidationRules:
+    attribResrictEpoch: 2
+    addrAttribSize: 128
+    txAttribSize: 128
+
+  ntp: &default_ntp
+    # NTP
+    responseTimeout: 30000000 # 30 sec
+    pollDelay:  1800000000 # 30 min
+    servers:
+      - "0.pool.ntp.org"
+      - "2.pool.ntp.org"
+      - "3.pool.ntp.org"
+
+  update: &default_update
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+
+  ssc: &default_ssc
+    mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
+    mdNoCommitmentsEpochThreshold: 3
+    noReportNoSecretsForEpoch1: False
+
+  txp: &default_txp
+    memPoolLimitTx: 200 # mem pool will be limited to this many transactions
+    assetLockedSrcAddrs: []
+
+  dlg: &default_dlg
+    dlgCacheParam: 500
+    messageCacheTimeout: 30
+
+  block: &default_block
+    networkDiameter: 3
+    recoveryHeadersMessage: 20 # should be greater than k
+    streamWindow: 2048
+    nonCriticalCQBootstrap: 0.95
+    criticalCQBootstrap: 0.8888
+    nonCriticalCQ: 0.8
+    criticalCQ: 0.654321
+    criticalForkThreshold: 2
+    fixedTimeCQ: 10
+
+  node: &default_node
+    networkConnectionTimeout: 30000 # ms
+    conversationEstablishTimeout: 30000
+    blockRetrievalQueueSize: 100
+    pendingTxResubmissionPeriod: 60 # seconds
+    walletProductionApi: false
+    walletTxCreationDisabled: false
+    explorerExtendedApi: false
+
+  wallet: &default_wallet
+    throttle: null

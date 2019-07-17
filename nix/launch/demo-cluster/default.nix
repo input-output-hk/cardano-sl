@@ -20,6 +20,7 @@ with import ../../../lib.nix;
 , disableClientAuth ? false
 , walletListen ? "127.0.0.1:8090"
 , walletDocListen ? "127.0.0.1:8190"
+, customConfigurationFile ? "false"
 }:
 
 let
@@ -33,6 +34,7 @@ let
   assetLockFile = writeText "asset-lock-file" (intersperse "\n" assetLockAddresses);
   ifAssetLock = optionalString (assetLockAddresses != []);
   ifDisableClientAuth = optionalString disableClientAuth;
+  ifCustomConfiguration = optionalString (customConfigurationFile != "false");
   prepareGenesis = callPackage ../../prepare-genesis {
     inherit numCoreNodes stateDir;
     configurationKey = "testnet_full";
@@ -47,6 +49,7 @@ in writeScript "demo-cluster" ''
   export DEMO_SYSTEM_START=$(($(date +%s) + 14))
   ${ifAssetLock "export DEMO_ASSET_LOCK_FILE=${assetLockFile}"}
   ${ifDisableClientAuth "export DEMO_NO_CLIENT_AUTH=True"}
+  ${ifCustomConfiguration "export DEMO_CONFIGURATION_FILE=${cardanoConfig}/configurations/${customConfigurationFile}"}
   # Set to 0 (passing) by default. Tests using this cluster can set this variable
   # to force the `stop_cardano` function to exit with a different code.
   EXIT_STATUS=0
@@ -66,13 +69,14 @@ in writeScript "demo-cluster" ''
 
   trap "stop_cardano" INT TERM
   echo "Launching a demo cluster..."
+  echo "Configuration file: $DEMO_CONFIGURATION_FILE"
   cardano-sl-cluster-prepare-environment "DEMO_" --cores ${builtins.toString numCoreNodes} --relays ${builtins.toString numRelayNodes} --edges ${builtins.toString numEdgeNodes}
   cardano-sl-cluster-demo --cores ${builtins.toString numCoreNodes} --relays ${builtins.toString numRelayNodes} --edges 0 &
   pidCluster=$!
 
   ${ifWallet ''
-    cardano-node                                  \
-      --configuration-file ${cardanoConfig}/lib/configuration.yaml  \
+    cardano-node                                              \
+      --configuration-file $DEMO_CONFIGURATION_FILE           \
       --tlscert ${stateDir}/tls/edge/server.crt               \
       --tlskey ${stateDir}/tls/edge/server.key                \
       --tlsca ${stateDir}/tls/edge/ca.crt                     \

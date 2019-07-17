@@ -481,7 +481,7 @@ requestTip logTrace logic enqueue recoveryHeadersMessage = fmap waitForDequeues 
             received <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
             case received of
                 Just headers -> handleTip nodeId headers
-                Nothing      -> throwIO $ DialogUnexpected "peer didnt' respond with tips"
+                Nothing      -> throwIO $ DialogUnexpected "peer didn't respond with tips"
   where
     handleTip nodeId (MsgHeaders (NewestFirst (tip:|[]))) = do
         traceWith logTrace (Debug, sformat ("Got tip "%shortHashF%" from "%shown%", processing") (headerHash tip) nodeId)

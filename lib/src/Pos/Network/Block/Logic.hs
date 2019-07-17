@@ -313,7 +313,7 @@ applyWithRollback
     -> NewestFirst NE Blund
     -> m ()
 applyWithRollback genesisConfig txpConfig diffusion toApply lca toRollback = do
-    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+    logInfo . sformat ("Trying to apply blocks with rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do

@@ -104,6 +104,7 @@ library
                       , socket-io
                       , engine-io
                       , engine-io-wai
+                      , unix
                       , wai
                       , wai-extra
                       , wai-cors

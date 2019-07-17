@@ -167,7 +167,7 @@ packages:
 # Add custom stylish-haskell while waiting for PR upstream: https://github.com/jaspervdj/stylish-haskell/pull/214
 - location:
     git: https://github.com/input-output-hk/stylish-haskell.git
-    commit: ecfd3b307d8d13a6d12aff03055f25a39a17e182
+    commit: 0127b870e678ae3e7acb00fb43fbcbdf95bc75c5
   extra-dep: true
 
 # Custom Universum prelude, that brings back some of the

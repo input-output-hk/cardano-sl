@@ -159,8 +159,9 @@ updateUtxoSumFromBalanceUpdate balanceUpdate = do
     putUtxoSum $ utxoSum + utxoChange
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
-getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} (catMaybes . toList -> undo) =
-    map txOutAddress _txOutputs `unionNEnList` map (txOutAddress . toaOut) undo
+getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} undos =
+    map txOutAddress _txOutputs
+        `unionNEnList` map (txOutAddress . toaOut) (catMaybes $ toList undos)
   where
     toSet = HS.fromList . toList
     -- Safe here, because union of non-empty and maybe empty sets can't be empty.
@@ -196,7 +197,7 @@ combineBalanceUpdates BalanceUpdate {..} =
     reducer _ = Nothing
 
 updateAddrBalances :: BalanceUpdate -> ExplorerExtraM ()
-updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
+updateAddrBalances balances = mapM_ updater $ combineBalanceUpdates balances
   where
     updater :: (Address, (Sign, Coin)) -> ExplorerExtraM ()
     updater (addr, (Plus, coin)) = do

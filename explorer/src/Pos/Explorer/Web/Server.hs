@@ -629,9 +629,9 @@ getGenesisAddressInfo
     -> Maybe Word  -- ^ pageSize
     -> CAddressesFilter
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize addrFilt = do
+getGenesisAddressInfo mPage mPageSize addrFilt = do
     filteredGrai <- getFilteredGrai addrFilt
-    let pageNumber    = fromMaybe 1 mPage
+    let pageNumber    = fromMaybe 1 $ fmap fromIntegral mPage
         pageSize      = fromIntegral $ toPageSize mPageSize
         skipItems     = (pageNumber - 1) * pageSize
         requestedPage = V.slice skipItems pageSize filteredGrai

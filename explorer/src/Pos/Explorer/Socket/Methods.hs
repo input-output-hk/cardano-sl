@@ -367,8 +367,8 @@ getBlundsFromTo
 getBlundsFromTo genesisHash recentBlock oldBlock =
     DB.getHashesRange Nothing oldBlock recentBlock >>= \case
         Left _ -> pure Nothing
-        Right (getOldestFirst -> hashes) ->
-            Just . catMaybes <$> forM (NE.tail hashes) (getBlund genesisHash)
+        Right hashes ->
+            Just . catMaybes <$> forM (NE.tail $ getOldestFirst hashes) (getBlund genesisHash)
 
 addrsTouchedByTx
     :: MonadDBRead m

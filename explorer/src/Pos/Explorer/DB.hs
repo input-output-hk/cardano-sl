@@ -28,6 +28,7 @@ module Pos.Explorer.DB
 
 import           Universum hiding (id)
 
+import           Control.Concurrent (threadDelay)
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
@@ -37,14 +38,14 @@ import           Data.Map (fromList)
 import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
 import           Formatting (sformat, (%), build, Format)
-import           Serokell.Util (Color (Red), colorize, mapJson)
+import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData)
 import           Pos.Chain.Txp (Tx, TxId, TxOut (..), TxOutAux (..),
-                     genesisUtxo, utxoF, utxoToAddressCoinPairs)
+                     genesisUtxo, utxoToAddressCoinPairs)
 import           Pos.Core (Address, Coin, EpochIndex (..), coinToInteger,
                      unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
@@ -53,13 +54,14 @@ import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      dbIterSource, encodeWithKeyPrefix)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.DB.Txp (getAllPotentiallyHugeUtxo, utxoSource)
+import           Pos.DB.Txp (utxoSource)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Util.Wlog (WithLogger, logError)
 
-import System.Exit
-import Data.Text (pack,intercalate)
+import System.Exit (ExitCode (ExitFailure))
+import System.Posix.Process (exitImmediately)
+import Data.Text (intercalate)
 import qualified Data.HashMap.Strict
 
 explorerInitDB
@@ -389,17 +391,11 @@ sanityCheckBalances = do
             mapOutput ((txOutAddress &&& txOutValue) . toaOut . snd) utxoSource
     storedMap <- runConduitRes $ balancesSource .| balancesSink
     computedFromUtxoMap <- runConduitRes $ utxoBalancesSource .| balancesSink
-    let fmt =
-            ("Explorer's balances are inconsistent with UTXO.\nExplorer stores: "
-             %mapJson%".\nUtxo version is: "%mapJson%"\n")
-    let msg = sformat fmt storedMap computedFromUtxoMap
     unless (storedMap == computedFromUtxoMap) $ do
-        logError $ colorize Red msg
-        logError . colorize Red . sformat ("Actual utxo is: " %utxoF) =<<
-            getAllPotentiallyHugeUtxo
+        logError $ colorize Red "storedMap /= computedFromUtxoMap"
         let
           f2 :: Format r (Address -> Coin -> r)
-          f2 = build % "==" % build
+          f2 = build % " == " % build
           f3 :: (Address, Coin) -> Text
           f3 (addr, coin) = sformat f2 addr coin
           f :: HashMap Address Coin -> Text
@@ -412,8 +408,10 @@ sanityCheckBalances = do
         liftIO $ do
           writeFile "explorer.txt" set1
           writeFile "utxo.txt" set2
-          System.Exit.exitWith $ ExitFailure 42
-        throwM $ DBMalformed msg
+        liftIO $ do
+          threadDelay 100000
+          exitImmediately $ ExitFailure 42
+        throwM $ DBMalformed "sanityCheckBalances"
 
 ----------------------------------------------------------------------------
 -- Keys

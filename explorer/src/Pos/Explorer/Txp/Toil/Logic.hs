@@ -33,10 +33,8 @@ import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
-                     ExplorerExtraM, delAddrBalance, delTxExtra,
-                     explorerExtraMToEGlobalToilM, explorerExtraMToELocalToilM,
-                     getAddrBalance, getAddrHistory, getTxExtra, getUtxoSum,
-                     putAddrBalance, putTxExtra, putUtxoSum, updateAddrHistory)
+                     ExplorerExtraM)
+import qualified Pos.Explorer.Txp.Toil.Monad as ToilM
 import           Pos.Util.Util (Sign (..))
 import           Pos.Util.Wlog (logError)
 
@@ -54,14 +52,14 @@ eApplyToil
     -> EGlobalToilM ()
 eApplyToil bootStakeholders mTxTimestamp txun hh = do
     extendGlobalToilM $ Txp.applyToil bootStakeholders txun
-    explorerExtraMToEGlobalToilM $ mapM_ applier $ zip [0..] txun
+    ToilM.explorerExtraMToEGlobalToilM $ mapM_ applier $ zip [0..] txun
   where
     applier :: (Word32, (TxAux, TxUndo)) -> ExplorerExtraM ()
     applier (i, (txAux, txUndo)) = do
         let tx = taTx txAux
             id = hash tx
             newExtra = TxExtra (Just (hh, i)) mTxTimestamp txUndo
-        extra <- fromMaybe newExtra <$> getTxExtra id
+        extra <- fromMaybe newExtra <$> ToilM.getTxExtra id
         putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txUndo
         let balanceUpdate = getBalanceUpdate txAux txUndo
         updateAddrBalances balanceUpdate
@@ -71,7 +69,7 @@ eApplyToil bootStakeholders mTxTimestamp txun hh = do
 eRollbackToil :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> EGlobalToilM ()
 eRollbackToil bootStakeholders txun = do
     extendGlobalToilM $ Txp.rollbackToil bootStakeholders txun
-    explorerExtraMToEGlobalToilM $ mapM_ extraRollback $ reverse txun
+    ToilM.explorerExtraMToEGlobalToilM $ mapM_ extraRollback $ reverse txun
   where
     extraRollback :: (TxAux, TxUndo) -> ExplorerExtraM ()
     extraRollback (txAux, txUndo) = do
@@ -102,7 +100,7 @@ eProcessTx
     -> ExceptT ToilVerFailure ELocalToilM ()
 eProcessTx pm txValRules txpConfig bvd curEpoch tx@(id, aux) createExtra = do
     undo <- mapExceptT extendLocalToilM $ Txp.processTx pm txValRules txpConfig bvd curEpoch tx
-    lift $ explorerExtraMToELocalToilM $ do
+    lift $ ToilM.explorerExtraMToELocalToilM $ do
         let extra = createExtra undo
         putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
         let balanceUpdate = getBalanceUpdate aux undo
@@ -136,17 +134,17 @@ data BalanceUpdate = BalanceUpdate
     }
 
 modifyAddrHistory :: (AddrHistory -> AddrHistory) -> Address -> ExplorerExtraM ()
-modifyAddrHistory f addr = updateAddrHistory addr . f =<< getAddrHistory addr
+modifyAddrHistory f addr = ToilM.updateAddrHistory addr . f =<< ToilM.getAddrHistory addr
 
 putTxExtraWithHistory :: TxId -> TxExtra -> NonEmpty Address -> ExplorerExtraM ()
 putTxExtraWithHistory id extra addrs = do
-    putTxExtra id extra
+    ToilM.putTxExtra id extra
     for_ addrs $ modifyAddrHistory $
         NewestFirst . (id :) . getNewestFirst
 
 delTxExtraWithHistory :: TxId -> NonEmpty Address -> ExplorerExtraM ()
 delTxExtraWithHistory id addrs = do
-    delTxExtra id
+    ToilM.delTxExtra id
     for_ addrs $ modifyAddrHistory $
         NewestFirst . delete id . getNewestFirst
 
@@ -155,8 +153,8 @@ updateUtxoSumFromBalanceUpdate balanceUpdate = do
     let plusChange  = sumCoins $ map snd $ plusBalance  balanceUpdate
         minusChange = sumCoins $ map snd $ minusBalance balanceUpdate
         utxoChange  = plusChange - minusChange
-    utxoSum <- getUtxoSum
-    putUtxoSum $ utxoSum + utxoChange
+    utxoSum <- ToilM.getUtxoSum
+    ToilM.putUtxoSum $ utxoSum + utxoChange
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
 getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} undos =
@@ -201,11 +199,11 @@ updateAddrBalances balances = mapM_ updater $ combineBalanceUpdates balances
   where
     updater :: (Address, (Sign, Coin)) -> ExplorerExtraM ()
     updater (addr, (Plus, coin)) = do
-        currentBalance <- fromMaybe (mkCoin 0) <$> getAddrBalance addr
+        currentBalance <- fromMaybe (mkCoin 0) <$> ToilM.getAddrBalance addr
         let newBalance = unsafeAddCoin currentBalance coin
-        putAddrBalance addr newBalance
+        ToilM.putAddrBalance addr newBalance
     updater (addr, (Minus, coin)) = do
-        maybeBalance <- getAddrBalance addr
+        maybeBalance <- ToilM.getAddrBalance addr
         case maybeBalance of
             Nothing ->
                 logError $
@@ -221,9 +219,9 @@ updateAddrBalances balances = mapM_ updater $ combineBalanceUpdates balances
                 | otherwise -> do
                     let newBalance = unsafeSubCoin currentBalance coin
                     if newBalance == mkCoin 0 then
-                        delAddrBalance addr
+                        ToilM.delAddrBalance addr
                     else
-                        putAddrBalance addr newBalance
+                        ToilM.putAddrBalance addr newBalance
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate txAux txUndo =

@@ -75,11 +75,7 @@ eRollbackToil bootStakeholders txun = do
     extraRollback (txAux, txUndo) = do
         delTxExtraWithHistory (hash (taTx txAux)) $
           getTxRelatedAddrs txAux txUndo
-        let BalanceUpdate {..} = getBalanceUpdate txAux txUndo
-        let balanceUpdate = BalanceUpdate {
-            plusBalance = minusBalance,
-            minusBalance = plusBalance
-        }
+        let balanceUpdate = flipBalanceUpdate $ getBalanceUpdate txAux txUndo
         updateAddrBalances balanceUpdate
         updateUtxoSumFromBalanceUpdate balanceUpdate
 
@@ -132,6 +128,15 @@ data BalanceUpdate = BalanceUpdate
     { minusBalance :: [(Address, Coin)]
     , plusBalance  :: [(Address, Coin)]
     }
+
+-- | Flip the plus and minus balances, so that a flipped BalanceUpdate
+-- is a rollback.
+flipBalanceUpdate :: BalanceUpdate -> BalanceUpdate
+flipBalanceUpdate initial =
+    BalanceUpdate
+        { plusBalance = minusBalance initial
+        , minusBalance = plusBalance initial
+        }
 
 modifyAddrHistory :: (AddrHistory -> AddrHistory) -> Address -> ExplorerExtraM ()
 modifyAddrHistory f addr = ToilM.updateAddrHistory addr . f =<< ToilM.getAddrHistory addr

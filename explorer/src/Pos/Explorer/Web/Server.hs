@@ -82,9 +82,8 @@ import           Pos.Web (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Core (TxExtra (..))
-import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance,
-                     getAddrHistory, getLastTransactions, getTxExtra,
-                     getUtxoSum)
+import           Pos.Explorer.DB (Page)
+import qualified Pos.Explorer.DB as ExDB
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
                      HasGenesisRedeemAddressInfo (..))
@@ -165,7 +164,7 @@ explorerHandlers genesisConfig _diffusion =
 
 getTotalAda :: ExplorerMode ctx m => m CAda
 getTotalAda = do
-    utxoSum <- getUtxoSum
+    utxoSum <- ExDB.getUtxoSum
     validateUtxoSum utxoSum
     pure $ CAda $ fromInteger utxoSum / 1e6
   where
@@ -216,7 +215,7 @@ getBlocksPage epochSlots mPageNumber mPageSize = do
         throwM $ Internal "Number of pages exceeds total pages number."
 
     -- TODO: Fix in the future.
-    when (pageSize /= fromIntegral defaultPageSize) $
+    when (pageSize /= fromIntegral ExDB.defaultPageSize) $
         throwM $ Internal "We currently support only page size of 10."
 
     when (pageSize > 1000) $
@@ -300,7 +299,7 @@ getLastTxs = do
         :: ExplorerMode ctx m
         => m [TxInternal]
     getBlockchainLastTxs = do
-        mLastTxs     <- getLastTransactions
+        mLastTxs     <- ExDB.getLastTransactions
         let lastTxs   = fromMaybe [] mLastTxs
         let lastTxsWH = map withHash lastTxs
 
@@ -312,7 +311,7 @@ getLastTxs = do
             => WithHash Tx
             -> m TxInternal
         toTxInternal (WithHash tx txId) = do
-            extra <- getTxExtra txId >>=
+            extra <- ExDB.getTxExtra txId >>=
                 maybeThrow (Internal "No extra info for tx in DB!")
             pure $ TxInternal extra tx
 
@@ -343,7 +342,7 @@ getBlockTxs genesisHash cHash mLimit mSkip = do
     txs <- getMainBlockTxs genesisHash cHash
 
     forM (take limit . drop skip $ txs) $ \tx -> do
-        extra <- getTxExtra (hash tx) >>=
+        extra <- ExDB.getTxExtra (hash tx) >>=
                  maybeThrow (Internal "In-block transaction doesn't \
                                       \have extra info in DB")
         pure $ makeTxBrief tx extra
@@ -364,8 +363,8 @@ getAddressSummary nm genesisHash cAddr = do
     when (isUnknownAddressType addr) $
         throwM $ Internal "Unknown address type"
 
-    balance <- mkCCoin . fromMaybe minBound <$> getAddrBalance addr
-    txIds <- getNewestFirst <$> getAddrHistory addr
+    balance <- mkCCoin . fromMaybe minBound <$> ExDB.getAddrBalance addr
+    txIds <- getNewestFirst <$> ExDB.getAddrHistory addr
 
     let nTxs = length txIds
 
@@ -447,7 +446,7 @@ getTxSummary genesisHash cTxId = do
     -- the rest.
     txId                   <- cTxIdToTxId cTxId
     -- Get from database, @TxExtra
-    txExtra                <- getTxExtra txId
+    txExtra                <- ExDB.getTxExtra txId
 
     -- If we found @TxExtra@ that means we found something saved on the
     -- blockchain and we don't have to fetch @MemPool@. But if we don't find
@@ -578,7 +577,7 @@ getGenesisSummary = do
         :: MonadDBRead m
         => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
-        currentBalance <- fromMaybe minBound <$> getAddrBalance address
+        currentBalance <- fromMaybe minBound <$> ExDB.getAddrBalance address
         if currentBalance > initialBalance then
             throwM $ Internal $ sformat
                 ("Redeem address "%build%" had "%build%" at genesis, but now has "%build)
@@ -606,7 +605,7 @@ getGenesisSummary = do
 
 isAddressRedeemed :: MonadDBRead m => Address -> m Bool
 isAddressRedeemed address = do
-    currentBalance <- fromMaybe minBound <$> getAddrBalance address
+    currentBalance <- fromMaybe minBound <$> ExDB.getAddrBalance address
     pure $ currentBalance == minBound
 
 getFilteredGrai :: ExplorerMode ctx m => CAddressesFilter -> m (V.Vector (Address, Coin))
@@ -629,9 +628,9 @@ getGenesisAddressInfo
     -> Maybe Word  -- ^ pageSize
     -> CAddressesFilter
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize addrFilt = do
+getGenesisAddressInfo mPage mPageSize addrFilt = do
     filteredGrai <- getFilteredGrai addrFilt
-    let pageNumber    = fromMaybe 1 mPage
+    let pageNumber    = fromMaybe 1 $ fmap fromIntegral mPage
         pageSize      = fromIntegral $ toPageSize mPageSize
         skipItems     = (pageNumber - 1) * pageSize
         requestedPage = V.slice skipItems pageSize filteredGrai
@@ -813,14 +812,14 @@ getStatsTxs genesisConfig mPageNumber = do
 -- 10 we'll have an empty page.
 -- Could also be `((blocksTotal - 1) `div` pageSizeInt) + 1`.
 roundToBlockPage :: Integer -> Integer
-roundToBlockPage blocksTotal = divRoundUp blocksTotal $ fromIntegral defaultPageSize
+roundToBlockPage blocksTotal = divRoundUp blocksTotal $ fromIntegral ExDB.defaultPageSize
 
 -- | A pure function that return the number of blocks.
 getBlockDifficulty :: Block -> Integer
 getBlockDifficulty tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
 
 defaultPageSizeWord :: Word
-defaultPageSizeWord = fromIntegral defaultPageSize
+defaultPageSizeWord = fromIntegral ExDB.defaultPageSize
 
 toPageSize :: Maybe Word -> Integer
 toPageSize = fromIntegral . fromMaybe defaultPageSizeWord
@@ -863,7 +862,7 @@ getMempoolTxs = do
     localTxs <- fmap reverse $ topsortTxsOrFail mkWhTx =<< tlocalTxs
 
     fmap catMaybes . forM localTxs $ \(id, txAux) -> do
-        mextra <- getTxExtra id
+        mextra <- ExDB.getTxExtra id
         forM mextra $ \extra -> pure $ TxInternal extra (taTx txAux)
   where
     tlocalTxs :: (MonadIO m, MonadTxpMem ext ctx m) => m [(TxId, TxAux)]
@@ -933,7 +932,7 @@ getMainBlock genesisHash = fmap fst . getMainBlund genesisHash
 -- | Get transaction extra from the database, and if you don't find it
 -- throw an exception.
 getTxExtraOrFail :: MonadDBRead m => TxId -> m TxExtra
-getTxExtraOrFail txId = getTxExtra txId >>= maybeThrow exception
+getTxExtraOrFail txId = ExDB.getTxExtra txId >>= maybeThrow exception
   where
     exception = Internal "Transaction not found"
 

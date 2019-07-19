@@ -194,10 +194,10 @@ combineBalanceUpdates BalanceUpdate {..} =
     reducer (Just plus, Just minus)
         | plus > minus = Just (Plus,  unsafeSubCoin plus minus)
         | plus < minus = Just (Minus, unsafeSubCoin minus plus)
+        | otherwise = Nothing
+    reducer (Just plus, Nothing) = if plus /= mkCoin 0 then Just (Plus, plus) else Nothing
+    reducer (Nothing, Just minus) = if minus /= mkCoin 0 then Just (Minus, minus) else Nothing
     reducer (Nothing, Nothing) = error "combineBalanceUpdates: HashMap.unionWith is broken"
-    reducer (Just plus, Nothing)  | plus /= mkCoin 0  = Just (Plus, plus)
-    reducer (Nothing, Just minus) | minus /= mkCoin 0 = Just (Minus, minus)
-    reducer _ = Nothing
 
 updateAddrBalances :: BalanceUpdate -> ExplorerExtraM ()
 updateAddrBalances balances = mapM_ updater $ combineBalanceUpdates balances

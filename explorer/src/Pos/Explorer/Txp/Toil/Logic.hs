@@ -17,7 +17,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (delete)
 import qualified Data.List.NonEmpty as NE
-import           Formatting (build, sformat, (%))
+import           Formatting (build, sformat, (%), stext)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis (GenesisWStakeholders)
@@ -37,7 +37,7 @@ import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
                      ExplorerExtraM)
 import qualified Pos.Explorer.Txp.Toil.Monad as ToilM
 import           Pos.Util.Util (Sign (..))
-import           Pos.Util.Wlog (logError)
+import           Pos.Util.Wlog (logError, logWarning)
 
 ----------------------------------------------------------------------------
 -- Global
@@ -63,7 +63,7 @@ eApplyToil bootStakeholders mTxTimestamp txun hh = do
         extra <- fromMaybe newExtra <$> ToilM.getTxExtra id
         putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txUndo
         let balanceUpdate = getBalanceUpdate txAux txUndo
-        updateAddrBalances balanceUpdate
+        updateAddrBalances "eApplyToil" balanceUpdate
         updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Rollback transactions from one block.
@@ -77,7 +77,7 @@ eRollbackToil bootStakeholders txun = do
         delTxExtraWithHistory (hash (taTx txAux)) $
           getTxRelatedAddrs txAux txUndo
         let balanceUpdate = flipBalanceUpdate $ getBalanceUpdate txAux txUndo
-        updateAddrBalances balanceUpdate
+        updateAddrBalances "eRollbackToil" balanceUpdate
         updateUtxoSumFromBalanceUpdate balanceUpdate
 
 ----------------------------------------------------------------------------
@@ -101,7 +101,7 @@ eProcessTx pm txValRules txpConfig bvd curEpoch tx@(id, aux) createExtra = do
         let extra = createExtra undo
         putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
         let balanceUpdate = getBalanceUpdate aux undo
-        updateAddrBalances balanceUpdate
+        updateAddrBalances "eProcessTx" balanceUpdate
         updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Get rid of invalid transactions.
@@ -200,34 +200,44 @@ combineBalanceUpdates BalanceUpdate {..} =
     reducer (Nothing, Just minus) = if minus /= mkCoin 0 then Just (Minus, minus) else Nothing
     reducer (Nothing, Nothing) = error "combineBalanceUpdates: HashMap.unionWith is broken"
 
-updateAddrBalances :: BalanceUpdate -> ExplorerExtraM ()
-updateAddrBalances balances = mapM_ updater $ combineBalanceUpdates balances
+updateAddrBalances :: Text -> BalanceUpdate -> ExplorerExtraM ()
+updateAddrBalances from balances = do
+    mapM_ updater $ combineBalanceUpdates balances
   where
     updater :: (Address, (Sign, Coin)) -> ExplorerExtraM ()
     updater (addr, (Plus, coin)) = do
+        when (addr == targetAddress) $
+            logWarning $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): adding "%build) from coin
+
         currentBalance <- fromMaybe (mkCoin 0) <$> ToilM.getAddrBalance addr
         let newBalance = unsafeAddCoin currentBalance coin
+        when (addr == targetAddress) $
+            logWarning $ sformat ("XXX ToilM.updateAddrBalances: "%build%" -> "%build) currentBalance newBalance
+
         ToilM.putAddrBalance addr newBalance
     updater (addr, (Minus, coin)) = do
+        when (addr == targetAddress) $
+            logWarning $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): subtracting "%build) from coin
         maybeBalance <- ToilM.getAddrBalance addr
         case maybeBalance of
             Nothing -> do
                 logError $
-                    sformat ("updateAddrBalances: attempted to subtract "%build%
-                             " from unknown address "%build)
-                    coin addr
-                logError $
-                    sformat ("targetAddress: "%build) targetAddress
+                    sformat ("XXX ToilM.updateAddrBalances: attempted to subtract "%build%
+                             " from unknown address "%build) coin addr
 
             Just currentBalance
                 | currentBalance < coin ->
                     logError $
-                        sformat ("updateAddrBalances: attempted to subtract "%build%
+                        sformat ("XXX ToilM.updateAddrBalances: attempted to subtract "%build%
                                  " from address "%build%" which only has "%build)
-                        coin addr currentBalance
+                                    coin addr currentBalance
                 | otherwise -> do
                     let newBalance = unsafeSubCoin currentBalance coin
-                    if newBalance == mkCoin 0 then
+                    if newBalance == mkCoin 0 then do
+                        when (addr == targetAddress) $
+                            logWarning $
+                                sformat ("XXX ToilM.updateAddrBalances: "%build%" <- "% build %" - "% build)
+                                    newBalance currentBalance coin
                         ToilM.delAddrBalance addr
                     else
                         ToilM.putAddrBalance addr newBalance
@@ -237,3 +247,12 @@ getBalanceUpdate txAux txUndo =
     let minusBalance = map (view _TxOut . toaOut) $ catMaybes $ toList txUndo
         plusBalance = map (view _TxOut) $ toList $ _txOutputs (taTx txAux)
     in BalanceUpdate {..}
+
+{-
+validateTargetAddress :: ExplorerExtraM ()
+validateTargetAddress = do
+    rcoins <- ExDB.getAddrBalance targetAddress
+    tcoins <- ToilM.getAddrBalance targetAddress
+    when (tcoins /= rcoins) $
+        logError $ sformat ("XXX ToilM.validateTargetAddress: "%build%" /= "%build) tcoins rcoins
+-}

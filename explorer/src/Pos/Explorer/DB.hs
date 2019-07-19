@@ -40,7 +40,7 @@ import           Data.List (groupBy)
 import           Data.Map (fromList)
 import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
-import           Formatting (sformat, (%), build, Format)
+import           Formatting (sformat, (%), build, Format, stext)
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
@@ -60,7 +60,7 @@ import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Txp (utxoSource)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Util.Util (maybeThrow)
-import           Pos.Util.Wlog (WithLogger, logError)
+import           Pos.Util.Wlog (WithLogger, logError, logWarning)
 
 import System.Exit (ExitCode (ExitFailure))
 import System.Posix.Process (exitImmediately)
@@ -148,8 +148,12 @@ getAddrHistory :: MonadDBRead m => Address -> m AddrHistory
 getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
                  gsGetBi . addrHistoryKey
 
-getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
-getAddrBalance = gsGetBi . addrBalanceKey
+getAddrBalance :: (MonadDBRead m, WithLogger m) => Address -> m (Maybe Coin)
+getAddrBalance addr = do
+    mcoin <- gsGetBi $ addrBalanceKey addr
+    when (addr == targetAddress) $
+        logWarning $ sformat ("XXX RocksDB.getAddrBalance: "%stext) (maybe "empty" (sformat build) mcoin)
+    pure mcoin
 
 getUtxoSum :: MonadDBRead m => m Integer
 getUtxoSum = maybeThrow dbNotInitialized =<< gsGetBi utxoSumPrefix
@@ -394,6 +398,10 @@ sanityCheckBalances = do
             mapOutput ((txOutAddress &&& txOutValue) . toaOut . snd) utxoSource
     storedMap <- runConduitRes $ balancesSource .| balancesSink
     computedFromUtxoMap <- runConduitRes $ utxoBalancesSource .| balancesSink
+
+    rcoins <- getAddrBalanceSilent targetAddress
+    logWarning $ sformat ("XXX RocksDB.sanityCheckBalances: "%stext) (maybe "empty" (sformat build) rcoins)
+
     unless (storedMap == computedFromUtxoMap) $ do
         logError $ colorize Red "storedMap /= computedFromUtxoMap"
         let
@@ -412,9 +420,14 @@ sanityCheckBalances = do
           writeFile "explorer.txt" set1
           writeFile "utxo.txt" set2
         liftIO $ do
-          threadDelay 100000
+          threadDelay 1000000
+          logError "XXX About to ABORT!"
           exitImmediately $ ExitFailure 42
         throwM $ DBMalformed "sanityCheckBalances"
+
+getAddrBalanceSilent :: MonadDBRead m => Address -> m (Maybe Coin)
+getAddrBalanceSilent =
+    gsGetBi . addrBalanceKey
 
 targetAddress :: Address
 targetAddress =

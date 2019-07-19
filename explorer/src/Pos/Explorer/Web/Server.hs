@@ -104,6 +104,7 @@ import           Pos.Explorer.Web.Error (ExplorerError (..))
 
 import qualified Data.Map as M
 import           Pos.Configuration (explorerExtendedApi)
+import           Pos.Util.Wlog (WithLogger)
 
 
 ----------------------------------------------------------------
@@ -574,7 +575,7 @@ getGenesisSummary = do
         }
   where
     getRedeemAddressInfo
-        :: MonadDBRead m
+        :: (MonadDBRead m, WithLogger m)
         => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
         currentBalance <- fromMaybe minBound <$> ExDB.getAddrBalance address
@@ -603,7 +604,7 @@ getGenesisSummary = do
             , gsiNonRedeemedAmountTotal = nonRedeemedAmountTotal `unsafeAddCoin` amountLeft
             }
 
-isAddressRedeemed :: MonadDBRead m => Address -> m Bool
+isAddressRedeemed :: (MonadDBRead m, WithLogger m)  => Address -> m Bool
 isAddressRedeemed address = do
     currentBalance <- fromMaybe minBound <$> ExDB.getAddrBalance address
     pure $ currentBalance == minBound
@@ -619,7 +620,7 @@ getFilteredGrai addrFilt = do
             NonRedeemedAddresses ->
                 V.filterM (isAddressNotRedeemed . fst) grai
   where
-    isAddressNotRedeemed :: MonadDBRead m => Address -> m Bool
+    isAddressNotRedeemed :: (MonadDBRead m, WithLogger m) => Address -> m Bool
     isAddressNotRedeemed = fmap not . isAddressRedeemed
 
 getGenesisAddressInfo

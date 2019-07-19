@@ -20,11 +20,12 @@ import qualified Pos.Explorer.DB as ExDB
 
 import           Pos.Explorer.Core (AddrHistory)
 import           Pos.Explorer.Txp.Toil (ExplorerExtraLookup (..))
+import           Pos.Util.Wlog (WithLogger)
 
 -- | Build 'ExplorerExtraLookup' for given transactions using access
 -- to DB and 'Utxo' corresponding to inputs of these transactions.
 buildExplorerExtraLookup ::
-       forall m. MonadDBRead m
+       forall m. (MonadDBRead m, WithLogger m)
     => Utxo
     -> [TxAux]
     -> m ExplorerExtraLookup

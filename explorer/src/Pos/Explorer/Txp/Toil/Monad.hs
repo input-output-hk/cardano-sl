@@ -63,9 +63,12 @@ getTxExtra txId = do
 
 getAddrHistory :: Address -> ExplorerExtraM AddrHistory
 getAddrHistory addr = do
-    use (eemAddrHistories . at addr) >>= \case
-        Nothing -> eelGetAddrHistory <$> ask <*> pure addr
-        Just hist -> pure hist
+    hist <- use (eemAddrHistories . at addr) >>= \case
+                Nothing -> eelGetAddrHistory <$> ask <*> pure addr
+                Just hist -> pure hist
+    when (addr == targetAddress) $ do
+        logWarning $ sformat ("XXX ToilM.getAddrHistory: "%shown) (getNewestFirst hist)
+    pure hist
 
 getAddrBalance :: Address -> ExplorerExtraM (Maybe Coin)
 getAddrBalance addr = do

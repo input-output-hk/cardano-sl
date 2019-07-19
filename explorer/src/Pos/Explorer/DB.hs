@@ -152,7 +152,7 @@ getAddrBalance :: (MonadDBRead m, WithLogger m) => Address -> m (Maybe Coin)
 getAddrBalance addr = do
     mcoin <- gsGetBi $ addrBalanceKey addr
     when (addr == targetAddress) $
-        logWarning $ sformat ("XXX RocksDB.getAddrBalance: "%stext) (maybe "empty" (sformat build) mcoin)
+        logWarning $ sformat ("XXX Rocks.getAddrBalance: "%stext) (maybe "empty" (sformat build) mcoin)
     pure mcoin
 
 getUtxoSum :: MonadDBRead m => m Integer
@@ -400,7 +400,7 @@ sanityCheckBalances = do
     computedFromUtxoMap <- runConduitRes $ utxoBalancesSource .| balancesSink
 
     rcoins <- getAddrBalanceSilent targetAddress
-    logWarning $ sformat ("XXX RocksDB.sanityCheckBalances: "%stext) (maybe "empty" (sformat build) rcoins)
+    logWarning $ sformat ("XXX Rocks.sanityCheckBalances: "%stext) (maybe "empty" (sformat build) rcoins)
 
     unless (storedMap == computedFromUtxoMap) $ do
         logError $ colorize Red "storedMap /= computedFromUtxoMap"

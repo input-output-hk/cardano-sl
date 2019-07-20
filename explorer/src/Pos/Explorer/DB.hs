@@ -399,8 +399,9 @@ sanityCheckBalances = do
     storedMap <- runConduitRes $ balancesSource .| balancesSink
     computedFromUtxoMap <- runConduitRes $ utxoBalancesSource .| balancesSink
 
-    rcoins <- getAddrBalanceSilent targetAddress
-    logWarning $ sformat ("XXX Rocks.sanityCheckBalances: "%stext) (maybe "empty" (sformat build) rcoins)
+    when False $ do
+        rcoins <- getAddrBalanceSilent targetAddress
+        logWarning $ sformat ("XXX Rocks.sanityCheckBalances: "%stext) (maybe "empty" (sformat build) rcoins)
 
     unless (storedMap == computedFromUtxoMap) $ do
         logError $ colorize Red "storedMap /= computedFromUtxoMap"

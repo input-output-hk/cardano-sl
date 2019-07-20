@@ -88,10 +88,10 @@ onApplyCallGeneral
     => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyCallGeneral    blunds = do
+    inAssertMode DB.sanityCheckBalances
     epochBlocks <- onApplyEpochBlocksExplorer blunds
     pageBlocks  <- onApplyPageBlocksExplorer blunds
     lastTxs     <- onApplyLastTxsExplorer blunds
-    inAssertMode DB.sanityCheckBalances
     pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 
@@ -100,10 +100,10 @@ onRollbackCallGeneral
     => NewestFirst NE Blund
     -> m SomeBatchOp
 onRollbackCallGeneral blunds = do
+    inAssertMode DB.sanityCheckBalances
     epochBlocks <- onRollbackEpochBlocksExplorer blunds
     pageBlocks  <- onRollbackPageBlocksExplorer blunds
     lastTxs     <- onRollbackLastTxsExplorer blunds
-    inAssertMode DB.sanityCheckBalances
     pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 

@@ -37,7 +37,11 @@ import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
                      ExplorerExtraM)
 import qualified Pos.Explorer.Txp.Toil.Monad as ToilM
 import           Pos.Util.Util (Sign (..))
-import           Pos.Util.Wlog (logError, logWarning)
+import           Pos.Util.Wlog (logError, logInfo)
+
+import System.Exit (ExitCode (ExitFailure))
+import System.Posix.Process (exitImmediately)
+import System.IO.Unsafe (unsafePerformIO)
 
 ----------------------------------------------------------------------------
 -- Global
@@ -96,6 +100,7 @@ eProcessTx
     -> (TxUndo -> TxExtra)
     -> ExceptT ToilVerFailure ELocalToilM ()
 eProcessTx pm txValRules txpConfig bvd curEpoch tx@(id, aux) createExtra = do
+    _ <- error "eProcessTx: How did we get here????"
     undo <- mapExceptT extendLocalToilM $ Txp.processTx pm txValRules txpConfig bvd curEpoch tx
     lift $ ToilM.explorerExtraMToELocalToilM $ do
         let extra = createExtra undo
@@ -153,7 +158,7 @@ delTxExtraWithHistory id addrs = do
     ToilM.delTxExtra id
     forM_ addrs $ \ addr -> do
         when (addr == targetAddress) $
-            logWarning $ sformat ("XXX delTxExtraWithHistory: "%shown) id
+            logInfo $ sformat ("XXX delTxExtraWithHistory: "%shown) id
         -- The use of 'delete' ignores ordering, which is not strictly correct.
         modifyAddrHistory (NewestFirst . delete id . getNewestFirst) addr
 
@@ -211,46 +216,39 @@ updateAddrBalances from balances = do
     updater :: (Address, (Sign, Coin)) -> ExplorerExtraM ()
     updater (addr, (Plus, coin)) = do
         when (addr == targetAddress) $
-            logWarning $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): adding "%build) from coin
+            logInfo $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): adding "%build) from coin
 
         currentBalance <- fromMaybe (mkCoin 0) <$> ToilM.getAddrBalance addr
         let newBalance = unsafeAddCoin currentBalance coin
         when (addr == targetAddress) $
-            logWarning $ sformat ("XXX ToilM.updateAddrBalances: "%build%" -> "%build) currentBalance newBalance
+            logInfo $ sformat ("XXX ToilM.updateAddrBalances: "%build%" -> "%build) currentBalance newBalance
 
         ToilM.putAddrBalance addr newBalance
     updater (addr, (Minus, coin)) = do
         when (addr == targetAddress) $
-            logWarning $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): subtracting "%build) from coin
+            logInfo $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): subtracting "%build) from coin
         maybeBalance <- ToilM.getAddrBalance addr
         case maybeBalance of
             Nothing -> do
                 logError $
                     sformat ("XXX ToilM.updateAddrBalances: attempted to subtract "%build%
                              " from unknown address "%build) coin addr
+                abortImmediately
 
             Just currentBalance
-                | currentBalance < coin ->
+                | currentBalance < coin -> do
                     logError $
                         sformat ("XXX ToilM.updateAddrBalances: attempted to subtract "%build%
                                  " from address "%build%" which only has "%build)
-<<<<<<< HEAD
-                        coin addr currentBalance
+                                    coin addr currentBalance
+                    abortImmediately
                 | otherwise ->
                     ToilM.putAddrBalance addr (unsafeSubCoin currentBalance coin)
-=======
-                                    coin addr currentBalance
-                | otherwise -> do
-                    let newBalance = unsafeSubCoin currentBalance coin
-                    if newBalance == mkCoin 0 then do
-                        when (addr == targetAddress) $
-                            logWarning $
-                                sformat ("XXX ToilM.updateAddrBalances: "%build%" <- "% build %" - "% build)
-                                    newBalance currentBalance coin
-                        ToilM.delAddrBalance addr
-                    else
-                        ToilM.putAddrBalance addr newBalance
->>>>>>> More debug
+
+abortImmediately :: ExplorerExtraM ()
+abortImmediately = do
+  logError "Aborting immediately!!!"
+  pure $ unsafePerformIO (exitImmediately $ ExitFailure 42)
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate txAux txUndo =

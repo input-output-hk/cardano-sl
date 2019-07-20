@@ -10,6 +10,7 @@ module Pos.Explorer.Txp.Toil.Monad
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
+       , getAddrBalanceSilent
        , getUtxoSum
 
        , putTxExtra
@@ -45,7 +46,7 @@ import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..),
                      eemLocalTxsExtra, eemNewUtxoSum)
 import           Pos.Util (type (~>))
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Wlog (NamedPureLogger, logError, logWarning)
+import           Pos.Util.Wlog (NamedPureLogger, logWarning)
 
 ----------------------------------------------------------------------------
 -- Monadic actions with extra txp data.
@@ -71,12 +72,15 @@ getAddrHistory addr = do
 
 getAddrBalance :: Address -> ExplorerExtraM (Maybe Coin)
 getAddrBalance addr = do
-    baseLookup <- eelGetAddrBalance <$> ask
-    mcoin <- MM.lookup baseLookup addr <$> use eemAddrBalances
-    when (addr == targetAddress) $ do
+    mcoin <- getAddrBalanceSilent addr
+    when (addr == targetAddress) $
         logWarning $ sformat ("XXX ToilM.getAddrBalance: "%stext) (maybe "empty" (sformat build) mcoin)
-
     pure mcoin
+
+getAddrBalanceSilent :: Address -> ExplorerExtraM (Maybe Coin)
+getAddrBalanceSilent addr = do
+    baseLookup <- eelGetAddrBalance <$> ask
+    MM.lookup baseLookup addr <$> use eemAddrBalances
 
 getUtxoSum :: ExplorerExtraM Integer
 getUtxoSum = fromMaybe <$> (eelGetUtxoSum <$> ask) <*> use eemNewUtxoSum
@@ -88,15 +92,9 @@ delTxExtra :: TxId -> ExplorerExtraM ()
 delTxExtra txId = eemLocalTxsExtra %= MM.delete txId
 
 updateAddrHistory :: Address -> AddrHistory -> ExplorerExtraM ()
-updateAddrHistory addr hist
-    | null (getNewestFirst hist) =
-        when (addr == targetAddress) $ do
-            mb <- getAddrBalance addr
-            h <- getAddrHistory addr
-            when (isJust mb && null (getNewestFirst h)) $
-                logError $ "XXX ToilM.updateAddrHistory: WAT??"
-    | otherwise = do
-        when (addr == targetAddress) $ do
+updateAddrHistory addr hist =
+    unless (null $ getNewestFirst hist) $ do
+        when (addr == targetAddress) $
             logWarning $ sformat ("XXX ToilM.updateAddrHistory: "%shown) (getNewestFirst hist)
         eemAddrHistories . at addr .= Just hist
 

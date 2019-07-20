@@ -184,7 +184,7 @@ runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic ac
         , fdcTrace = appendName "diffusion" fromTypeclassNamedTraceWlog
         , fdcStreamWindow = streamWindow
         -- TODO should be configurable
-        , fdcBatchSize    = 64
+        , fdcBatchSize    = 8
         }
     exitOnShutdown action = do
         result <- race (waitForShutdown shdnContext) action

@@ -391,9 +391,9 @@ instance DBIteratorClass EpochsIter where
 -- WARNING: this is potentially expensive operation, it shouldn't be
 -- used in production.
 sanityCheckBalances
-    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
-    => m ()
-sanityCheckBalances = do
+    :: (HasCallStack, MonadDBRead m, WithLogger m, MonadUnliftIO m)
+    => Bool -> m ()
+sanityCheckBalances after = do
     let utxoBalancesSource =
             mapOutput ((txOutAddress &&& txOutValue) . toaOut . snd) utxoSource
     storedMap <- runConduitRes $ balancesSource .| balancesSink
@@ -403,6 +403,8 @@ sanityCheckBalances = do
     logWarning $ sformat ("XXX Rocks.sanityCheckBalances: "%stext) (maybe "empty" (sformat build) rcoins)
 
     unless (storedMap == computedFromUtxoMap) $ do
+        logError $ sformat ("stack: " % build) (prettyCallStack callStack)
+        logError $ sformat ("failure happened after applying == " % build) after
         logError $ colorize Red "storedMap /= computedFromUtxoMap"
         let
           f2 :: Format r (Address -> Coin -> r)

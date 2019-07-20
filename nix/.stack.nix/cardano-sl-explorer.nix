@@ -63,6 +63,7 @@
           (hsPkgs.socket-io)
           (hsPkgs.engine-io)
           (hsPkgs.engine-io-wai)
+          (hsPkgs.unix)
           (hsPkgs.wai)
           (hsPkgs.wai-extra)
           (hsPkgs.wai-cors)

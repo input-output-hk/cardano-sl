@@ -84,26 +84,28 @@ instance ( MonadDBRead m
 
 
 onApplyCallGeneral
-    :: MonadBListenerT m
+    :: (HasCallStack, MonadBListenerT m)
     => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyCallGeneral    blunds = do
+    inAssertMode $ DB.sanityCheckBalances False
     epochBlocks <- onApplyEpochBlocksExplorer blunds
     pageBlocks  <- onApplyPageBlocksExplorer blunds
     lastTxs     <- onApplyLastTxsExplorer blunds
-    inAssertMode DB.sanityCheckBalances
+    inAssertMode $ DB.sanityCheckBalances True
     pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 
 onRollbackCallGeneral
-    :: MonadBListenerT m
+    :: (HasCallStack, MonadBListenerT m)
     => NewestFirst NE Blund
     -> m SomeBatchOp
 onRollbackCallGeneral blunds = do
+    inAssertMode $ DB.sanityCheckBalances False
     epochBlocks <- onRollbackEpochBlocksExplorer blunds
     pageBlocks  <- onRollbackPageBlocksExplorer blunds
     lastTxs     <- onRollbackLastTxsExplorer blunds
-    inAssertMode DB.sanityCheckBalances
+    inAssertMode $ DB.sanityCheckBalances True
     pure $ SomeBatchOp [epochBlocks, pageBlocks, lastTxs]
 
 

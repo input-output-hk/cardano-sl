@@ -66,7 +66,7 @@ import           Control.Monad (void)
 import qualified Data.Foldable as Foldable
 import           Data.List.NonEmpty (NonEmpty (..), nonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
                      Migration, MigrationSteps, boolean, collectChecks,

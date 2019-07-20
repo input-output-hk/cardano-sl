@@ -46,7 +46,7 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens (lens, makeClassy, makeLensesWith)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (bprint, build, formatToString, shown, (%))

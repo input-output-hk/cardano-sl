@@ -37,7 +37,7 @@ module Test.Pos.Infra.Gen
 import           Universum
 
 import           Data.IP
-import qualified Data.Map as DM
+import qualified Data.Map.Strict as DM
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range

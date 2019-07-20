@@ -93,7 +93,7 @@ import qualified Data.Aeson.Types as A
 import           Data.HashSet (fromMap)
 import           Data.List (span, zipWith3, zipWith4)
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Ratio ((%))
 import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal

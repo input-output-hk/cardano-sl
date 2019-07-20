@@ -34,7 +34,7 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashSet as HS
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable

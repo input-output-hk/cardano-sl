@@ -9,7 +9,7 @@ module Pos.Util.Config
 
 import           Universum
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Yaml as Y
 import qualified Language.Haskell.TH.Syntax as TH
 import           System.Directory (canonicalizePath, getDirectoryContents)

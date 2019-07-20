@@ -42,7 +42,7 @@ import qualified Data.ByteString as BS
 import           Data.Conduit (ConduitT)
 import qualified Data.Conduit.List as CL
 import           Data.Default (Default (..))
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Database.RocksDB as Rocks
 

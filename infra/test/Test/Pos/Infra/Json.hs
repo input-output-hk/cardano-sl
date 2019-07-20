@@ -8,7 +8,7 @@ module Test.Pos.Infra.Json
 
 import           Universum
 
-import           Data.Map
+import           Data.Map.Strict
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen

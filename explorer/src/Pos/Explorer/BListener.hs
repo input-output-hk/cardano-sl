@@ -24,7 +24,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)
 import           Data.List ((\\))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Ether
 import           UnliftIO (MonadUnliftIO)
 

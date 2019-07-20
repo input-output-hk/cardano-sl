@@ -15,7 +15,7 @@ module Test.Pos.Block.Logic.Event
 import           Universum
 
 import           Control.Exception.Safe (fromException)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified GHC.Exts as IL
 

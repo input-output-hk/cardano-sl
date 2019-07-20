@@ -8,7 +8,7 @@ module Network.Discovery.Transport.InMemory
 import qualified Control.Concurrent.STM as STM
 import qualified Control.Concurrent.STM.TVar as TVar
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Typeable (Typeable)

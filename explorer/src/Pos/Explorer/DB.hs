@@ -37,8 +37,8 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import           Data.List (groupBy)
-import           Data.Map (fromList)
-import qualified Data.Map as M
+import           Data.Map.Strict (fromList)
+import qualified Data.Map.Strict as M
 import qualified Database.RocksDB as Rocks
 import           Formatting (sformat, (%), build, Format, stext)
 import           Serokell.Util (Color (Red), colorize)

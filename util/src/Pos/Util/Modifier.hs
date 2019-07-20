@@ -39,7 +39,7 @@ import qualified Universum
 import           Control.DeepSeq (NFData)
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Map as M
+import qualified Data.Map.Strict as Map
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable
 import           GHC.Generics (Generic)
@@ -226,7 +226,7 @@ modifyHashMap pm hm =
 
 modifyMap :: Ord k => MapModifier k v -> Map k v -> Map k v
 modifyMap pm hm =
-    foldl' (flip (uncurry M.insert)) (foldl' (flip M.delete) hm deletes) inserts
+    foldl' (flip (uncurry Map.insert)) (foldl' (flip Map.delete) hm deletes) inserts
   where
     inserts = insertions pm
     deletes = deletions pm

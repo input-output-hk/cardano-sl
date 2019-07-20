@@ -19,7 +19,7 @@ import           Control.Concurrent.Async (Concurrently (..), race)
 import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Control.Concurrent.STM as STM
 import           Data.Functor.Contravariant (contramap)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (Format)
 import qualified Network.Broadcast.OutboundQueue as OQ

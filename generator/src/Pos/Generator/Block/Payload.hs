@@ -17,7 +17,7 @@ import           Control.Monad.Random.Class (MonadRandom (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
 import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))

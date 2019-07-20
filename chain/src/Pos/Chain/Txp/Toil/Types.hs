@@ -30,7 +30,7 @@ import           Universum
 import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Map as M (lookup, member, toList)
+import qualified Data.Map.Strict as M (lookup, member, toList)
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, later)
 import           Serokell.Util.Text (mapBuilderJson)

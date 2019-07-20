@@ -22,8 +22,8 @@ where
 import           Universum
 
 import           Control.Monad.Except (MonadError, throwError)
-import           Data.Map (Map)
-import qualified Data.Map as Map
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import           Data.Monoid (Sum (Sum))
 import           Data.Validation (Validation (Failure), validation)
 

@@ -18,7 +18,7 @@ import           Control.Monad.Except (ExceptT (ExceptT), runExceptT,
                      throwError)
 import           Data.List (findIndex, scanl', (!!))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Sum (Sum), getSum)
 import           Data.Semigroup ((<>))

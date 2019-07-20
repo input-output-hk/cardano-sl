@@ -19,7 +19,7 @@ import           Universum
 
 import           Control.Lens.TH (makeLenses)
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable
 

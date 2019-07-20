@@ -24,7 +24,7 @@ import           Control.Monad.Reader (MonadReader)
 import           Control.Monad.State (MonadState)
 import           Control.Monad.Trans (MonadIO)
 import           Data.Aeson.Types (Array, FromJSON, ToJSON)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Text (Text)
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (sformat, shown, (%))

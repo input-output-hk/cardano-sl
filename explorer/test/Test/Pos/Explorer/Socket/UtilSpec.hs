@@ -8,7 +8,7 @@ module Test.Pos.Explorer.Socket.UtilSpec
 import           Universum
 
 import qualified Data.IntSet as IS
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Pos.Explorer.Socket.Util (regroupBySnd)
 import           Test.Hspec (Spec, describe, it, shouldBe)
 

@@ -7,7 +7,7 @@ module Pos.DB.Txp.Logic.Common
 
 import           Universum
 
-import qualified Data.Map as M (fromList)
+import qualified Data.Map.Strict as M (fromList)
 
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOutAux, Utxo,
                      UtxoModifier)

@@ -22,7 +22,7 @@ module Wallet.Incremental (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 

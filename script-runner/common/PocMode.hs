@@ -47,7 +47,7 @@ import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
 import           Data.Constraint (Dict)
 import           Data.Default (Default (def))
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Prelude (show)
 
 import           Pos.Chain.Block (HasSlogContext (slogContext),

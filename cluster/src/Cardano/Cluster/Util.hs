@@ -54,7 +54,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.Char as Char
 import           Data.IP (IP)
 import           Data.List (elemIndex, stripPrefix, (\\))
-import           Data.Map (Map)
+import           Data.Map.Strict (Map)
 import           Data.Maybe (fromJust)
 import           Data.Time (NominalDiffTime, defaultTimeLocale, parseTimeM)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)

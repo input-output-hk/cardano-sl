@@ -17,7 +17,7 @@ module Wallet.Inductive.Invariants (
 
 import           Universum
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable

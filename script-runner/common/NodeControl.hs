@@ -10,7 +10,7 @@ import           Control.Concurrent.STM.TVar (modifyTVar)
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Ix (range)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import           Data.Time (NominalDiffTime, addUTCTime, defaultTimeLocale,

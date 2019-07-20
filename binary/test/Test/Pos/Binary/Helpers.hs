@@ -39,8 +39,8 @@ import           Universum
 import           Codec.CBOR.FlatTerm (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Map (Map)
-import qualified Data.Map as M
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import           Data.SafeCopy (SafeCopy, safeGet, safePut)
 import           Data.Serialize (runGet, runPut)
 import           Data.Text.Lazy (unpack)

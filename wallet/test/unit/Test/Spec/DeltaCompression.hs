@@ -2,7 +2,7 @@ module Test.Spec.DeltaCompression (spec) where
 
 import           Universum
 
-import           Data.Map as M
+import           Data.Map.Strict as M
 import qualified Data.SafeCopy as SC
 import           Data.Serialize (runGet, runPut)
 

@@ -18,7 +18,7 @@ import           Universum
 import           Data.Coerce
 import           Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 
 newtype NonEmptyMap k v = NonEmptyMap (Map k v)

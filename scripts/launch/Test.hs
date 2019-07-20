@@ -17,7 +17,7 @@ import           Control.Monad.Trans (lift)
 import           "lens-aeson" Data.Aeson.Lens
 import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Maybe (catMaybes, fromJust, fromMaybe)
 import           Data.Monoid ((<>))
 import           Data.Scientific (Scientific)

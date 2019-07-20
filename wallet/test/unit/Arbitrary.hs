@@ -6,7 +6,7 @@ module Arbitrary where
 
 import           Universum
 
-import           Data.Map as M
+import           Data.Map.Strict as M
 
 import           Test.QuickCheck (Arbitrary, Gen, arbitrary)
 

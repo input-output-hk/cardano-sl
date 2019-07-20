@@ -17,7 +17,7 @@ import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.List.NonEmpty as NEL
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.SafeCopy as SC
 import           Data.Serialize (Put, getWord8, putWord8)
 import qualified Data.Set as Set

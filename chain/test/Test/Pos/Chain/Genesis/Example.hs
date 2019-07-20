@@ -27,7 +27,7 @@ import           Universum
 import           Crypto.Error (throwCryptoError)
 import qualified Crypto.PubKey.Ed25519 as Ed25519
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
 import qualified Serokell.Util.Base16 as B16
 

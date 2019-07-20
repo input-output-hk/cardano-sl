@@ -36,7 +36,7 @@ import qualified Data.ByteString.Lazy.Char8 as CB
 import           Data.Default (Default (def))
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
 import           Test.QuickCheck (Arbitrary (..), Gen, arbitraryUnicodeChar,
                      choose, listOf, oneof, scale, vectorOf)

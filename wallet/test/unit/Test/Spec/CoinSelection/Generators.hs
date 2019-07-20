@@ -21,7 +21,7 @@ module Test.Spec.CoinSelection.Generators (
 import           Universum
 
 import qualified Data.List
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Formatting (sformat)
 import qualified Formatting as F
 import           Test.QuickCheck (Gen, arbitrary, choose, suchThat)

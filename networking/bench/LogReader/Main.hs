@@ -14,7 +14,7 @@ import qualified Data.Conduit.List as CL
 import           Data.Conduit.Text (decode, encode, utf8)
 import           Data.Foldable (foldrM)
 import           Data.List (intersperse)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Text (Text)
 import           Formatting (bprint, int, right, sformat, (%))
 import qualified Formatting as F

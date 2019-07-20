@@ -51,7 +51,7 @@ import           Universum
 import           Control.Lens (Getter, from, lazy, strict, to, _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import           Data.Coerce (coerce)
-import           Data.Map as M
+import           Data.Map.Strict as M
 import qualified Data.SafeCopy as SC
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable

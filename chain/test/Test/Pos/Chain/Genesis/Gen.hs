@@ -15,7 +15,7 @@ import           Universum
 
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen

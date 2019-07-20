@@ -8,7 +8,7 @@ import           Universum
 import           Crypto.Hash (Blake2b_224)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Time.Units (fromMicroseconds)
 import           Data.Typeable (typeRep)
 import           Hedgehog (Gen, Property)

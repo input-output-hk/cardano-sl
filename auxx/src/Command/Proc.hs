@@ -11,7 +11,7 @@ import           Universum
 import           Data.Constraint (Dict (..))
 import           Data.Default (def)
 import           Data.List ((!!))
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Formatting (build, int, sformat, stext, (%))
 import qualified Text.JSON.Canonical as CanonicalJSON
 

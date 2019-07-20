@@ -53,7 +53,7 @@ import           Data.Fixed (Fixed, HasResolution)
 import qualified Data.HashSet as HS
 import           Data.List (partition, tail)
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as S
 import qualified Data.Set as Set

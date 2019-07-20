@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Tagged (Tagged (..))
 import           Data.Typeable (typeRep)
 import           Hedgehog (Group (..), checkParallel, withTests)

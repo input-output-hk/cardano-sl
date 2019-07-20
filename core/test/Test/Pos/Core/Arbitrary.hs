@@ -28,7 +28,7 @@ module Test.Pos.Core.Arbitrary
 import           Universum
 
 import qualified Data.ByteString as BS (pack)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Time.Units (TimeUnit (..))
 import           System.Random (Random)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale,

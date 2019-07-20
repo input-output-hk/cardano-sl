@@ -22,7 +22,7 @@ import           Universum
 
 import           Control.Lens (Iso', alongside, iso, zoom, (%=), (+=))
 import           Control.Lens.TH (makeLenses)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Data.Tree
 import           Pos.Core.Chrono

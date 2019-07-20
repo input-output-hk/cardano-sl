@@ -102,7 +102,7 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..),
                      toCHash, toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
 
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Pos.Configuration (explorerExtendedApi)
 import           Pos.Util.Wlog (WithLogger)
 

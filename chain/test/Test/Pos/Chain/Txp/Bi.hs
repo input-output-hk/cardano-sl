@@ -7,7 +7,7 @@ module Test.Pos.Chain.Txp.Bi
 
 import           Universum
 
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Typeable (typeRep)
 import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H

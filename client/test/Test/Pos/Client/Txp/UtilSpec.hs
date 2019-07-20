@@ -12,7 +12,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Formatting (build, hex, left, sformat, shown, (%), (%.))
 import           Test.Hspec (Spec, describe)

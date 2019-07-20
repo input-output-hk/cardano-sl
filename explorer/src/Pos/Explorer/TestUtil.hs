@@ -25,7 +25,7 @@ import           Data.Default (def)
 import           Data.Function (on)
 import           Data.List (groupBy)
 import qualified Data.List.NonEmpty as NE
-import           Data.Map (fromList, fromListWith, keys, unions)
+import           Data.Map.Strict (fromList, fromListWith, keys, unions)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable,
                      choose, counterexample, forAll, generate, property,

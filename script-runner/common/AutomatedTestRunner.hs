@@ -38,7 +38,7 @@ import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Data.Ix (range)
 import           Data.List ((!!))
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import           Data.Time.Units (fromMicroseconds)
 import           Data.Version (showVersion)

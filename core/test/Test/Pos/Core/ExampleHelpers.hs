@@ -54,7 +54,7 @@ import           Universum
 
 import           Data.List ((!!))
 import           Data.List.NonEmpty (fromList)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Hedgehog as H

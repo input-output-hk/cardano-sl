@@ -31,7 +31,7 @@ import           Universum
 
 import           Control.Lens (at, makeLenses, (%=), (.=))
 import           Control.Monad.Random.Strict (RandT, mapRandT)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Chain.Genesis as Genesis (Config, GenesisWStakeholders)

@@ -8,7 +8,7 @@ import           Universum
 
 import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
-import           Data.Map
+import           Data.Map.Strict
 import           Data.Maybe (isJust, isNothing)
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 

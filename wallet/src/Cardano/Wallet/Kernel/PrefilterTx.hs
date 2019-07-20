@@ -22,7 +22,7 @@ import           Universum
 import           Data.List (nub)
 import qualified Data.List.NonEmpty as NE
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable

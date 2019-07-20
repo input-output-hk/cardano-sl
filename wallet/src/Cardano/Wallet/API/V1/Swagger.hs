@@ -31,7 +31,7 @@ import           Pos.Util.Servant (LoggingApi)
 import           Control.Lens (At, Index, IxValue, at, (?~))
 import           Data.Aeson (encode)
 import           Data.Aeson.Encode.Pretty
-import           Data.Map (Map)
+import           Data.Map.Strict (Map)
 import           Data.Swagger hiding (Example)
 import           Data.Typeable
 import           Formatting (build, sformat)

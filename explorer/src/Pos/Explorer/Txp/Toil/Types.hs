@@ -6,6 +6,7 @@ module Pos.Explorer.Txp.Toil.Types
        , eemAddrHistories
        , eemAddrBalances
        , eemNewUtxoSum
+       , eemTargetAddressHistory
        , ExplorerExtraLookup (..)
        ) where
 
@@ -29,6 +30,7 @@ data ExplorerExtraModifier = ExplorerExtraModifier
     , _eemAddrHistories :: !UpdatedAddrHistories
     , _eemAddrBalances  :: !TxMapBalances
     , _eemNewUtxoSum    :: !(Maybe Integer)
+    , _eemTargetAddressHistory :: ![Int]
     }
 
 makeLenses ''ExplorerExtraModifier
@@ -40,6 +42,7 @@ instance Default ExplorerExtraModifier where
         , _eemAddrHistories = mempty
         , _eemAddrBalances  = mempty
         , _eemNewUtxoSum    = Nothing
+        , _eemTargetAddressHistory = []
         }
 
 -- | Functions to get extra data stored by explorer.
@@ -48,4 +51,5 @@ data ExplorerExtraLookup = ExplorerExtraLookup
     , eelGetAddrHistory :: Address -> AddrHistory
     , eelGetAddrBalance :: Address -> Maybe Coin
     , eelGetUtxoSum     :: !Integer
+    , eelTargetAddressHistory :: ![Int]
     }

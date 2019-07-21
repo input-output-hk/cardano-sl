@@ -27,14 +27,15 @@ import           Pos.Chain.Txp (ToilVerFailure (..), Tx (..), TxAux (..), TxId,
                      topsortTxs, _TxOut)
 import qualified Pos.Chain.Txp as Txp
 import           Pos.Chain.Update (BlockVersionData)
-import           Pos.Core (Address, Coin, EpochIndex, Timestamp, mkCoin,
+import           Pos.Core (Address, Coin (..), EpochIndex, Timestamp, mkCoin,
                      sumCoins, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Explorer.DB (targetAddress)
 import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
-                     ExplorerExtraM)
+                     ExplorerExtraM, logTargetAddressTransactionList,
+                     updateTargetAddressTransactionList)
 import qualified Pos.Explorer.Txp.Toil.Monad as ToilM
 import           Pos.Util.Util (Sign (..))
 import           Pos.Util.Wlog (logError, logInfo)
@@ -220,13 +221,17 @@ updateAddrBalances from balances = do
 
         currentBalance <- fromMaybe (mkCoin 0) <$> ToilM.getAddrBalance addr
         let newBalance = unsafeAddCoin currentBalance coin
-        when (addr == targetAddress) $
+        when (addr == targetAddress) $ do
             logInfo $ sformat ("XXX ToilM.updateAddrBalances: "%build%" -> "%build) currentBalance newBalance
+            updateTargetAddressTransactionList addr (fromIntegral $ getCoin coin)
 
         ToilM.putAddrBalance addr newBalance
-    updater (addr, (Minus, coin)) = do
         when (addr == targetAddress) $
+            logTargetAddressTransactionList
+    updater (addr, (Minus, coin)) = do
+        when (addr == targetAddress) $ do
             logInfo $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): subtracting "%build) from coin
+            updateTargetAddressTransactionList addr (-1 * fromIntegral (getCoin coin))
         maybeBalance <- ToilM.getAddrBalance addr
         case maybeBalance of
             Nothing -> do
@@ -242,8 +247,11 @@ updateAddrBalances from balances = do
                                  " from address "%build%" which only has "%build)
                                     coin addr currentBalance
                     abortImmediately
-                | otherwise ->
+
+                | otherwise -> do
                     ToilM.putAddrBalance addr (unsafeSubCoin currentBalance coin)
+                    when (addr == targetAddress) $
+                        logTargetAddressTransactionList
 
 abortImmediately :: ExplorerExtraM ()
 abortImmediately = do

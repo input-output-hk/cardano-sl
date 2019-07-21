@@ -13,7 +13,7 @@ import           Control.Lens (at, non)
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Txp (Tx (..), TxAux (..), Utxo, toaOut, txOutAddress)
-import           Pos.Core (Address, Coin)
+import           Pos.Core (Address, Coin (..))
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.Explorer.DB as ExDB
@@ -31,6 +31,7 @@ buildExplorerExtraLookup ::
     -> m ExplorerExtraLookup
 buildExplorerExtraLookup utxo txAuxes = do
     utxoSum <- ExDB.getUtxoSum
+    tbal <- ExDB.getTargetAddrBalance
     (histories, balances) <- concatMapM buildHistoriesAndBalances txAuxes
     -- `ExplorerExtraLookup` is passed to `eProcessTx` where it is
     -- used in a ReaderT environment to provide underlying functions
@@ -44,6 +45,7 @@ buildExplorerExtraLookup utxo txAuxes = do
                 \addr -> histories ^. at addr . non (NewestFirst [])
             , eelGetAddrBalance = \addr -> balances ^. at addr
             , eelGetUtxoSum = utxoSum
+            , eelTargetAddressHistory = maybe [] (\c -> [fromIntegral $ getCoin c]) tbal
             }
   where
     buildHistoriesAndBalances :: TxAux -> m (HashMap Address AddrHistory, HashMap Address Coin)

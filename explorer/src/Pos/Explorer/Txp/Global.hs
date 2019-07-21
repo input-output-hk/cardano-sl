@@ -98,7 +98,7 @@ applySingle bootStakeholders txpBlund = do
     return $ eApplyToil bootStakeholders mTxTimestamp txAuxesAndUndos hHash
 
 extraOps :: ExplorerExtraModifier -> SomeBatchOp
-extraOps (ExplorerExtraModifier em histories balances utxoNewSum) =
+extraOps (ExplorerExtraModifier em histories balances utxoNewSum _targetAddrHist) =
     SomeBatchOp $
     map GS.DelTxExtra (MM.deletions em) ++
     map (uncurry GS.AddTxExtra) (MM.insertions em) ++

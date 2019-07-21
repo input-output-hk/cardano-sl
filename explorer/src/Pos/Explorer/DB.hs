@@ -26,6 +26,7 @@ module Pos.Explorer.DB
        , findEpochMaxPages
 
        -- * temporary for testing
+       , getTargetAddrBalance
        , targetAddress
        ) where
 
@@ -154,6 +155,10 @@ getAddrBalance addr = do
     when (addr == targetAddress) $
         logWarning $ sformat ("XXX Rocks.getAddrBalance: "%stext) (maybe "empty" (sformat build) mcoin)
     pure mcoin
+
+getTargetAddrBalance :: MonadDBRead m => m (Maybe Coin)
+getTargetAddrBalance =
+    gsGetBi $ addrBalanceKey targetAddress
 
 getUtxoSum :: MonadDBRead m => m Integer
 getUtxoSum = maybeThrow dbNotInitialized =<< gsGetBi utxoSumPrefix

@@ -24,6 +24,10 @@ module Pos.Explorer.Txp.Toil.Monad
 
        , EGlobalToilM
        , explorerExtraMToEGlobalToilM
+
+       -- For debugging
+       , logTargetAddressTransactionList
+       , updateTargetAddressTransactionList
        ) where
 
 import           Universum
@@ -43,10 +47,10 @@ import           Pos.Explorer.Core (AddrHistory, TxExtra)
 import           Pos.Explorer.DB (targetAddress)
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..),
                      ExplorerExtraModifier, eemAddrBalances, eemAddrHistories,
-                     eemLocalTxsExtra, eemNewUtxoSum)
+                     eemLocalTxsExtra, eemNewUtxoSum, eemTargetAddressHistory)
 import           Pos.Util (type (~>))
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Wlog (NamedPureLogger, logWarning)
+import           Pos.Util.Wlog (NamedPureLogger, logError, logInfo, logWarning)
 
 ----------------------------------------------------------------------------
 -- Monadic actions with extra txp data.
@@ -76,6 +80,18 @@ getAddrBalance addr = do
     when (addr == targetAddress) $
         logWarning $ sformat ("XXX ToilM.getAddrBalance: "%stext) (maybe "empty" (sformat build) mcoin)
     pure mcoin
+
+updateTargetAddressTransactionList :: Address -> Int -> ExplorerExtraM ()
+updateTargetAddressTransactionList addr value =
+    if addr /= targetAddress
+        then logError $ sformat ("updateTargetAddressTransactionList: bad address "%build) addr
+        else eemTargetAddressHistory %= (\xs -> value : xs)
+
+logTargetAddressTransactionList :: ExplorerExtraM ()
+logTargetAddressTransactionList = do
+    xs <- eelTargetAddressHistory <$> ask
+    ys <- use eemTargetAddressHistory
+    logInfo $ sformat ("XXX logTargetAddressTransactionList ("%shown%"): "%shown) (sum $ ys ++ xs) (ys ++ xs)
 
 getAddrBalanceSilent :: Address -> ExplorerExtraM (Maybe Coin)
 getAddrBalanceSilent addr = do

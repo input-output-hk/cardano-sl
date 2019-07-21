@@ -26,8 +26,10 @@ module Pos.Explorer.Txp.Toil.Monad
        , explorerExtraMToEGlobalToilM
 
        -- For debugging
+       , getTargetAddrBalance
        , logTargetAddressTransactionList
        , updateTargetAddressTransactionList
+       , validateTargetAddrBalance
        ) where
 
 import           Universum
@@ -70,7 +72,7 @@ getAddrHistory addr = do
     hist <- use (eemAddrHistories . at addr) >>= \case
                 Nothing -> eelGetAddrHistory <$> ask <*> pure addr
                 Just hist -> pure hist
-    when (addr == targetAddress) $ do
+    when (False && addr == targetAddress) $ do
         logWarning $ sformat ("XXX ToilM.getAddrHistory: "%shown) (getNewestFirst hist)
     pure hist
 
@@ -84,14 +86,27 @@ getAddrBalance addr = do
 updateTargetAddressTransactionList :: Address -> Int -> ExplorerExtraM ()
 updateTargetAddressTransactionList addr value =
     if addr /= targetAddress
-        then logError $ sformat ("updateTargetAddressTransactionList: bad address "%build) addr
+        then logError $ sformat ("XXX updateTargetAddressTransactionList: bad address "%build) addr
         else eemTargetAddressHistory %= (\xs -> value : xs)
 
-logTargetAddressTransactionList :: ExplorerExtraM ()
-logTargetAddressTransactionList = do
+logTargetAddressTransactionList :: Text -> ExplorerExtraM ()
+logTargetAddressTransactionList from = do
     xs <- eelTargetAddressHistory <$> ask
     ys <- use eemTargetAddressHistory
-    logInfo $ sformat ("XXX logTargetAddressTransactionList ("%shown%"): "%shown) (sum $ ys ++ xs) (ys ++ xs)
+    logInfo $ sformat ("XXX logTargetAddressTransactionList ("%stext%", "%shown%"): "%shown) from (sum $ ys ++ xs) (ys ++ xs)
+
+getTargetAddrBalance :: ExplorerExtraM Coin
+getTargetAddrBalance = do
+    x <- sum . eelTargetAddressHistory <$> ask
+    y <- ((+) x) . sum <$> use eemTargetAddressHistory
+    pure $ mkCoin (fromIntegral y)
+
+validateTargetAddrBalance :: Text -> ExplorerExtraM ()
+validateTargetAddrBalance name = do
+    tbal <- (\b -> if b == mkCoin 0 then Nothing else Just b) <$> getTargetAddrBalance
+    check <- getAddrBalanceSilent targetAddress
+    when (tbal /= check) $
+        logError $ sformat ("XXX ToilM.validateTargetAddrBalance "%stext%": "%build%" /= "%build) name tbal check
 
 getAddrBalanceSilent :: Address -> ExplorerExtraM (Maybe Coin)
 getAddrBalanceSilent addr = do
@@ -110,14 +125,17 @@ delTxExtra txId = eemLocalTxsExtra %= MM.delete txId
 updateAddrHistory :: Address -> AddrHistory -> ExplorerExtraM ()
 updateAddrHistory addr hist =
     unless (null $ getNewestFirst hist) $ do
-        when (addr == targetAddress) $
+        when (False && addr == targetAddress) $
             logWarning $ sformat ("XXX ToilM.updateAddrHistory: "%shown) (getNewestFirst hist)
         eemAddrHistories . at addr .= Just hist
 
 putAddrBalance :: Address -> Coin -> ExplorerExtraM ()
 putAddrBalance addr coin = do
-    when (addr == targetAddress) $
+    when (addr == targetAddress) $ do
         logWarning $ sformat ("XXX ToilM.putAddrBalance: "%build) coin
+        balance <- getTargetAddrBalance
+        when (balance /= coin) $
+            logError $ sformat ("XXX ToilM.putAddrBalance: "%build%" /= "%build) balance coin
     -- If the new balance is 0 delete the entry instead of inserting it.
     if coin /= mkCoin 0
         then eemAddrBalances %= MM.insert addr coin

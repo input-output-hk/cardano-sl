@@ -40,10 +40,6 @@ import qualified Pos.Explorer.Txp.Toil.Monad as ToilM
 import           Pos.Util.Util (Sign (..))
 import           Pos.Util.Wlog (logError, logInfo)
 
-import System.Exit (ExitCode (ExitFailure))
-import System.Posix.Process (exitImmediately)
-import System.IO.Unsafe (unsafePerformIO)
-
 ----------------------------------------------------------------------------
 -- Global
 ----------------------------------------------------------------------------
@@ -75,7 +71,7 @@ eApplyToil bootStakeholders mTxTimestamp txun hh = do
 eRollbackToil :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> EGlobalToilM ()
 eRollbackToil bootStakeholders txun = do
     extendGlobalToilM $ Txp.rollbackToil bootStakeholders txun
-    ToilM.explorerExtraMToEGlobalToilM $ mapM_ extraRollback $ reverse txun
+    ToilM.explorerExtraMToEGlobalToilM $ mapM_ extraRollback (reverse txun)
   where
     extraRollback :: (TxAux, TxUndo) -> ExplorerExtraM ()
     extraRollback (txAux, txUndo) = do
@@ -158,7 +154,7 @@ delTxExtraWithHistory :: TxId -> NonEmpty Address -> ExplorerExtraM ()
 delTxExtraWithHistory id addrs = do
     ToilM.delTxExtra id
     forM_ addrs $ \ addr -> do
-        when (addr == targetAddress) $
+        when (False && addr == targetAddress) $
             logInfo $ sformat ("XXX delTxExtraWithHistory: "%shown) id
         -- The use of 'delete' ignores ordering, which is not strictly correct.
         modifyAddrHistory (NewestFirst . delete id . getNewestFirst) addr
@@ -216,7 +212,8 @@ updateAddrBalances from balances = do
   where
     updater :: (Address, (Sign, Coin)) -> ExplorerExtraM ()
     updater (addr, (Plus, coin)) = do
-        when (addr == targetAddress) $
+        when (addr == targetAddress) $ do
+            logTargetAddressTransactionList "updateAddrBalances-1a"
             logInfo $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): adding "%build) from coin
 
         currentBalance <- fromMaybe (mkCoin 0) <$> ToilM.getAddrBalance addr
@@ -227,48 +224,34 @@ updateAddrBalances from balances = do
 
         ToilM.putAddrBalance addr newBalance
         when (addr == targetAddress) $
-            logTargetAddressTransactionList
+            logTargetAddressTransactionList "updateAddrBalances-1b"
     updater (addr, (Minus, coin)) = do
         when (addr == targetAddress) $ do
             logInfo $ sformat ("XXX ToilM.updateAddrBalances ("% stext %"): subtracting "%build) from coin
             updateTargetAddressTransactionList addr (-1 * fromIntegral (getCoin coin))
         maybeBalance <- ToilM.getAddrBalance addr
         case maybeBalance of
-            Nothing -> do
+            Nothing ->
                 logError $
                     sformat ("XXX ToilM.updateAddrBalances: attempted to subtract "%build%
                              " from unknown address "%build) coin addr
-                abortImmediately
 
             Just currentBalance
-                | currentBalance < coin -> do
+                | currentBalance < coin ->
                     logError $
                         sformat ("XXX ToilM.updateAddrBalances: attempted to subtract "%build%
                                  " from address "%build%" which only has "%build)
                                     coin addr currentBalance
-                    abortImmediately
 
                 | otherwise -> do
+                    when (addr == targetAddress) $
+                        logTargetAddressTransactionList "updateAddrBalances-2a"
                     ToilM.putAddrBalance addr (unsafeSubCoin currentBalance coin)
                     when (addr == targetAddress) $
-                        logTargetAddressTransactionList
-
-abortImmediately :: ExplorerExtraM ()
-abortImmediately = do
-  logError "Aborting immediately!!!"
-  pure $ unsafePerformIO (exitImmediately $ ExitFailure 42)
+                        logTargetAddressTransactionList "updateAddrBalances-2b"
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate txAux txUndo =
     let minusBalance = map (view _TxOut . toaOut) $ catMaybes $ toList txUndo
         plusBalance = map (view _TxOut) $ toList $ _txOutputs (taTx txAux)
     in BalanceUpdate {..}
-
-{-
-validateTargetAddress :: ExplorerExtraM ()
-validateTargetAddress = do
-    rcoins <- ExDB.getAddrBalance targetAddress
-    tcoins <- ToilM.getAddrBalance targetAddress
-    when (tcoins /= rcoins) $
-        logError $ sformat ("XXX ToilM.validateTargetAddress: "%build%" /= "%build) tcoins rcoins
--}

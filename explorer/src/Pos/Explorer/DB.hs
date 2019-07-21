@@ -32,7 +32,6 @@ module Pos.Explorer.DB
 
 import           Universum hiding (id)
 
-import           Control.Concurrent (threadDelay)
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
@@ -426,7 +425,6 @@ sanityCheckBalances = do
           writeFile "explorer.txt" set1
           writeFile "utxo.txt" set2
         liftIO $ do
-          threadDelay 1000000
           logError "XXX About to ABORT!"
           exitImmediately $ ExitFailure 42
         throwM $ DBMalformed "sanityCheckBalances"

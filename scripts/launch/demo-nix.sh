@@ -7,6 +7,7 @@ display_help() {
     echo "   -d               run with client auth disabled"
     echo "   -w               enable wallet"
     echo "   -i INT           number of wallets to import (default: 0)"
+    echo "   -c               Absolute path to a custom config file"
     echo
     echo "$0 is used to launch a demo cluster with limited parameters."
 
@@ -18,19 +19,19 @@ display_help() {
 RUN_WALLET="false"
 NUM_IMPORTED_WALLETS=0
 DISABLE_CLIENT_AUTH="false"
-ARGS=()
+CUSTOM_CONFIGURATION_FILE="false"
 
-while getopts hdwi: option
+while getopts hdwic: option
 do
   case "${option}" in
     d) DISABLE_CLIENT_AUTH="true";;
     w) RUN_WALLET="true";;
     i) NUM_IMPORTED_WALLETS="${OPTARG}"; RUN_WALLET="true";;
+    c) CUSTOM_CONFIGURATION_FILE="${OPTARG}";;
     h) display_help; exit 0;;
     *) display_help; exit 1
   esac
 done
-ARGS+=(--arg runWallet "${RUN_WALLET}" --arg numImportedWallets "${NUM_IMPORTED_WALLETS}")
 
 if ! [ -x "$(command -v nix-build)" ]; then
   echo 'Error: nix is not installed.' >&2
@@ -41,5 +42,11 @@ fi
 
 GITREV=$(git rev-parse HEAD)
 
-nix-build -A demo-function --arg disableClientAuth "$DISABLE_CLIENT_AUTH" --arg numImportedWallets "$NUM_IMPORTED_WALLETS" --arg runWallet "$RUN_WALLET" -o "launch_$GITREV"
+nix-build -A demo-function \
+  --arg disableClientAuth "$DISABLE_CLIENT_AUTH" \
+  --arg numImportedWallets "$NUM_IMPORTED_WALLETS" \
+  --arg runWallet "$RUN_WALLET" \
+  --argstr customConfigurationFile "$CUSTOM_CONFIGURATION_FILE" \
+  -o "launch_$GITREV" \
+
 exec ./launch_"$GITREV"

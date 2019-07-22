@@ -37,8 +37,8 @@ in {
 
   });
   inherit demoCluster;
-  demo-function = { disableClientAuth, numImportedWallets, runWallet }: demoCluster.override {
-    inherit disableClientAuth numImportedWallets runWallet;
+  demo-function = { disableClientAuth, numImportedWallets, runWallet, customConfigurationFile }: demoCluster.override {
+    inherit disableClientAuth numImportedWallets runWallet customConfigurationFile;
   };
   dockerImages = let
     build = args: pkgs.callPackage ./docker.nix ({

@@ -21,6 +21,7 @@ module Pos.Explorer.Web.ClientTypes
        , CUtxo  (..)
        , CNetworkAddress (..)
        , CTxSummary (..)
+       , CBlockRange (..)
        , CGenesisSummary (..)
        , CGenesisAddressInfo (..)
        , CAddressesFilter (..)
@@ -266,6 +267,12 @@ toTxEntry ts tx = CTxEntry {..}
     cteId         = toCTxId $ hash tx
     cteTimeIssued = timestampToPosix <$> ts
     cteAmount     = mkCCoin $ totalTxOutMoney tx
+
+
+data CBlockRange = CBlockRange
+    { cbrBlocks     :: [CBlockSummary]
+    , cbrTransactions :: [CTxSummary]
+    } deriving (Show, Generic)
 
 -- | Data displayed on block summary page
 data CBlockSummary = CBlockSummary

@@ -50,6 +50,7 @@ explorerHandlers :: Server ExplorerApi
 explorerHandlers =
     toServant (ExplorerApiRecord
         { _totalAda           = testTotalAda
+        , _dumpBlockRange = undefined
         , _blocksPages        = testBlocksPages
         , _blocksPagesTotal   = testBlocksPagesTotal
         , _blocksSummary      = testBlocksSummary

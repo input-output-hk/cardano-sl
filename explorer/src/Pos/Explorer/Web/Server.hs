@@ -51,7 +51,7 @@ import           Servant.Server.Generic (AsServerT)
 
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
-import           Pos.DB.Block (getBlund)
+import           Pos.DB.Block (getBlund, resolveForwardLink)
 import           Pos.DB.Class (MonadDBRead)
 
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -94,7 +94,7 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..),
                      CAddressesFilter (..), CBlockEntry (..),
                      CBlockSummary (..), CByteString (..),
                      CGenesisAddressInfo (..), CGenesisSummary (..), CHash,
-                     CTxBrief (..), CTxEntry (..), CTxId (..), CTxSummary (..),
+                     CTxBrief (..), CTxEntry (..), CTxId (..), CTxSummary (..), CBlockRange (..),
                      CUtxo (..), TxInternal (..), convertTxOutputs,
                      convertTxOutputsMB, fromCAddress, fromCHash, fromCTxId,
                      getEpochIndex, getSlotIndex, mkCCoin, mkCCoinMB,
@@ -135,6 +135,7 @@ explorerHandlers genesisConfig _diffusion =
     toServant (ExplorerApiRecord
         { _totalAda           = getTotalAda
         , _blocksPages        = getBlocksPage epochSlots
+        , _dumpBlockRange     = getBlockRange genesisConfig
         , _blocksPagesTotal   = getBlocksPagesTotal
         , _blocksSummary      = getBlockSummary genesisConfig
         , _blocksTxs          = getBlockTxs genesisHash
@@ -429,6 +430,100 @@ getAddressUtxoBulk nm cAddrs = do
         cuTag = fromIntegral tag,
         cuBs = CByteString bs
     }
+
+getBlockRange
+    :: ExplorerMode ctx m
+    => Genesis.Config
+    -> CHash
+    -> CHash
+    -> m CBlockRange
+getBlockRange genesisConfig start stop = do
+    startHeaderHash <- unwrapOrThrow $ fromCHash start
+    stopHeaderHash <- unwrapOrThrow $ fromCHash stop
+    let
+      getTxSummaryFromBlock
+          :: (ExplorerMode ctx m)
+          => MainBlock
+          -> Tx
+          -> m CTxSummary
+      getTxSummaryFromBlock mb tx = do
+          let txId = hash tx
+          txExtra                <- getTxExtraOrFail txId
+
+          -- Return transaction extra (txExtra) fields
+          let mBlockchainPlace    = teBlockchainPlace txExtra -- TODO, remove this, we already know which block
+          blockchainPlace        <- maybeThrow (Internal "No blockchain place.") mBlockchainPlace
+
+          let headerHashBP        = fst blockchainPlace
+          let txIndexInBlock      = snd blockchainPlace
+
+          blkSlotStart           <- getBlkSlotStart mb
+
+          let blockHeight         = fromIntegral $ mb ^. difficultyL
+          let receivedTime        = teReceivedTime txExtra
+          let blockTime           = timestampToPosix <$> blkSlotStart
+
+          -- Get block epoch and slot index
+          let blkHeaderSlot       = mb ^. mainBlockSlot
+          let epochIndex          = getEpochIndex $ siEpoch blkHeaderSlot
+          let slotIndex           = getSlotIndex  $ siSlot  blkHeaderSlot
+          let blkHash             = toCHash headerHashBP
+
+          tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
+                atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) (fromIntegral txIndexInBlock)
+
+          let inputOutputsMB      = map (fmap toaOut) $ NE.toList $ teInputOutputs txExtra
+          let txOutputs           = convertTxOutputs . NE.toList $ _txOutputs tx
+
+          let totalInputMB        = unsafeIntegerToCoin . sumCoins . map txOutValue <$> sequence inputOutputsMB
+          let totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
+
+          -- Verify that strange things don't happen with transactions
+          whenJust totalInputMB $ \totalInput -> when (totalOutput > totalInput) $
+              throwM $ Internal "Detected tx with output greater than input"
+
+          pure $ CTxSummary
+              { ctsId              = toCTxId txId
+              , ctsTxTimeIssued    = timestampToPosix <$> receivedTime
+              , ctsBlockTimeIssued = blockTime
+              , ctsBlockHeight     = Just blockHeight
+              , ctsBlockEpoch      = Just epochIndex
+              , ctsBlockSlot       = Just slotIndex
+              , ctsBlockHash       = Just blkHash
+              , ctsRelayedBy       = Nothing
+              , ctsTotalInput      = mkCCoinMB totalInputMB
+              , ctsTotalOutput     = mkCCoin totalOutput
+              , ctsFees            = mkCCoinMB $ (`unsafeSubCoin` totalOutput) <$> totalInputMB
+              , ctsInputs          = map (fmap (second mkCCoin)) $ convertTxOutputsMB inputOutputsMB
+              , ctsOutputs         = map (second mkCCoin) txOutputs
+              }
+      genesisHash = configGenesisHash genesisConfig
+      go :: ExplorerMode ctx m => HeaderHash -> CBlockRange -> m CBlockRange
+      go hh state = do
+        maybeBlund <- getBlund genesisHash hh
+        newState <- case maybeBlund of
+          Just (Right blk', undo) -> do
+            let
+              txs :: [Tx]
+              txs = blk' ^. mainBlockTxPayload . txpTxs
+            blockSum <- toBlockSummary (configEpochSlots genesisConfig) (blk',undo)
+            let
+              state2 = state { cbrBlocks = blockSum : (cbrBlocks state) }
+              iterateTx :: ExplorerMode ctx m => CBlockRange -> Tx -> m CBlockRange
+              iterateTx stateIn tx = do
+                txSummary <- getTxSummaryFromBlock blk' tx
+                pure $ stateIn { cbrTransactions = txSummary : (cbrTransactions stateIn) }
+            foldM iterateTx state2 txs
+          _ -> pure state
+        if hh == stopHeaderHash then
+          pure newState
+        else do
+          nextHh <- resolveForwardLink hh
+          case nextHh of
+            Nothing -> do
+              pure newState
+            Just nextHh' -> go nextHh' newState
+    go startHeaderHash (CBlockRange [] [])
 
 
 -- | Get transaction summary from transaction id. Looks at both the database

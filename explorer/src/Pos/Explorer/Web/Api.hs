@@ -24,7 +24,7 @@ import           Pos.Core (EpochIndex)
 import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress,
                      CAddressSummary, CAddressesFilter, CBlockEntry,
                      CBlockSummary, CGenesisAddressInfo, CGenesisSummary,
-                     CHash, CTxBrief, CTxEntry, CTxId, CTxSummary, CUtxo)
+                     CHash, CTxBrief, CTxEntry, CTxId, CTxSummary, CUtxo, CBlockRange)
 import           Pos.Explorer.Web.Error (ExplorerError)
 import           Pos.Util.Servant (DQueryParam, ModifiesApiRes (..), VerbMod)
 
@@ -70,6 +70,14 @@ data ExplorerApiRecord route = ExplorerApiRecord
         :> QueryParam "page" Word
         :> QueryParam "pageSize" Word
         :> ExRes Get (PageNumber, [CBlockEntry])
+
+  , _dumpBlockRange :: route
+        :- Summary "Dump a range of blocks, including all tx in those blocks"
+        :> "blocks"
+        :> "range"
+        :> Capture "start" CHash
+        :> Capture "stop" CHash
+        :> ExRes Get CBlockRange
 
   , _blocksPagesTotal :: route
         :- Summary "Get the list of total pages."

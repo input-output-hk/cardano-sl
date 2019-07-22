@@ -19,7 +19,7 @@ import           Pos.Explorer.Web.ClientTypes (CAda (..), CAddress,
                      CAddressSummary, CAddressType, CBlockEntry, CBlockSummary,
                      CByteString (..), CCoin, CGenesisAddressInfo,
                      CGenesisSummary, CHash, CNetworkAddress, CTxBrief,
-                     CTxEntry, CTxId, CTxSummary, CUtxo)
+                     CTxEntry, CTxId, CTxSummary, CUtxo, CBlockRange)
 import           Pos.Explorer.Web.Error (ExplorerError)
 
 deriveJSON defaultOptions ''CHash
@@ -35,6 +35,7 @@ deriveToJSON defaultOptions ''CAddressType
 deriveToJSON defaultOptions ''CAddressSummary
 deriveToJSON defaultOptions ''CBlockSummary
 deriveToJSON defaultOptions ''CNetworkAddress
+deriveToJSON defaultOptions ''CBlockRange
 deriveToJSON defaultOptions ''CTxSummary
 deriveToJSON defaultOptions ''CGenesisSummary
 deriveToJSON defaultOptions ''CGenesisAddressInfo

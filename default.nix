@@ -54,6 +54,8 @@ let
     inherit gitrev;
     cardano-sl-explorer = nixTools.nix-tools.exes.cardano-sl-explorer;
   };
+  explorerPythonAPI = pkgs.callPackage ./explorer/python-api {
+  };
   faucetFrontend = pkgs.callPackage ./faucet/frontend { };
   # Currently the only acceptance tests here are to sync the wallet
   # against mainnet and testnet.
@@ -68,6 +70,6 @@ let
   in commonLib.forEnvironments mkTest;
 in {
   inherit pkgs acceptanceTests daedalus-bridge tests
-          cardanoConfig faucetFrontend explorerFrontend;
+          cardanoConfig faucetFrontend explorerFrontend explorerPythonAPI;
   inherit (nixTools) nix-tools;
 } // scripts

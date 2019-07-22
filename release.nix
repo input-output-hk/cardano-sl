@@ -67,7 +67,7 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     "cardano-sl-cluster"
   ];
   extraBuilds = {
-    inherit (default) tests demoCluster explorerFrontend faucetFrontend;
+    inherit (default) tests demoCluster explorerFrontend faucetFrontend explorerPythonAPI;
     daedalus-bridge = commonLib.pkgs.lib.mapAttrs (k: v: (getArchDefault k).daedalus-bridge) {
       x86_64-linux = 1;
       x86_64-darwin = 1;

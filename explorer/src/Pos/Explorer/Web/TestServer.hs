@@ -24,6 +24,7 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..),
                      CAddressSummary (..), CAddressType (..),
                      CAddressesFilter (..), CBlockEntry (..),
                      CBlockSummary (..), CGenesisAddressInfo (..),
+                     CBlockRange (..),
                      CGenesisSummary (..), CHash (..), CTxBrief (..),
                      CTxEntry (..), CTxId (..), CTxSummary (..), CUtxo (..),
                      mkCCoin)
@@ -50,6 +51,7 @@ explorerHandlers :: Server ExplorerApi
 explorerHandlers =
     toServant (ExplorerApiRecord
         { _totalAda           = testTotalAda
+        , _dumpBlockRange     = testDumpBlockRange
         , _blocksPages        = testBlocksPages
         , _blocksPagesTotal   = testBlocksPagesTotal
         , _blocksSummary      = testBlocksSummary
@@ -113,6 +115,15 @@ testBlocksPagesTotal
     :: Maybe Word
     -> Handler Integer
 testBlocksPagesTotal _ = pure 10
+
+testDumpBlockRange :: CHash -> CHash -> Handler CBlockRange
+testDumpBlockRange start _ = do
+  dummyBlock <- testBlocksSummary start
+  dummyTx <- testTxsSummary cTxId
+  pure $ CBlockRange
+    { cbrBlocks = [ dummyBlock ]
+    , cbrTransactions = [ dummyTx ]
+    }
 
 testBlocksPages
     :: Maybe Word

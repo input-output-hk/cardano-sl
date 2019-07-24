@@ -16,7 +16,6 @@ module Pos.Explorer.Txp.Toil.Monad
        , delTxExtra
        , updateAddrHistory
        , putAddrBalance
-       , delAddrBalance
        , putUtxoSum
 
        , ELocalToilM
@@ -36,7 +35,7 @@ import           Control.Monad.State.Strict (mapStateT)
 
 import           Pos.Chain.Txp (ExtendedGlobalToilM, ExtendedLocalToilM,
                      StakesLookupF, TxId)
-import           Pos.Core (Address, Coin)
+import           Pos.Core (Address, Coin, mkCoin)
 import           Pos.Explorer.Core (AddrHistory, TxExtra)
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..),
                      ExplorerExtraModifier, eemAddrBalances, eemAddrHistories,
@@ -82,10 +81,11 @@ updateAddrHistory :: Address -> AddrHistory -> ExplorerExtraM ()
 updateAddrHistory addr hist = eemAddrHistories . at addr .= Just hist
 
 putAddrBalance :: Address -> Coin -> ExplorerExtraM ()
-putAddrBalance addr coin = eemAddrBalances %= MM.insert addr coin
-
-delAddrBalance :: Address -> ExplorerExtraM ()
-delAddrBalance addr = eemAddrBalances %= MM.delete addr
+putAddrBalance addr coin =
+    -- If the new balance is 0 delete the entry instead of inserting it.
+    if coin /= mkCoin 0
+        then eemAddrBalances %= MM.insert addr coin
+        else eemAddrBalances %= MM.delete addr
 
 putUtxoSum :: Integer -> ExplorerExtraM ()
 putUtxoSum utxoSum = eemNewUtxoSum .= Just utxoSum

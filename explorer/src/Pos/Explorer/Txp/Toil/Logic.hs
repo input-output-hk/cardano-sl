@@ -222,12 +222,8 @@ updateAddrBalances balances = mapM_ updater $ combineBalanceUpdates balances
                         sformat ("updateAddrBalances: attempted to subtract "%build%
                                  " from address "%build%" which only has "%build)
                         coin addr currentBalance
-                | otherwise -> do
-                    let newBalance = unsafeSubCoin currentBalance coin
-                    if newBalance == mkCoin 0 then
-                        ToilM.delAddrBalance addr
-                    else
-                        ToilM.putAddrBalance addr newBalance
+                | otherwise ->
+                    ToilM.putAddrBalance addr (unsafeSubCoin currentBalance coin)
 
 getBalanceUpdate :: TxAux -> TxUndo -> BalanceUpdate
 getBalanceUpdate txAux txUndo =

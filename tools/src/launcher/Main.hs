@@ -594,13 +594,13 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
     writeFile (toString runnerPath) $ unlines
         [ "TaskKill /PID "<>show selfPid<>" /F"
         -- Run updater
-        , "%*"
+        , "runas /user:Administrator \"%*\""
         -- Delete updater
         , "del %1"
         -- Run launcher again
         , "start \"cardano launcher\" /b " <> (quote $ toText exePath) <> " " <> (unwords $ map (quote . toText) launcherArgs)
         -- Delete the bat file
-        , "(goto) 2>nul & del \"%~f0\""
+        --, "(goto) 2>nul & del \"%~f0\""
         ]
 
 ----------------------------------------------------------------------------

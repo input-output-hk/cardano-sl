@@ -4,7 +4,6 @@
 
 module Pos.Explorer.Txp.Local
        ( eTxProcessTransaction
-       , eTxProcessTransactionNoLock
        , eTxNormalize
        ) where
 

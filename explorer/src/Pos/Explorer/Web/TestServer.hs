@@ -24,6 +24,7 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..),
                      CAddressSummary (..), CAddressType (..),
                      CAddressesFilter (..), CBlockEntry (..),
                      CBlockSummary (..), CGenesisAddressInfo (..),
+                     CBlockRange (..),
                      CGenesisSummary (..), CHash (..), CTxBrief (..),
                      CTxEntry (..), CTxId (..), CTxSummary (..), CUtxo (..),
                      mkCCoin)
@@ -50,6 +51,7 @@ explorerHandlers :: Server ExplorerApi
 explorerHandlers =
     toServant (ExplorerApiRecord
         { _totalAda           = testTotalAda
+        , _dumpBlockRange     = testDumpBlockRange
         , _blocksPages        = testBlocksPages
         , _blocksPagesTotal   = testBlocksPagesTotal
         , _blocksSummary      = testBlocksSummary
@@ -114,6 +116,15 @@ testBlocksPagesTotal
     -> Handler Integer
 testBlocksPagesTotal _ = pure 10
 
+testDumpBlockRange :: CHash -> CHash -> Handler CBlockRange
+testDumpBlockRange start _ = do
+  dummyBlock <- testBlocksSummary start
+  dummyTx <- testTxsSummary cTxId
+  pure $ CBlockRange
+    { cbrBlocks = [ dummyBlock ]
+    , cbrTransactions = [ dummyTx ]
+    }
+
 testBlocksPages
     :: Maybe Word
     -> Maybe Word
@@ -121,6 +132,7 @@ testBlocksPages
 testBlocksPages _ _  = pure (1, [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
+    , cbeBlkHeight  = 1564738
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
     , cbeTimeIssued = Just posixTime
     , cbeTxNum      = 0
@@ -137,6 +149,7 @@ testBlocksSummary _ = pure CBlockSummary
     { cbsEntry      = CBlockEntry
                         { cbeEpoch      = 37294
                         , cbeSlot       = 10
+                        , cbeBlkHeight  = 1564738
                         , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
                         , cbeTimeIssued = Just posixTime
                         , cbeTxNum      = 0
@@ -213,6 +226,7 @@ testEpochSlotSearch (EpochIndex 1) 2 =
 testEpochSlotSearch _ _ = pure [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
+    , cbeBlkHeight  = 1564738
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
     , cbeTimeIssued = Just posixTime
     , cbeTxNum      = 0
@@ -229,6 +243,7 @@ testEpochPageSearch
 testEpochPageSearch _ _ = pure (1, [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
+    , cbeBlkHeight  = 1564738
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
     , cbeTimeIssued = Just posixTime
     , cbeTxNum      = 0

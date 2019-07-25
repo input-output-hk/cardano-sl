@@ -51,7 +51,7 @@ import           Servant.Server.Generic (AsServerT)
 
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
-import           Pos.DB.Block (getBlund)
+import           Pos.DB.Block (getBlund, resolveForwardLink)
 import           Pos.DB.Class (MonadDBRead)
 
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -59,7 +59,7 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      gbHeader, gbhConsensus, mainBlockSlot, mainBlockTxPayload,
-                     mcdSlot)
+                     mcdSlot, headerHash)
 import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash,
                      configEpochSlots)
 import           Pos.Chain.Txp (Tx (..), TxAux, TxId, TxIn (..), TxMap,
@@ -94,7 +94,7 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..),
                      CAddressesFilter (..), CBlockEntry (..),
                      CBlockSummary (..), CByteString (..),
                      CGenesisAddressInfo (..), CGenesisSummary (..), CHash,
-                     CTxBrief (..), CTxEntry (..), CTxId (..), CTxSummary (..),
+                     CTxBrief (..), CTxEntry (..), CTxId (..), CTxSummary (..), CBlockRange (..),
                      CUtxo (..), TxInternal (..), convertTxOutputs,
                      convertTxOutputsMB, fromCAddress, fromCHash, fromCTxId,
                      getEpochIndex, getSlotIndex, mkCCoin, mkCCoinMB,
@@ -135,6 +135,7 @@ explorerHandlers genesisConfig _diffusion =
     toServant (ExplorerApiRecord
         { _totalAda           = getTotalAda
         , _blocksPages        = getBlocksPage epochSlots
+        , _dumpBlockRange     = getBlockRange genesisConfig
         , _blocksPagesTotal   = getBlocksPagesTotal
         , _blocksSummary      = getBlockSummary genesisConfig
         , _blocksTxs          = getBlockTxs genesisHash
@@ -323,8 +324,8 @@ getBlockSummary
     -> CHash
     -> m CBlockSummary
 getBlockSummary genesisConfig cHash = do
-    headerHash <- unwrapOrThrow $ fromCHash cHash
-    mainBlund  <- getMainBlund (configGenesisHash genesisConfig) headerHash
+    hh <- unwrapOrThrow $ fromCHash cHash
+    mainBlund  <- getMainBlund (configGenesisHash genesisConfig) hh
     toBlockSummary (configEpochSlots genesisConfig) mainBlund
 
 
@@ -429,6 +430,85 @@ getAddressUtxoBulk nm cAddrs = do
         cuTag = fromIntegral tag,
         cuBs = CByteString bs
     }
+
+getBlockRange
+    :: ExplorerMode ctx m
+    => Genesis.Config
+    -> CHash
+    -> CHash
+    -> m CBlockRange
+getBlockRange genesisConfig start stop = do
+    startHeaderHash <- unwrapOrThrow $ fromCHash start
+    stopHeaderHash <- unwrapOrThrow $ fromCHash stop
+    let
+      getTxSummaryFromBlock
+          :: (ExplorerMode ctx m)
+          => MainBlock
+          -> Tx
+          -> m CTxSummary
+      getTxSummaryFromBlock mb tx = do
+          let txId = hash tx
+          txExtra                <- getTxExtraOrFail txId
+
+          blkSlotStart           <- getBlkSlotStart mb
+
+          let
+            blockTime           = timestampToPosix <$> blkSlotStart
+            inputOutputsMB      = map (fmap toaOut) $ NE.toList $ teInputOutputs txExtra
+            txOutputs           = convertTxOutputs . NE.toList $ _txOutputs tx
+            totalInputMB        = unsafeIntegerToCoin . sumCoins . map txOutValue <$> sequence inputOutputsMB
+            totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd txOutputs
+
+          -- Verify that strange things don't happen with transactions
+          whenJust totalInputMB $ \totalInput -> when (totalOutput > totalInput) $
+              throwM $ Internal "Detected tx with output greater than input"
+
+          pure $ CTxSummary
+              { ctsId              = toCTxId txId
+              , ctsTxTimeIssued    = timestampToPosix <$> teReceivedTime txExtra
+              , ctsBlockTimeIssued = blockTime
+              , ctsBlockHeight     = Nothing
+              , ctsBlockEpoch      = Nothing
+              , ctsBlockSlot       = Nothing
+              , ctsBlockHash       = Just $ toCHash $ headerHash mb
+              , ctsRelayedBy       = Nothing
+              , ctsTotalInput      = mkCCoinMB totalInputMB
+              , ctsTotalOutput     = mkCCoin totalOutput
+              , ctsFees            = mkCCoinMB $ (`unsafeSubCoin` totalOutput) <$> totalInputMB
+              , ctsInputs          = map (fmap (second mkCCoin)) $ convertTxOutputsMB inputOutputsMB
+              , ctsOutputs         = map (second mkCCoin) txOutputs
+              }
+      genesisHash = configGenesisHash genesisConfig
+      go :: ExplorerMode ctx m => HeaderHash -> CBlockRange -> m CBlockRange
+      go hh state1 = do
+        maybeBlund <- getBlund genesisHash hh
+        newState <- case maybeBlund of
+          Just (Right blk', undo) -> do
+            let
+              txs :: [Tx]
+              txs = blk' ^. mainBlockTxPayload . txpTxs
+            blockSum <- toBlockSummary (configEpochSlots genesisConfig) (blk',undo)
+            let
+              state2 = state1 { cbrBlocks = blockSum : (cbrBlocks state1) }
+              iterateTx :: ExplorerMode ctx m => CBlockRange -> Tx -> m CBlockRange
+              iterateTx stateIn tx = do
+                txSummary <- getTxSummaryFromBlock blk' tx
+                pure $ stateIn { cbrTransactions = txSummary : (cbrTransactions stateIn) }
+            foldM iterateTx state2 txs
+          _ -> pure state1
+        if hh == stopHeaderHash then
+          pure newState
+        else do
+          nextHh <- resolveForwardLink hh
+          case nextHh of
+            Nothing -> do
+              pure newState
+            Just nextHh' -> go nextHh' newState
+    backwards <- go startHeaderHash (CBlockRange [] [])
+    pure $ CBlockRange
+      { cbrBlocks = reverse $ cbrBlocks backwards
+      , cbrTransactions = reverse $ cbrTransactions backwards
+      }
 
 
 -- | Get transaction summary from transaction id. Looks at both the database
@@ -884,9 +964,8 @@ getBlundOrThrow
     :: ExplorerMode ctx m
     => HeaderHash
     -> m Blund
-getBlundOrThrow headerHash =
-    getBlundFromHHCSLI headerHash >>=
-        maybeThrow (Internal "Blund with hash cannot be found!")
+getBlundOrThrow hh =
+    getBlundFromHHCSLI hh >>= maybeThrow (Internal "Blund with hash cannot be found!")
 
 
 -- | Deserialize Cardano or RSCoin address and convert it to Cardano address.

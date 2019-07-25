@@ -553,7 +553,7 @@ runUpdater ndbp ud = do
                 -- Write the bat script and pass it the updater with all args
                 writeWindowsUpdaterRunner rp
                 -- The script will terminate this updater so this function shouldn't return
-                runUpdaterProc rp ((toText path):args')
+                runUpdaterProc "powershell" ((toText rp) :(toText path):args')
         case exitCode of
             ExitSuccess -> do
                 logInfo "The updater has exited successfully"
@@ -592,15 +592,15 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
     let selfPid = 0 -- This will never be run on non-Windows
 #endif
     writeFile (toString runnerPath) $ unlines
-        [ "TaskKill /PID "<>show selfPid<>" /F"
+        [ "Stop-Process -Id "<>show selfPid<>" -Force"
         -- Run updater
-        , "PowerShell.exe Start-Process \"%*\" -Verb runAs -Wait"
+        , "Start-Process \"%*\" -Verb runAs -Wait"
         -- Delete updater
-        , "del %1"
+        , "Remove-Item %1"
         -- Run launcher again
-        , "start \"cardano launcher\" /b " <> (quote $ toText exePath) <> " " <> (unwords $ map (quote . toText) launcherArgs)
+        , "Start-Process -FilePath " <> (quote $ toText exePath) <> " -ArgumentList " <> (unwords $ map (quote . toText) launcherArgs)
         -- Delete the bat file
-        --, "(goto) 2>nul & del \"%~f0\""
+        , "Remove-Item \"" <> show runnerPath <> "\""
         ]
 
 ----------------------------------------------------------------------------

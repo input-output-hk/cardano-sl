@@ -81,7 +81,7 @@ import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotCount,
                      coinToInteger, decodeTextAddress, getEpochIndex,
                      getSlotIndex, mkCoin, sumCoins, timestampToPosix,
                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin,
-                     unsafeSubCoin)
+                     unsafeSubCoin, difficultyL)
 import           Pos.Core.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.DB.Lrc as LrcDB (getLeader)
@@ -197,6 +197,7 @@ instance Show CAda where
 data CBlockEntry = CBlockEntry
     { cbeEpoch      :: !Word64
     , cbeSlot       :: !Word16
+    , cbeBlkHeight  :: !Word
     , cbeBlkHash    :: !CHash
     , cbeTimeIssued :: !(Maybe POSIXTime)
     , cbeTxNum      :: !Word
@@ -228,6 +229,7 @@ toBlockEntry epochSlots (blk, Undo{..}) = do
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex
         cbeSlot       = getSlotIndex  slotIndex
+        cbeBlkHeight  = fromIntegral $ blk ^. difficultyL
         cbeBlkHash    = toCHash $ headerHash blk
         cbeTimeIssued = timestampToPosix <$> blkSlotStart
         txs           = toList $ blk ^. mainBlockTxPayload . txpTxs

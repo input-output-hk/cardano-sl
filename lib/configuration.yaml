@@ -14896,7 +14896,7 @@ testnet_launch: &testnet_launch
         <<: *mainnet_base_spec
         protocolConstants:
           k: 2160
-          protocolMagic: 1097911064
+          protocolMagic: 1097911063
           vssMinTTL: 2
           vssMaxTTL: 6
         avvmDistr: {}
@@ -14932,7 +14932,7 @@ testnet_full: &testnet_full
       <<: *testnet_gen_genesis
       src:
         file: testnet-genesis.json
-        hash: bdbdb8bae531a58a6b0b1278dd39c38aa520b4c2576f14b4888c6b631361498c
+        hash: 96fceff972c2c06bd3bb5243c39215333be6d56aaf4823073dca31afe5038471
 
   update: &testnet_full_update
     applicationName: cardano-sl

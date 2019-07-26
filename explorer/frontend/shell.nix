@@ -2,7 +2,7 @@
 
 let
   cardanoPkgs = import ../.. args;
-  frontend = nix-tools.exes.cardano-sl-explorer-frontend;
+  frontend = cardanoPkgs.explorerFrontend;
 
 in
   # fixme: cardano-sl-explorer source is not filtered enough, so
@@ -11,6 +11,7 @@ in
 
   frontend.overrideAttrs (oldAttrs: {
 
+    buildInputs = (with cardanoPkgs.pkgs; [ yarn ]);
     shellHook = ''
       help() {
         echo "*** To regenerate purescript code, run \`regen'."

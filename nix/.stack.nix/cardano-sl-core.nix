@@ -3,7 +3,7 @@
     flags = { asserts = true; };
     package = {
       specVersion = "1.10";
-      identifier = { name = "cardano-sl-core"; version = "3.0.2"; };
+      identifier = { name = "cardano-sl-core"; version = "3.0.3"; };
       license = "MIT";
       copyright = "2016 IOHK";
       maintainer = "hi@serokell.io";

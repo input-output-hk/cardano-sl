@@ -594,7 +594,7 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
     writeFile (toString runnerPath) $ unlines
         [ "TaskKill /PID "<>show selfPid<>" /F"
         -- Run updater
-        , "PowerShell.exe Start-Process \"%*\" -Verb runAs -Wait"
+        , "%*"
         -- Delete updater
         , "del %1"
         -- Run launcher again

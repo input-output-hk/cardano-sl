@@ -53,6 +53,7 @@ mkCBlockEntry = CBlockEntry
     { cbeEpoch: 0
     , cbeSlot: 0
     , cbeBlkHash: mkCHash "0"
+    , cbeBlkHeight: 0
     , cbeTimeIssued: Nothing
     , cbeTxNum: 0
     , cbeTotalSent: mkCoin "0"

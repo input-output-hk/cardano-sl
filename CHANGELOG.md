@@ -1,4 +1,14 @@
 # CHANGELOG
+## Cardano SL 3.0.3
+
+### Fixes
+
+- Refactor scripts to use nix-tools and create windows daedalus-bridge output [#4190](https://github.com/input-output-hk/cardano-sl/pull/4190)
+- Remove Report Server [#4194](https://github.com/input-output-hk/cardano-sl/pull/4194)
+- New testnet Genesis [#4193](https://github.com/input-output-hk/cardano-sl/pull/4193)
+- Add explorer endpoint to fetch a range of blocks [#4198](https://github.com/input-output-hk/cardano-sl/pull/4198)
+- Add python service to dump explorer data to PostgreSQL [#4202](https://github.com/input-output-hk/cardano-sl/pull/4202)
+- Security updates for explorer frontend [#4201](https://github.com/input-output-hk/cardano-sl/pull/4201)
 
 ## Cardano SL 3.0.2
 

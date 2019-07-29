@@ -3,7 +3,7 @@
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = { name = "cardano-sl-chain-test"; version = "3.0.2"; };
+      identifier = { name = "cardano-sl-chain-test"; version = "3.0.3"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "rupert.horlick@iohk.io";

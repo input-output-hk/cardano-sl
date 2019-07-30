@@ -16,6 +16,8 @@ class ExplorerDumper:
     resyncRequest = False
     resyncFromEpoch = 0
     blockHeight = 0
+    epochSlots = 21600
+    addrMaxLen = 200
 
     def __init__(self, logger, metrics_registry, dbc, url):
         self.logger = logging.getLogger(logger)
@@ -27,80 +29,84 @@ class ExplorerDumper:
         self.blockHeightMetric = Gauge("block_height", "Block Height", registry=metrics_registry)
 
     def dump(self):
-        if not self.processing:
-            self.logger.info('Dumping blocks to database')
-            self.processing = True
+        try:
+            if not self.processing:
+                self.logger.info('Dumping blocks to database')
+                self.processing = True
 
-            #  TODO:
-            #  Optimization / indexing
-            #  Decode the address type for non-static output
-            #  Long address handling
+                #  TODO:
+                #  Optimization / indexing
+                #  Decode the address type for non-static output
+                #  Long address handling
 
-            if self.resyncRequest:
-                db_tip = (self.resyncFromEpoch, -1)
-                self.logger.info(f'Resync requested from epoch: {self.resyncFromEpoch}')
-                self.resyncRequest = False
-                self.resyncFromEpoch = 0
-            else:
-                db_tip = db.get_db_tip(self.dbc)
-
-            self.logger.info(f'db_tip: {db_tip}')
-
-            tip = self.getTip()
-            if tip == (-1, -1):
-                self.logger.error('  Blockchain tip not found')
-                self.processing = False
-                return False
-            self.logger.info(f'tip: {tip}, blockHeight: {self.blockHeight}')
-
-            if db_tip[0] == tip[0] and db_tip[1] == tip[1]:
-                self.logger.debug('  Scraper is already up to date.')
-                self.processing = False
-                return True
-
-            epoch = db_tip[0]
-
-            # Process Full Epochs
-            # A full resync of any epoch less than the current epoch will ensure
-            # that any rollbacks that occured in a prior epoch but were not
-            # captured since the dump is only scraping forward in time get
-            # properly updated upon full epoch resync.
-            while epoch < tip[0]:
-                validateRange = self.processRangeBlob(epoch, (0, 21600))
-                self.logger.info(f'  Full epoch sync: {epoch}, slot range: (0, 21599), Blocks Requested, Returned, Errors: {validateRange}')
-                epoch = epoch + 1
-
-            # Process the current Epoch
-            if epoch == tip[0]:
-                if db_tip[0] < tip[0]:
-                    process_slot = -1
-                elif db_tip[0] == tip[0]:
-                    process_slot = db_tip[1]
+                if self.resyncRequest:
+                    db_tip = (self.resyncFromEpoch, -1)
+                    self.logger.info(f'Resync requested from epoch: {self.resyncFromEpoch}')
+                    self.resyncRequest = False
+                    self.resyncFromEpoch = 0
                 else:
-                    self.logger.error(f'  The database has recorded blocks from the future')
+                    db_tip = db.get_db_tip(self.dbc)
+
+                self.logger.info(f'db_tip: {db_tip}')
+
+                tip = self.getTip()
+                if tip == (-1, -1):
+                    self.logger.error('  Blockchain tip not found')
                     self.processing = False
                     return False
+                self.logger.info(f'tip: {tip}, blockHeight: {self.blockHeight}')
 
-                # If there is at least 1 new block available, always grab the
-                # last 2 blocks so that the missing cbsNextHash can be populated
-                # in the pre-existing db_tip
-                if process_slot > -1:
-                    db_tip_offset = 0
-                else:
-                    db_tip_offset = 1
-                validateRange = self.processRangeBlob(epoch, (process_slot + db_tip_offset, tip[1] + 1))
+                if db_tip[0] == tip[0] and db_tip[1] == tip[1]:
+                    self.logger.debug('  Scraper is already up to date.')
+                    self.processing = False
+                    return True
 
-                self.logger.info(f'  Partial epoch sync: {epoch}, slot range: ({process_slot + db_tip_offset}, {tip[1]}), Blocks Requested, Returned, Errors: {validateRange}')
+                epoch = db_tip[0]
 
-            db_final_tip = db.get_db_tip(self.dbc)
-            self.logger.info(f'db_final_tip: {db_final_tip}')
+                # Process Full Epochs
+                # A full resync of any epoch less than the current epoch will ensure
+                # that any rollbacks that occured in a prior epoch but were not
+                # captured since the dump is only scraping forward in time get
+                # properly updated upon full epoch resync.
+                while epoch < tip[0]:
+                    validateRange = self.processRangeBlob(epoch, (0, self.epochSlots))
+                    self.logger.info(f'  Full epoch sync: {epoch}, slot range: (0, {self.epochSlots - 1}), Blocks Requested, Returned, Errors: {validateRange}')
+                    epoch = epoch + 1
 
-            self.blockHeightMetric.set(self.blockHeight)
-            self.logger.info("Finished dumping blocks to database")
-            self.processing = False
-            return True
-        else:
-            self.logger.error("Skipping processing because last dump is processing")
+                # Process the current Epoch
+                if epoch == tip[0]:
+                    if db_tip[0] < tip[0]:
+                        process_slot = -1
+                    elif db_tip[0] == tip[0]:
+                        process_slot = db_tip[1]
+                    else:
+                        self.logger.error(f'  The database has recorded blocks from the future')
+                        self.processing = False
+                        return False
+
+                    # If there is at least 1 new block available, always grab the
+                    # last 2 blocks so that the missing cbsNextHash can be populated
+                    # in the pre-existing db_tip
+                    if process_slot > -1:
+                        db_tip_offset = 0
+                    else:
+                        db_tip_offset = 1
+                    validateRange = self.processRangeBlob(epoch, (process_slot + db_tip_offset, tip[1] + 1))
+
+                    self.logger.info(f'  Partial epoch sync: {epoch}, slot range: ({process_slot + db_tip_offset}, {tip[1]}), Blocks Requested, Returned, Errors: {validateRange}')
+
+                db_final_tip = db.get_db_tip(self.dbc)
+                self.logger.info(f'db_final_tip: {db_final_tip}')
+
+                self.blockHeightMetric.set(self.blockHeight)
+                self.logger.info("Finished dumping blocks to database")
+                self.processing = False
+                return True
+            else:
+                self.logger.error("Skipping processing because last dump is processing")
+        except BaseException:
+            self.logger.error("An error has occurred in dumping blocks to database!")
+            return False
 
     def getTip(self):
         result = self.explorerClient.page()
@@ -218,13 +224,16 @@ class ExplorerDumper:
         for tx in rangedata['cbrTransactions']:
             for i in range(len(tx['ctsInputs'])):
                 txinputtemp = {}
-                address = tx['ctsInputs'][i][0];
+                address = tx['ctsInputs'][i][0][:self.addrMaxLen];
                 txinput = tx['ctsInputs'][i][1]['getCoin'];
                 txinputtemp['ctsId'] = tx['ctsId']
                 txinputtemp['ctsIdIndex'] = i
+                txinputtemp['ctsTxTimeIssued'] = tx['ctsTxTimeIssued']
                 txinputtemp['ctsInputAddr'] = address
                 txinputtemp['ctsInput'] = txinput
                 txinputwrite.append(txinputtemp)
+        for i in range(len(txinputwrite)):
+            txinputwrite[i]['ctsTxTimeIssued'] = datetime.utcfromtimestamp(txinputwrite[i]['ctsTxTimeIssued'])
         return(txinputwrite)
 
     def getTxOutputWrite(self, rangedata):
@@ -232,13 +241,16 @@ class ExplorerDumper:
         for tx in rangedata['cbrTransactions']:
             for i in range(len(tx['ctsOutputs'])):
                 txoutputtemp = {}
-                address = tx['ctsOutputs'][i][0];
+                address = tx['ctsOutputs'][i][0][:self.addrMaxLen];
                 txoutput = tx['ctsOutputs'][i][1]['getCoin'];
                 txoutputtemp['ctsId'] = tx['ctsId']
                 txoutputtemp['ctsIdIndex'] = i
+                txoutputtemp['ctsTxTimeIssued'] = tx['ctsTxTimeIssued']
                 txoutputtemp['ctsOutputAddr'] = address
                 txoutputtemp['ctsOutput'] = txoutput
                 txoutputwrite.append(txoutputtemp)
+        for i in range(len(txoutputwrite)):
+            txoutputwrite[i]['ctsTxTimeIssued'] = datetime.utcfromtimestamp(txoutputwrite[i]['ctsTxTimeIssued'])
         return(txoutputwrite)
 
     def getRangeBlockhash(self, epoch, rangepoints, mode):

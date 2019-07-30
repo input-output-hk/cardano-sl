@@ -50,11 +50,12 @@ def commit_txwrite(DB, txwrite):
 def commit_txinputwrite(DB, txinputwrite):
     if len(txinputwrite) > 0:
         DB.bulk_query('''
-            insert into scraper.txinput (ctsId, ctsIdIndex, ctsInputAddr, ctsInput)
-            values (:ctsId, :ctsIdIndex, :ctsInputAddr, :ctsInput)
+            insert into scraper.txinput (ctsId, ctsIdIndex, ctsTxTimeIssued, ctsInputAddr, ctsInput)
+            values (:ctsId, :ctsIdIndex, :ctsTxTimeIssued, :ctsInputAddr, :ctsInput)
             on conflict (ctsId, ctsIdIndex) do update
-            set ctsInputAddr = EXCLUDED.ctsInputAddr,
-                ctsInput     = EXCLUDED.ctsInput
+            set ctsTxTimeIssued = EXCLUDED.ctsTxTimeIssued,
+                ctsInputAddr    = EXCLUDED.ctsInputAddr,
+                ctsInput        = EXCLUDED.ctsInput
         ''', *txinputwrite)
     return
 
@@ -62,11 +63,12 @@ def commit_txinputwrite(DB, txinputwrite):
 def commit_txoutputwrite(DB, txoutputwrite):
     if len(txoutputwrite) > 0:
         DB.bulk_query('''
-            insert into scraper.txoutput (ctsId, ctsIdIndex, ctsOutputAddr, ctsOutput)
-            values (:ctsId, :ctsIdIndex, :ctsOutputAddr, :ctsOutput)
+            insert into scraper.txoutput (ctsId, ctsIdIndex, ctsTxTimeIssued, ctsOutputAddr, ctsOutput)
+            values (:ctsId, :ctsIdIndex, :ctsTxTimeIssued, :ctsOutputAddr, :ctsOutput)
             on conflict (ctsId, ctsIdIndex) do update
-            set ctsOutputAddr = EXCLUDED.ctsOutputAddr,
-                ctsOutput     = EXCLUDED.ctsOutput
+            set ctsTxTimeIssued = EXCLUDED.ctsTxTimeIssued,
+                ctsOutputAddr   = EXCLUDED.ctsOutputAddr,
+                ctsOutput       = EXCLUDED.ctsOutput
         ''', *txoutputwrite)
     return
 
@@ -84,12 +86,12 @@ def caTxReceivedDistinct(DB, caAddress):
 
 
 def caTxSentRecord(DB, caAddress):
-    caTxSentRecord = DB.query('''select txinput.ctsid, txinput.ctsidindex, txinput.ctsinputaddr, txinput.ctsinput, tx.ctstxtimeissued from scraper.txinput inner join scraper.tx on txinput .ctsid = tx.ctsid where txinput.ctsid in (select distinct ctsid from scraper.txinput where ctsinputaddr = :caAddress) or txinput.ctsid in (select distinct ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
+    caTxSentRecord = DB.query('''select ctsid, ctsidindex, ctsinputaddr, ctsinput, ctstxtimeissued from scraper.txinput where ctsid in (select distinct ctsid from scraper.txinput where ctsinputaddr = :caAddress) or ctsid in (select distinct ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
     return(caTxSentRecord)
 
 
 def caTxReceivedRecord(DB, caAddress):
-    caTxReceivedRecord = DB.query('''select txoutput.ctsid, txoutput.ctsidindex, txoutput.ctsoutputaddr, txoutput.ctsoutput, tx.ctstxtimeissued from scraper.txoutput inner join scraper.tx on txoutput .ctsid = tx.ctsid where txoutput.ctsid in (select distinct ctsid from scraper.txinput where ctsinputaddr = :caAddress) or txoutput.ctsid in (select distinct ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
+    caTxReceivedRecord = DB.query('''select ctsid, ctsidindex, ctsoutputaddr, ctsoutput, ctstxtimeissued from scraper.txoutput where ctsid in (select distinct ctsid from scraper.txinput where ctsinputaddr = :caAddress) or ctsid in (select distinct ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
     return(caTxReceivedRecord)
 
 

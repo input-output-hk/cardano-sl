@@ -48,7 +48,7 @@ in lib // iohkNix // (rec {
       private = false;
     };
     testnet = {
-      relays = "relays.new.cardano-testnet.iohkdev.io";
+      relays = "relays.cardano-testnet.iohkdev.io";
       confKey = "testnet_full";
       genesisFile = ./lib/testnet-genesis.json;
       genesisHash = "96fceff972c2c06bd3bb5243c39215333be6d56aaf4823073dca31afe5038471";

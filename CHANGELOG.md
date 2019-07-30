@@ -3,7 +3,7 @@
 
 ### Fixes
 
-- Refactor scripts to use nix-tools and create windows daedalus-bridge output [#4190](https://github.com/input-output-hk/cardano-sl/pull/4190)
+- Refactor scripts to use nix-tools and create windows daedalus-bridge output [#4183](https://github.com/input-output-hk/cardano-sl/pull/4183)
 - Remove Report Server [#4194](https://github.com/input-output-hk/cardano-sl/pull/4194)
 - New testnet Genesis [#4193](https://github.com/input-output-hk/cardano-sl/pull/4193)
 - Add explorer endpoint to fetch a range of blocks [#4198](https://github.com/input-output-hk/cardano-sl/pull/4198)

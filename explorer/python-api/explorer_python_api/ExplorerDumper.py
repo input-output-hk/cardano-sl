@@ -106,6 +106,7 @@ class ExplorerDumper:
                 self.logger.error("Skipping processing because last dump is processing")
         except BaseException:
             self.logger.error("An error has occurred in dumping blocks to database!")
+            self.processing = False
             return False
 
     def getTip(self):

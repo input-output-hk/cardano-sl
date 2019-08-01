@@ -206,20 +206,50 @@ def create_app():
         global explorer_url
         dbuser = os.environ.get('DBUSER', 'explorer_python_api')
         dbname = os.environ.get('DBNAME', 'explorer_python_api')
+        epochSlots = os.environ.get('EPOCHSLOTS', '21600')
+        addrMaxLen = os.environ.get('ADDRMAXLEN', '200')
         explorer_url = os.environ.get('EXPLORERURL', 'http://localhost:8100')
-        dbsockpath = os.environ.get('DBSOCKPATH', '/run/postgresql')
+        dbsockpath = os.environ.get('DBSOCKPATH', '/tmp')
         # Postgres with Ident and Socket (ex: Nix deploy)
-        dbc = records.Database(f'postgres:///{dbname}?&host={dbsockpath}')
+        # dbc = records.Database(f'postgres:///{dbname}?&host={dbsockpath}')
         # Postgres without Ident and Socket (ex: Nix deploy)
-        # dbc = records.Database(f'postgres:///{dbname}?user={dbuser}&host={dbsockpath}')
+        dbc = records.Database(f'postgres:///{dbname}?user={dbuser}&host={dbsockpath}')
         # Postgres without socket spec (ex: Docker)
         # dbc = records.Database(f'postgres://localhost:5432/{dbname}?user=postgres&sslmode=disable')
         app.logger.info(f'Starting Explorer Dumper in {POLL_TIME} seconds.')
 
         explorerDumper = ExplorerDumper('gunicorn.error', metrics_registry, dbc, explorer_url)
+        try:
+            epochSlots = int(epochSlots)
+        except:
+            app.logger.info("The EPOCHSLOTS env parameter must be a positive integer: 0 < EPOCHSLOTS <= 21600. 21600 is default.  Please update and restart the service.")
+            time.sleep(20)
+            exit(1)
+        if epochSlots < 1 or epochSlots > 21600:
+            app.logger.info("The EPOCHSLOTS env parameter must be a positive integer: 0 < EPOCHSLOTS <= 21600. 21600 is default.  Please update and restart the service.")
+            time.sleep(20)
+            exit(1)
+        elif epochSlots != 60 and epochSlots != 21600:
+            app.logger.warning(f'EPOCHSLOTS of {epochSlots} is not a standard deployment parameter.  If this is not intended, adjust the EPOCHSLOTS env parameter and restart the service.')
+
+        app.logger.info(f'Setting epoch slots to {epochSlots}')
+        explorerDumper.epochSlots = epochSlots
+
+        try:
+            addrMaxLen = int(addrMaxLen)
+        except:
+            app.logger.info("The ADDRMAXLEN env parameter must be a positive integer: 200 <= ADDRMAXLEN <= 8000. 200 is default.  Please update and restart the service.")
+            time.sleep(20)
+            exit(1)
+        if addrMaxLen < 200 or addrMaxLen > 8000:
+            app.logger.info("The ADDRMAXLEN env parameter must be a positive integer: 200 <= ADDRMAXLEN <= 8000. 200 is default.  Please update and restart the service.")
+            time.sleep(20)
+            exit(1)
+
+        app.logger.info(f'Setting address max length to {addrMaxLen}.  Larger addresses will be truncated.')
+        explorerDumper.addrMaxLen = addrMaxLen
 
         global explorerDumperThread
-        # Create your thread
         explorerDumperThread = threading.Timer(POLL_TIME, explorerDumperRun, ())
         explorerDumperThread.start()
 

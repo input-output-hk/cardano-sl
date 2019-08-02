@@ -15,8 +15,8 @@ CODE = {
 
 class ExplorerClient():
 
-    def __init__(self, url):
-        self.logger = logging.getLogger('gunicorn.error')
+    def __init__(self, logger, url):
+        self.logger = logger
         self.url = url
 
     def total_pages(self):

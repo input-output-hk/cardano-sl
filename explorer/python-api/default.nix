@@ -1,5 +1,6 @@
 { stdenv
 , runCommand
+, coreutils
 , python3Packages
 , writeScriptBin
 }:
@@ -53,7 +54,13 @@ in runCommand "run-explorer-python-api" { buildInputs = [ explorer-python-api py
   cat << EOF > $out/bin/run-explorer-python-api
   #!${stdenv.shell}
   export PYTHONPATH="$PYTHONPATH"
-  exec ${python3Packages.gunicorn}/bin/gunicorn --workers=1 --bind=0.0.0.0:7000 --timeout 300 explorer_python_api:app "\$@"
+  NUMWORKERS="\''${NUMWORKERS:-\$(${coreutils}/bin/nproc)}"
+  exec ${python3Packages.gunicorn}/bin/gunicorn --workers=\$NUMWORKERS --bind=0.0.0.0:7000 --timeout 300 explorer_python_api.app:app "\$@"
   EOF
+  cat << EOF > $out/bin/run-explorer-python-dumper
+  export PYTHONPATH="$PYTHONPATH"
+  exec ${python3Packages.python}/bin/python -m explorer_python_api.dump
+  EOF
+  chmod +x $out/bin/run-explorer-python-dumper
   chmod +x $out/bin/run-explorer-python-api
 ''

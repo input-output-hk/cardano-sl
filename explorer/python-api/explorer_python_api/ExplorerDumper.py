@@ -20,13 +20,16 @@ class ExplorerDumper:
     addrMaxLen = 200
 
     def __init__(self, logger, metrics_registry, dbc, url):
-        self.logger = logging.getLogger(logger)
+        self.logger = logger
         self.logger.info("Starting dumper")
         self.metrics_registry = metrics_registry
         self.dbc = dbc
         self.logger.info(f'self.dbc = {self.dbc}')
-        self.explorerClient = ExplorerClient(url)
+        self.explorerClient = ExplorerClient(logger, url)
         self.blockHeightMetric = Gauge("block_height", "Block Height", registry=metrics_registry)
+
+    def getMetricsRegistry(self):
+        return self.metrics_registry
 
     def dump(self):
         try:
@@ -104,7 +107,8 @@ class ExplorerDumper:
                 return True
             else:
                 self.logger.error("Skipping processing because last dump is processing")
-        except BaseException:
+        except Exception as e:
+            self.logger.exception(e)
             self.logger.error("An error has occurred in dumping blocks to database!")
             self.processing = False
             return False
@@ -290,7 +294,7 @@ class ExplorerDumper:
             tx.commit()
         except BaseException as e:
             tx.rollback()
-            self.logger.error(f'Database error: {e}, rollback issued.')
+            self.logger.exception(f'Database error: {e}, rollback issued.')
             raise e
 
     def processRangeBlob(self, epoch, rangepoints):

@@ -51,10 +51,10 @@ def create_app():
     def getAddressSummary(caAddress):
         # p1 = time.time()
         app.logger.info(f'API request for address summary: {caAddress}')
-        caTxSent = db.caTxSentDistinct(dbc, caAddress)
+        # caTxSent = db.caTxSentDistinct(dbc, caAddress)
         # p2 = time.time()
         # print(f'1: {p2-p1:.1f}')
-        caTxReceived = db.caTxReceivedDistinct(dbc, caAddress)
+        # caTxReceived = db.caTxReceivedDistinct(dbc, caAddress)
         # p3 = time.time()
         # print(f'2: {p3-p2:.1f}')
         caTxSentRecord = db.caTxSentRecord(dbc, caAddress)
@@ -72,8 +72,8 @@ def create_app():
         # Seeing these logs may help explain any timeouts
         app.logger.debug(f'caAddress: {caAddress}')
         app.logger.debug(f'caTxNum: {caTxNum}')
-        app.logger.debug(f'caTxSent: {caTxSent}')
-        app.logger.debug(f'caTxReceived: {caTxReceived}')
+        # app.logger.debug(f'caTxSent: {caTxSent}')
+        # app.logger.debug(f'caTxReceived: {caTxReceived}')
         app.logger.debug(f'len(caTxSentRecord): {len(caTxSentRecord)}')
         app.logger.debug(f'len(caTxReceivedRecord): {len(caTxReceivedRecord)}')
         txs = []

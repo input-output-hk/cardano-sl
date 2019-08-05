@@ -1,4 +1,5 @@
 -- Python Scraper Schema
+drop database if exists explorer_python_api;
 create database explorer_python_api;
 \connect explorer_python_api;
 create schema scraper;
@@ -58,6 +59,7 @@ create index i_txoutput_ctsIdIndex on scraper.txoutput (ctsIdIndex asc);
 create index i_txoutput_ctsTxTimeIssued on scraper.txoutput (ctsTxTimeIssued asc);
 create index i_txoutput_ctsOutputAddr_ctsId on scraper.txoutput (ctsOutputAddr asc, ctsId asc);
 
+drop user if exists explorer_python_api;
 create user explorer_python_api;
 grant all privileges on database explorer_python_api to explorer_python_api;
 grant all privileges on schema scraper to explorer_python_api;

@@ -86,15 +86,15 @@ def caTxReceivedDistinct(DB, caAddress):
 
 
 def caTxSentRecord(DB, caAddress):
-    caTxSentRecord = DB.query('''select ctsid, ctsidindex, ctsinputaddr, ctsinput, ctstxtimeissued from scraper.txinput where ctsid in (select distinct ctsid from scraper.txinput where ctsinputaddr = :caAddress) or ctsid in (select distinct ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
+    caTxSentRecord = DB.query('''select ctsid, ctsidindex, ctsinputaddr, ctsinput, ctstxtimeissued from scraper.txinput where ctsid in (select ctsid from scraper.txinput where ctsinputaddr = :caAddress UNION select ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
     return(caTxSentRecord)
 
 
 def caTxReceivedRecord(DB, caAddress):
-    caTxReceivedRecord = DB.query('''select ctsid, ctsidindex, ctsoutputaddr, ctsoutput, ctstxtimeissued from scraper.txoutput where ctsid in (select distinct ctsid from scraper.txinput where ctsinputaddr = :caAddress) or ctsid in (select distinct ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
+    caTxReceivedRecord = DB.query('''select ctsid, ctsidindex, ctsoutputaddr, ctsoutput, ctstxtimeissued from scraper.txoutput where ctsid in (select ctsid from scraper.txinput where ctsinputaddr = :caAddress UNION select ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC, ctsidindex ASC''', caAddress=caAddress).all()
     return(caTxReceivedRecord)
 
 
 def caTxRecord(DB, caAddress):
-    caTxRecord = DB.query('''select * from scraper.tx where ctsid in (select distinct ctsid from scraper.txinput where ctsinputaddr = :caAddress) or ctsid in (select distinct ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC''', caAddress=caAddress).all()
+    caTxRecord = DB.query('''select * from scraper.tx where ctsid in (select ctsid from scraper.txinput where ctsinputaddr = :caAddress UNION select ctsid from scraper.txoutput where ctsoutputaddr = :caAddress) order by ctstxtimeissued ASC, ctsid ASC''', caAddress=caAddress).all()
     return(caTxRecord)

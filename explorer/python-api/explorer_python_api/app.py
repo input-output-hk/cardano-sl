@@ -6,7 +6,7 @@ import records
 import requests
 import pytz
 import time
-from flask import Flask
+from flask import Flask, request
 from flask.logging import default_handler
 from prometheus_flask_exporter import PrometheusMetrics
 from prometheus_client import CollectorRegistry
@@ -38,42 +38,38 @@ def create_app():
 
     @app.route('/api/addresses/summary/<address>')
     @metrics.do_not_track()
+    @metrics.histogram('address_summary_hist', 'Address Summary Histogram',
+        labels={'status': lambda r: r.status_code})
     def address_summary(address):
         app.logger.debug("Address summary page accessed")
-        return json.dumps(getAddressSummary(address))
+        resp = getAddressSummary(address[:int(addr_max_len)])
+        if type(resp) == bytes:
+            return resp
+        return json.dumps(resp)
 
     @app.route('/', defaults={'u_path': ''})
     @app.route('/<path:u_path>')
+    @metrics.do_not_track()
+    @metrics.histogram('proxy_hist', 'Proxy Histogram',
+        labels={'status': lambda r: r.status_code})
     def explorer_proxy(u_path):
         app.logger.info(f'API proxied to Explorer: {u_path}')
         return requests.get(f'{explorer_url}/{u_path}').content
 
     def getAddressSummary(caAddress):
-        # p1 = time.time()
-        app.logger.info(f'API request for address summary: {caAddress}')
-        # caTxSent = db.caTxSentDistinct(dbc, caAddress)
-        # p2 = time.time()
-        # print(f'1: {p2-p1:.1f}')
-        # caTxReceived = db.caTxReceivedDistinct(dbc, caAddress)
-        # p3 = time.time()
-        # print(f'2: {p3-p2:.1f}')
+        p1 = time.time()
         caTxSentRecord = db.caTxSentRecord(dbc, caAddress)
-        # p4 = time.time()
-        # print(f'3: {p4-p3:.1f}')
         caTxReceivedRecord = db.caTxReceivedRecord(dbc, caAddress)
-        # p5 = time.time()
-        # print(f'4: {p5-p4:.1f}')
         caTxRecord = db.caTxRecord(dbc, caAddress)
-        # p6 = time.time()
-        # print(f'5: {p6-p5:.1f}')
         caTxNum = len(caTxRecord)
+        if caTxNum == 0:
+            app.logger.info(f'{explorer_url}/api/addresses/summary/{caAddress}')
+            return requests.get(f'{explorer_url}/api/addresses/summary/{caAddress}').content
 
         # These address metrics can be logged prior to any heavy processing
         # Seeing these logs may help explain any timeouts
         app.logger.debug(f'caAddress: {caAddress}')
         app.logger.debug(f'caTxNum: {caTxNum}')
-        # app.logger.debug(f'caTxSent: {caTxSent}')
-        # app.logger.debug(f'caTxReceived: {caTxReceived}')
         app.logger.debug(f'len(caTxSentRecord): {len(caTxSentRecord)}')
         app.logger.debug(f'len(caTxReceivedRecord): {len(caTxReceivedRecord)}')
         txs = []
@@ -97,8 +93,6 @@ def create_app():
             txtemp['ctbTimeIssued'] = int(tx['ctstxtimeissued'].replace(tzinfo=pytz.utc).timestamp())
             while inputRecord < len(caTxSentRecord) and caTxSentRecord[inputRecord]['ctsid'] == tx['ctsid']:
                 txinput = caTxSentRecord[inputRecord]
-                # if inputRecord % 10000 == 0:
-                #     print(f'inputRecord = {inputRecord}')
                 txtempinput.append(txinput['ctsinputaddr'])
                 txtempinput.append({ "getCoin": str(txinput['ctsinput']) })
                 ctbInputSum = ctbInputSum + txinput['ctsinput']
@@ -109,8 +103,6 @@ def create_app():
                 inputRecord = inputRecord + 1
             while outputRecord < len(caTxReceivedRecord) and caTxReceivedRecord[outputRecord]['ctsid'] == tx['ctsid']:
                 txoutput = caTxReceivedRecord[outputRecord]
-                # if outputRecord % 10000 == 0:
-                #     print(f'outputRecord = {outputRecord}')
                 txtempoutput.append(txoutput['ctsoutputaddr'])
                 txtempoutput.append({ "getCoin": str(txoutput['ctsoutput']) })
                 ctbOutputSum = ctbOutputSum + txoutput['ctsoutput']
@@ -129,10 +121,6 @@ def create_app():
             caBalanceOutput = caBalanceOutput + ctbOutputSum
             txs.append(txtemp)
             txLoopCount = txLoopCount + 1
-            # if txLoopCount % 1000 == 0:
-            #     print(f'txLoopCount = {txLoopCount}')
-            # if txLoopCount > 10:
-            #     break
         caBalance = ctbSelfOutputSum - ctbSelfInputSum
 
         addressReport = { "Right": {
@@ -150,6 +138,8 @@ def create_app():
         app.logger.debug(f'caTotalInput: {ctbSelfInputSum}'),
         app.logger.debug(f'caTotalOutput: {ctbSelfOutputSum}'),
         app.logger.debug(f'caTotalFee: {caBalanceFee}'),
+        p2 = time.time()
+        app.logger.info(f'[{p2-p1:.3f}s] API request for address summary: {caAddress}')
         return addressReport
     return app
 

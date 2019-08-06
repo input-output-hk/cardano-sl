@@ -55,6 +55,11 @@ in runCommand "run-explorer-python-api" { buildInputs = [ explorer-python-api py
   #!${stdenv.shell}
   export PYTHONPATH="$PYTHONPATH"
   NUMWORKERS="\''${NUMWORKERS:-\$(${coreutils}/bin/nproc)}"
+  prometheus_multiproc_dir="\''${prometheus_multiproc_dir:-./explorer-python-metrics}"
+  export prometheus_multiproc_dir
+  echo "\$prometheus_multiproc_dir"
+  rm -rf "\$prometheus_multiproc_dir"
+  mkdir -p "\$prometheus_multiproc_dir"
   exec ${python3Packages.gunicorn}/bin/gunicorn --workers=\$NUMWORKERS --bind=0.0.0.0:7000 --timeout 300 explorer_python_api.app:app "\$@"
   EOF
   cat << EOF > $out/bin/run-explorer-python-dumper

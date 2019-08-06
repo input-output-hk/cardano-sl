@@ -37,11 +37,6 @@ class ExplorerDumper:
                 self.logger.info('Dumping blocks to database')
                 self.processing = True
 
-                #  TODO:
-                #  Optimization / indexing
-                #  Decode the address type for non-static output
-                #  Long address handling
-
                 if self.resyncRequest:
                     db_tip = (self.resyncFromEpoch, -1)
                     self.logger.info(f'Resync requested from epoch: {self.resyncFromEpoch}')

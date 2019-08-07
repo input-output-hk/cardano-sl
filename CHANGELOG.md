@@ -1,4 +1,11 @@
 # CHANGELOG
+## Cardano SL 3.0.4
+
+### Fixes
+
+- Separate python explorer API and dump into separate processes [#4215](https://github.com/input-output-hk/cardano-sl/pull/4215)
+- Improve performance of python explorer API [#4217](https://github.com/input-output-hk/cardano-sl/pull/4217)
+
 ## Cardano SL 3.0.3
 
 ### Fixes

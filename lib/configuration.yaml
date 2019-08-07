@@ -14946,7 +14946,7 @@ testnet_wallet: &testnet_wallet
   <<: *testnet_full
   update: &testnet_wallet_update
     applicationName: csl-daedalus
-    applicationVersion: 2
+    applicationVersion: 3
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 0

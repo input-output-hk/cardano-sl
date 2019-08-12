@@ -65,7 +65,7 @@ in lib // iohkNix // (rec {
       relays = "relays.staging-shelley-short.aws.iohkdev.io";
       confKey = "shelley_staging_short_full";
       genesisFile = ./lib/shelley-staging-short-genesis.json;
-      genesisHash = "d8eb540d96addd8f1f4726cbdf98af6fbff9e4530c76962e454d9ccfa5b5c204";
+      genesisHash = "703e238001bb306ea0b588b566f9655cc3129f0470d83f0033b5de5663b71830";
       private = false;
     };
     demo = {

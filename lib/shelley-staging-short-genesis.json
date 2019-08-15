@@ -72,7 +72,7 @@
             "b48a57ac64349548b917fcadfa4ac7e89cf53685c1eed97f91e91905474c9a64ff69d0b260923e693c99c6b5271424ae285346d7a648c50945ab7d224f1ba109"
         }
     }
-, "startTime": 1565715600
+, "startTime": 1565903145
 , "vssCerts":
     { "d3e9170cf588dfd38de1cc51a7375deacc76b7fe7f61f27a4e81cfa7":
         { "vssKey": "WCEDvsljMooLEIs5buOcfg13h7GD2a3Q0ChGBO0v9yWlS30="
@@ -369,7 +369,7 @@
     , "unlockStakeEpoch": "18446744073709551615"
     }
 , "protocolConsts":
-    { "k": 18
+    { "k": 36
     , "protocolMagic": 1097911066
     , "vssMaxTTL": 6
     , "vssMinTTL": 2

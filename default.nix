@@ -62,6 +62,7 @@ let
   acceptanceTests = let
     acceptanceTest = args: pkgs.callPackage ./nix/acceptance {
       inherit (scripts) connect;
+      inherit (args) environment resume;
     };
     mkTest = { environment, ...}: {
       full  = acceptanceTest { inherit environment; resume = false; };

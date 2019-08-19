@@ -26,13 +26,14 @@ let
 in {
   # connect function required for acceptanceTests
   inherit connect;
-  connectScripts = commonLib.forEnvironments ({ environment, ... }:
+  connectScripts = commonLib.forEnvironments (environment:
   {
-    wallet = connect { inherit environment; };
-    explorer = connect { inherit environment; executable = "explorer"; };
+    wallet = connect { environment = environment.name; };
+    explorer = connect { environment = environment.name; executable = "explorer"; };
     proposal-ui = pkgs.callPackage ./launch/proposal-ui {
-      inherit cardanoConfig environment;
+      inherit cardanoConfig;
       inherit (nixTools.nix-tools.cexes.cardano-sl-script-runner) testcases;
+      environment = environment.name;
     };
 
   });
@@ -45,11 +46,11 @@ in {
       inherit cardanoConfig connect;
       inherit (nixTools.nix-tools.cexes.cardano-sl-node) cardano-node-simple;
     } // args);
-    makeDockerImage = { environment, ...}:
-      build { inherit environment; } // {
-        wallet   = build { inherit environment; type = "wallet"; };
-        explorer = build { inherit environment; type = "explorer"; };
-        node     = build { inherit environment; type = "node"; };
+    makeDockerImage = environment:
+      build { environment = environment.name; } // {
+        wallet   = build { environment = environment.name; type = "wallet"; };
+        explorer = build { environment = environment.name; type = "explorer"; };
+        node     = build { environment = environment.name; type = "node"; };
       };
   in commonLib.forEnvironments makeDockerImage;
 }

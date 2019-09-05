@@ -8,6 +8,7 @@ steps:
     timeout_in_minutes: 240
     agents:
       system: x86_64-linux
+      env: production
 
   - label: 'Acceptance Tests - testnet'
     command:
@@ -18,3 +19,4 @@ steps:
     timeout_in_minutes: 240
     agents:
       system: x86_64-linux
+      env: production

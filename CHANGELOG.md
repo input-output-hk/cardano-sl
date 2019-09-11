@@ -1,7 +1,12 @@
 # CHANGELOG
+
+## Unreleased
+- Correct change category in 3.0.3 and add section for unreleased changes [#4232](https://github.com/input-output-hk/cardano-sl/pull/4232)
+
+
 ## Cardano SL 3.0.3
 
-### Fixes
+### Improvements
 
 - Refactor scripts to use nix-tools and create windows daedalus-bridge output [#4183](https://github.com/input-output-hk/cardano-sl/pull/4183)
 - Remove Report Server [#4194](https://github.com/input-output-hk/cardano-sl/pull/4194)

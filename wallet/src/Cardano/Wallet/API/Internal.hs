@@ -9,7 +9,7 @@ import           Servant
 
 import           Cardano.Wallet.API.Response (APIResponse, ValidJSON)
 import           Cardano.Wallet.API.Types
-import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, BackupPhrase, WalletId)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, BackupPhrase, MnemonicBalance)
 
 type API = Tag "Internal" ('TagDescription
     "This section contains endpoints so-called 'Internal'. They are only\
@@ -40,5 +40,5 @@ type API = Tag "Internal" ('TagDescription
     :<|> "calculate_mnemonic"
         :> Summary "calculates the walletid from a given mnemonic"
         :> ReqBody '[ValidJSON] BackupPhrase
-        :> Post '[ValidJSON] WalletId
+        :> Post '[ValidJSON] MnemonicBalance
     )

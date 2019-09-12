@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes          #-}
+
 module Cardano.Wallet.WalletLayer.Kernel.Internal (
     nextUpdate
   , applyUpdate
@@ -16,11 +18,12 @@ import           Control.Concurrent.MVar (modifyMVar_)
 import           Data.Acid.Advanced (update')
 import           System.IO.Error (isDoesNotExistError)
 
-import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion)
+import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion, HasUpdateConfiguration)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 
 import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet, BackupPhrase(BackupPhrase),
-                     WalletImport (..), WalletId)
+                     WalletImport (..), WalletId, Coin, MnemonicBalance(MnemonicBalance), mkCoin)
 import           Cardano.Wallet.Kernel.DB.AcidState (AddUpdate (..),
                      ClearDB (..), GetNextUpdate (..), RemoveNextUpdate (..))
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -33,12 +36,15 @@ import           Cardano.Wallet.WalletLayer (CreateWallet (..),
                      ImportWalletError (..))
 import           Cardano.Wallet.WalletLayer.Kernel.Wallets (createWallet)
 import           Pos.Core.NetworkMagic (makeNetworkMagic, NetworkMagic)
-import           Cardano.Wallet.Kernel.Internal (walletProtocolMagic)
+import           Cardano.Wallet.Kernel.Internal (walletProtocolMagic, walletNode)
 import           Cardano.Mnemonic (mnemonicToSeed)
 import           Pos.Crypto (safeDeterministicKeyGen, EncryptedSecretKey)
-import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
+import           Pos.Chain.Txp (TxIn, TxOutAux, toaOut, txOutValue, txOutAddress)
+import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId, isOurs)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (toRootId)
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials)
+import           Pos.Core.Common (unsafeAddCoin)
 
 -- | Get next update (if any)
 --
@@ -134,7 +140,13 @@ importWallet pw WalletImport{..} = liftIO $ do
                           Left e               -> Left (ImportWalletCreationFailed e)
                           Right importedWallet -> Right importedWallet
 
-calculateMnemonic :: Applicative m => Kernel.PassiveWallet -> BackupPhrase -> m WalletId
+-- takes a WalletDecrCredentials and transaction, and returns the Coin output, if its ours
+maybeReadcoin :: (HD.HdRootId, WalletDecrCredentials) -> (TxIn, TxOutAux) -> Maybe Coin
+maybeReadcoin wkey (_, txout) = case isOurs (txOutAddress . toaOut $ txout) [wkey] of
+  (Just _, _)  -> Just $ (txOutValue . toaOut) txout
+  (Nothing, _)-> Nothing
+
+calculateMnemonic :: MonadIO m => Kernel.PassiveWallet -> BackupPhrase -> m MnemonicBalance
 calculateMnemonic wallet (BackupPhrase mnemonic) = do
   let
     nm :: NetworkMagic
@@ -145,4 +157,11 @@ calculateMnemonic wallet (BackupPhrase mnemonic) = do
     hdRoot = eskToHdRootId nm esk
     walletid :: WalletId
     walletid = toRootId hdRoot
-  pure walletid
+    wdc = eskToWalletDecrCredentials nm esk
+    withNode :: (HasCompileInfo, HasUpdateConfiguration) => Node.Lock (Node.WithNodeState IO) -> Node.WithNodeState IO [Coin]
+    withNode _lock = Node.filterUtxo (maybeReadcoin (hdRoot, wdc))
+  my_coins <- liftIO $ Node.withNodeState (wallet ^. walletNode) withNode
+  let
+    balance :: Coin
+    balance = foldl' unsafeAddCoin (mkCoin 0) my_coins
+  pure $ MnemonicBalance walletid (V1 balance)

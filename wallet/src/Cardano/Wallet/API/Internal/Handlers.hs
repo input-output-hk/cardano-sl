@@ -8,7 +8,7 @@ import           Pos.Chain.Update (SoftwareVersion)
 
 import qualified Cardano.Wallet.API.Internal as Internal
 import           Cardano.Wallet.API.Response (APIResponse, single)
-import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, BackupPhrase, WalletId)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, BackupPhrase, MnemonicBalance)
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
@@ -44,5 +44,5 @@ importWallet w walletImport = do
          Left e               -> throwM e
          Right importedWallet -> pure $ single importedWallet
 
-calculateMnemonic :: PassiveWalletLayer IO -> BackupPhrase -> Handler WalletId
+calculateMnemonic :: PassiveWalletLayer IO -> BackupPhrase -> Handler MnemonicBalance
 calculateMnemonic w phrase = liftIO $ WalletLayer.calculateMnemonic w phrase

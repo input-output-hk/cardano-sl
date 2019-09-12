@@ -155,7 +155,7 @@ data WalletClient m
         :: m (Either ClientError ())
     , importWallet
         :: WalletImport -> Resp m Wallet
-    , calculateMnemonic :: BackupPhrase -> m (Either ClientError WalletId)
+    , calculateMnemonic :: BackupPhrase -> m (Either ClientError MnemonicBalance)
     } deriving Generic
 
 data WalletDocClient m = WalletDocClient

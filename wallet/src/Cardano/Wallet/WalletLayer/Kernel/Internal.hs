@@ -4,6 +4,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Internal (
   , postponeUpdate
   , resetWalletState
   , importWallet
+  , calculateMnemonic
 
   , waitForUpdate
   , addUpdate
@@ -18,8 +19,8 @@ import           System.IO.Error (isDoesNotExistError)
 import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion)
 import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 
-import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet,
-                     WalletImport (..))
+import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet, BackupPhrase(BackupPhrase),
+                     WalletImport (..), WalletId)
 import           Cardano.Wallet.Kernel.DB.AcidState (AddUpdate (..),
                      ClearDB (..), GetNextUpdate (..), RemoveNextUpdate (..))
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -31,6 +32,13 @@ import qualified Cardano.Wallet.Kernel.Submission as Submission
 import           Cardano.Wallet.WalletLayer (CreateWallet (..),
                      ImportWalletError (..))
 import           Cardano.Wallet.WalletLayer.Kernel.Wallets (createWallet)
+import           Pos.Core.NetworkMagic (makeNetworkMagic, NetworkMagic)
+import           Cardano.Wallet.Kernel.Internal (walletProtocolMagic)
+import           Cardano.Mnemonic (mnemonicToSeed)
+import           Pos.Crypto (safeDeterministicKeyGen, EncryptedSecretKey)
+import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
+import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.WalletLayer.Kernel.Conv (toRootId)
 
 -- | Get next update (if any)
 --
@@ -125,3 +133,16 @@ importWallet pw WalletImport{..} = liftIO $ do
                      return $ case res of
                           Left e               -> Left (ImportWalletCreationFailed e)
                           Right importedWallet -> Right importedWallet
+
+calculateMnemonic :: Applicative m => Kernel.PassiveWallet -> BackupPhrase -> m WalletId
+calculateMnemonic wallet (BackupPhrase mnemonic) = do
+  let
+    nm :: NetworkMagic
+    nm = makeNetworkMagic $ wallet ^. walletProtocolMagic
+    esk :: EncryptedSecretKey
+    (_pubkey, esk) = safeDeterministicKeyGen (mnemonicToSeed mnemonic) mempty
+    hdRoot :: HD.HdRootId
+    hdRoot = eskToHdRootId nm esk
+    walletid :: WalletId
+    walletid = toRootId hdRoot
+  pure walletid

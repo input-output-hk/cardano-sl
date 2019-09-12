@@ -144,6 +144,7 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
         , getTransactions      = Transactions.getTransactions w
         , getTxFromMeta        = Transactions.toTransaction w
         , getNodeSettings      = Settings.getNodeSettings w
+        , calculateMnemonic    = Internal.calculateMnemonic w
         }
       where
         -- Read-only operations

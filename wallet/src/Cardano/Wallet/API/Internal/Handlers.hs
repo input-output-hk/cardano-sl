@@ -44,5 +44,7 @@ importWallet w walletImport = do
          Left e               -> throwM e
          Right importedWallet -> pure $ single importedWallet
 
-calculateMnemonic :: PassiveWalletLayer IO -> BackupPhrase -> Handler MnemonicBalance
-calculateMnemonic w phrase = liftIO $ WalletLayer.calculateMnemonic w phrase
+calculateMnemonic :: PassiveWalletLayer IO -> Maybe Bool -> BackupPhrase -> Handler (APIResponse MnemonicBalance)
+calculateMnemonic w mbool phrase = do
+  res <- liftIO $ WalletLayer.calculateMnemonic w mbool phrase
+  pure $ single res

@@ -760,7 +760,7 @@ instance Buildable [Wallet] where
 
 data MnemonicBalance = MnemonicBalance {
       mbWalletId :: !WalletId
-    , mbBalance :: !(V1 Core.Coin)
+    , mbBalance :: !(Maybe (V1 Core.Coin))
     } deriving (Eq, Ord, Show, Generic)
 deriveJSON Aeson.defaultOptions ''MnemonicBalance
 
@@ -778,12 +778,17 @@ instance Arbitrary MnemonicBalance where
 
 deriveSafeBuildable ''MnemonicBalance
 instance BuildableSafeGen MnemonicBalance where
-    buildSafeGen sl MnemonicBalance{mbWalletId,mbBalance} = bprint ("{"
-      %" id="%buildSafe sl
-      %" balance="%buildSafe sl
-      %" }")
-      mbWalletId
-      mbBalance
+    buildSafeGen sl MnemonicBalance{mbWalletId,mbBalance} = case mbBalance of
+      Just bal -> bprint ("{"
+        %" id="%buildSafe sl
+        %" balance="%buildSafe sl
+        %" }")
+        mbWalletId
+        bal
+      Nothing -> bprint ("{"
+        %" id="%buildSafe sl
+        %" }")
+        mbWalletId
 
 instance Example MnemonicBalance where
     example = do

@@ -146,8 +146,8 @@ maybeReadcoin wkey (_, txout) = case isOurs (txOutAddress . toaOut $ txout) [wke
   (Just _, _)  -> Just $ (txOutValue . toaOut) txout
   (Nothing, _)-> Nothing
 
-calculateMnemonic :: MonadIO m => Kernel.PassiveWallet -> BackupPhrase -> m MnemonicBalance
-calculateMnemonic wallet (BackupPhrase mnemonic) = do
+calculateMnemonic :: MonadIO m => Kernel.PassiveWallet -> Maybe Bool -> BackupPhrase -> m MnemonicBalance
+calculateMnemonic wallet mbool (BackupPhrase mnemonic) = do
   let
     nm :: NetworkMagic
     nm = makeNetworkMagic $ wallet ^. walletProtocolMagic
@@ -160,8 +160,13 @@ calculateMnemonic wallet (BackupPhrase mnemonic) = do
     wdc = eskToWalletDecrCredentials nm esk
     withNode :: (HasCompileInfo, HasUpdateConfiguration) => Node.Lock (Node.WithNodeState IO) -> Node.WithNodeState IO [Coin]
     withNode _lock = Node.filterUtxo (maybeReadcoin (hdRoot, wdc))
-  my_coins <- liftIO $ Node.withNodeState (wallet ^. walletNode) withNode
-  let
-    balance :: Coin
-    balance = foldl' unsafeAddCoin (mkCoin 0) my_coins
-  pure $ MnemonicBalance walletid (V1 balance)
+    checkBalance = fromMaybe False mbool
+  maybeBalance <- case checkBalance of
+    True -> do
+      my_coins <- liftIO $ Node.withNodeState (wallet ^. walletNode) withNode
+      let
+        balance :: Coin
+        balance = foldl' unsafeAddCoin (mkCoin 0) my_coins
+      pure $ Just $ V1 balance
+    False -> pure Nothing
+  pure $ MnemonicBalance walletid maybeBalance

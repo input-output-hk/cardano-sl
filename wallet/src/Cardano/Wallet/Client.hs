@@ -155,7 +155,7 @@ data WalletClient m
         :: m (Either ClientError ())
     , importWallet
         :: WalletImport -> Resp m Wallet
-    , calculateMnemonic :: BackupPhrase -> m (Either ClientError MnemonicBalance)
+    , calculateMnemonic :: Maybe Bool -> BackupPhrase -> m (Either ClientError (APIResponse MnemonicBalance))
     } deriving Generic
 
 data WalletDocClient m = WalletDocClient
@@ -288,7 +288,7 @@ natMapClient phi f wc = WalletClient
     , importWallet =
         f . phi . importWallet wc
     , calculateMnemonic =
-        f . phi . calculateMnemonic wc
+        \x -> f . phi . calculateMnemonic wc x
     }
 
 -- | Run the given natural transformation over the 'WalletClient'.

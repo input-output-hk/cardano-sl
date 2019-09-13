@@ -482,7 +482,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , postponeUpdate       :: m ()
     , resetWalletState     :: m ()
     , importWallet         :: WalletImport -> m (Either ImportWalletError Wallet)
-    , calculateMnemonic    :: BackupPhrase -> m MnemonicBalance
+    , calculateMnemonic    :: Maybe Bool -> BackupPhrase -> m MnemonicBalance
 
     -- updates
     , waitForUpdate        :: m ConfirmedProposalState

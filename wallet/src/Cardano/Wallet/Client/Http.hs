@@ -108,7 +108,7 @@ mkHttpClient baseUrl manager = WalletClient
 
     , importWallet
         = run . importWalletR
-    , calculateMnemonic = run . calculateMnemonicR
+    , calculateMnemonic = \bp qb -> run $ calculateMnemonicR bp qb
     }
 
   where

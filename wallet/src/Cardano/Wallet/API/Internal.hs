@@ -3,6 +3,8 @@
 -- Daedalus client, and aren't useful for wallets, exchanges, and other users.
 module Cardano.Wallet.API.Internal where
 
+import Prelude
+
 import           Pos.Chain.Update (SoftwareVersion)
 
 import           Servant
@@ -39,6 +41,7 @@ type API = Tag "Internal" ('TagDescription
         :> Post '[ValidJSON] (APIResponse Wallet)
     :<|> "calculate_mnemonic"
         :> Summary "calculates the walletid from a given mnemonic"
+        :> QueryParam "read_balance" Bool
         :> ReqBody '[ValidJSON] BackupPhrase
-        :> Post '[ValidJSON] MnemonicBalance
+        :> Post '[ValidJSON] (APIResponse MnemonicBalance)
     )

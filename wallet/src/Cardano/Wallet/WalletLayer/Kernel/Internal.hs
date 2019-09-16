@@ -22,8 +22,8 @@ import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion, HasU
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 
-import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet, BackupPhrase(BackupPhrase),
-                     WalletImport (..), WalletId, Coin, MnemonicBalance(MnemonicBalance), mkCoin)
+import           Cardano.Wallet.API.V1.Types (V1(V1), Wallet, BackupPhrase(BackupPhrase),
+                     WalletImport (..), WalletId, Coin, MnemonicBalance(MnemonicBalance))
 import           Cardano.Wallet.Kernel.DB.AcidState (AddUpdate (..),
                      ClearDB (..), GetNextUpdate (..), RemoveNextUpdate (..))
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -44,7 +44,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId, isOurs)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (toRootId)
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials)
-import           Pos.Core.Common (unsafeAddCoin)
+import           Pos.Core.Common (sumCoins)
 
 -- | Get next update (if any)
 --
@@ -165,8 +165,8 @@ calculateMnemonic wallet mbool (BackupPhrase mnemonic) = do
     True -> do
       my_coins <- liftIO $ Node.withNodeState (wallet ^. walletNode) withNode
       let
-        balance :: Coin
-        balance = foldl' unsafeAddCoin (mkCoin 0) my_coins
-      pure $ Just $ V1 balance
+        balance :: Integer
+        balance = sumCoins my_coins
+      pure $ Just $ balance
     False -> pure Nothing
   pure $ MnemonicBalance walletid maybeBalance

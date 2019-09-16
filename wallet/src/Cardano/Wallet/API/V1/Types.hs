@@ -760,7 +760,7 @@ instance Buildable [Wallet] where
 
 data MnemonicBalance = MnemonicBalance {
       mbWalletId :: !WalletId
-    , mbBalance :: !(Maybe (V1 Core.Coin))
+    , mbBalance :: !(Maybe Integer)
     } deriving (Eq, Ord, Show, Generic)
 deriveJSON Aeson.defaultOptions ''MnemonicBalance
 
@@ -781,7 +781,7 @@ instance BuildableSafeGen MnemonicBalance where
     buildSafeGen sl MnemonicBalance{mbWalletId,mbBalance} = case mbBalance of
       Just bal -> bprint ("{"
         %" id="%buildSafe sl
-        %" balance="%buildSafe sl
+        %" balance="%build
         %" }")
         mbWalletId
         bal
@@ -792,7 +792,7 @@ instance BuildableSafeGen MnemonicBalance where
 
 instance Example MnemonicBalance where
     example = do
-        MnemonicBalance <$> example <*> example
+        MnemonicBalance <$> example <*> (pure $ Just 1000000)
 
 instance ToSchema PublicKey where
     declareNamedSchema _ =

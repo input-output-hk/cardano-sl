@@ -120,7 +120,7 @@ import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (HDPassphrase)
 import qualified Pos.Crypto as Core
 
-import           Cardano.Wallet.API.V1.Types (V1 (..))
+import           Cardano.Wallet.API.V1.Types (V1 (..), WAddressMeta(WAddressMeta))
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
@@ -128,6 +128,7 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet hiding (foldl')
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet hiding (Indexable)
 import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials, decryptAddress)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
@@ -534,6 +535,16 @@ instance IsOurs [(HdRootId, Core.EncryptedSecretKey)] where
         let accId = HdAccountId rootId accountIx
         let addrId = HdAddressId accId addressIx
         return $ HdAddress addrId (InDb addr)
+
+instance IsOurs [ (HdRootId, WalletDecrCredentials) ] where
+    isOurs addr s = (,s) $ foldl' (<|>) Nothing $ flip map s $ \(rootId, wdc) -> do
+        case decryptAddress wdc (addr::Core.Address) of
+            Just (WAddressMeta _wid accountIx addressIx _addrv1) -> do
+                let
+                    accId = HdAccountId rootId (HdAccountIx accountIx)
+                    addrId = HdAddressId accId (HdAddressIx addressIx)
+                pure (HdAddress addrId (InDb addr))
+            Nothing -> Nothing
 
 decryptHdLvl2DerivationPath
     :: Core.HDPassphrase

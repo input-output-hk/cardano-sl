@@ -46,8 +46,8 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (APIResponse, SliceOf (..))
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
-                     AccountIndex, AccountUpdate, Address, BatchImportResult,
-                     ForceNtpCheck, NewAccount, NewAddress, NewWallet,
+                     AccountIndex, AccountUpdate, Address, BackupPhrase, BatchImportResult,
+                     ForceNtpCheck, NewAccount, NewAddress, NewWallet, MnemonicBalance,
                      NodeInfo, NodeSettings, PasswordUpdate, Payment,
                      Redemption, SpendingPassword, Transaction, V1 (..),
                      Wallet, WalletAddress, WalletId, WalletImport,
@@ -482,6 +482,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , postponeUpdate       :: m ()
     , resetWalletState     :: m ()
     , importWallet         :: WalletImport -> m (Either ImportWalletError Wallet)
+    , calculateMnemonic    :: Maybe Bool -> BackupPhrase -> m MnemonicBalance
 
     -- updates
     , waitForUpdate        :: m ConfirmedProposalState

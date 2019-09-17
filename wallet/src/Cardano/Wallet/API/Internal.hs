@@ -3,13 +3,15 @@
 -- Daedalus client, and aren't useful for wallets, exchanges, and other users.
 module Cardano.Wallet.API.Internal where
 
+import Prelude
+
 import           Pos.Chain.Update (SoftwareVersion)
 
 import           Servant
 
 import           Cardano.Wallet.API.Response (APIResponse, ValidJSON)
 import           Cardano.Wallet.API.Types
-import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport, BackupPhrase, MnemonicBalance)
 
 type API = Tag "Internal" ('TagDescription
     "This section contains endpoints so-called 'Internal'. They are only\
@@ -37,4 +39,9 @@ type API = Tag "Internal" ('TagDescription
         :> Summary "Import a Wallet from disk."
         :> ReqBody '[ValidJSON] WalletImport
         :> Post '[ValidJSON] (APIResponse Wallet)
+    :<|> "calculate_mnemonic"
+        :> Summary "calculates the walletid from a given mnemonic"
+        :> QueryParam "read_balance" Bool
+        :> ReqBody '[ValidJSON] BackupPhrase
+        :> Post '[ValidJSON] (APIResponse MnemonicBalance)
     )

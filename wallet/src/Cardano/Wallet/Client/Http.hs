@@ -108,6 +108,7 @@ mkHttpClient baseUrl manager = WalletClient
 
     , importWallet
         = run . importWalletR
+    , calculateMnemonic = \bp qb -> run $ calculateMnemonicR bp qb
     }
 
   where
@@ -162,6 +163,7 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> postponeUpdateR
         :<|> resetWalletStateR
         :<|> importWalletR
+        :<|> calculateMnemonicR
         = internalAPI
 
     addressesAPI

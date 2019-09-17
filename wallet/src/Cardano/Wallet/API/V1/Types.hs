@@ -14,6 +14,7 @@
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 
 -- Needed for the `Buildable`, `SubscriptionStatus` and `NodeId` orphans.
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -110,6 +111,7 @@ module Cardano.Wallet.API.V1.Types (
   , msgUtxoNotEnoughFragmented
   , toServantError
   , toHttpErrorStatus
+  , MnemonicBalance(..)
   , module Cardano.Wallet.Types.UtxoStatistics
   ) where
 
@@ -755,6 +757,42 @@ instance BuildableSafeGen Wallet where
 
 instance Buildable [Wallet] where
     build = bprint listJson
+
+data MnemonicBalance = MnemonicBalance {
+      mbWalletId :: !WalletId
+    , mbBalance :: !(Maybe Integer)
+    } deriving (Eq, Ord, Show, Generic)
+deriveJSON Aeson.defaultOptions ''MnemonicBalance
+
+instance ToSchema MnemonicBalance where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "mb" (\(--^) props -> props
+            & "walletId"
+            --^ "Unique wallet identifier."
+            & "balance"
+            --^ "Current balance, in Lovelace."
+        )
+
+instance Arbitrary MnemonicBalance where
+  arbitrary = MnemonicBalance <$> arbitrary <*> arbitrary
+
+deriveSafeBuildable ''MnemonicBalance
+instance BuildableSafeGen MnemonicBalance where
+    buildSafeGen sl MnemonicBalance{mbWalletId,mbBalance} = case mbBalance of
+      Just bal -> bprint ("{"
+        %" id="%buildSafe sl
+        %" balance="%build
+        %" }")
+        mbWalletId
+        bal
+      Nothing -> bprint ("{"
+        %" id="%buildSafe sl
+        %" }")
+        mbWalletId
+
+instance Example MnemonicBalance where
+    example = do
+        MnemonicBalance <$> example <*> (pure $ Just 1000000)
 
 instance ToSchema PublicKey where
     declareNamedSchema _ =

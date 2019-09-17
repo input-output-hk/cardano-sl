@@ -3,6 +3,8 @@
 ## Unreleased
 - Correct change category in 3.0.3 and add section for unreleased changes [#4232](https://github.com/input-output-hk/cardano-sl/pull/4232)
 
+## Features
+- A new endpoint to calculate the walletid of a given mnemonic [#4237](https://github.com/input-output-hk/cardano-sl/pull/4237)
 
 ## Cardano SL 3.0.3
 

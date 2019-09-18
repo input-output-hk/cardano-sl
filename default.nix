@@ -64,9 +64,9 @@ let
       inherit (scripts) connect;
       inherit (args) environment resume;
     };
-    mkTest = { environment, ...}: {
-      full  = acceptanceTest { inherit environment; resume = false; };
-      quick = acceptanceTest { inherit environment; resume = true; };
+    mkTest = environment: {
+      full  = acceptanceTest { environment = environment.name; resume = false; };
+      quick = acceptanceTest { environment = environment.name; resume = true; };
     };
   in commonLib.forEnvironments mkTest;
 in {

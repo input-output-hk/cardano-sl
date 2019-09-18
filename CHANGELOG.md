@@ -6,6 +6,10 @@
 ## Features
 - A new endpoint to calculate the walletid of a given mnemonic [#4237](https://github.com/input-output-hk/cardano-sl/pull/4237)
 
+### Improvements
+
+- Configuration files and environments map moved to iohk-nix [#4227](https://github.com/input-output-hk/cardano-sl/pull/4227)
+
 ## Cardano SL 3.0.3
 
 ### Improvements

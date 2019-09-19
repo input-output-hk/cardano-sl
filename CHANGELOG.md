@@ -1,14 +1,19 @@
 # CHANGELOG
 
-## Unreleased
-- Correct change category in 3.0.3 and add section for unreleased changes [#4232](https://github.com/input-output-hk/cardano-sl/pull/4232)
+## Cardano SL 3.1.0
 
-## Features
+### Features
+
 - A new endpoint to calculate the walletid of a given mnemonic [#4237](https://github.com/input-output-hk/cardano-sl/pull/4237)
+
+### Fixes
+
+- Correct change category in 3.0.3 and add section for unreleased changes [#4232](https://github.com/input-output-hk/cardano-sl/pull/4232)
 
 ### Improvements
 
 - Configuration files and environments map moved to iohk-nix [#4227](https://github.com/input-output-hk/cardano-sl/pull/4227)
+
 
 ## Cardano SL 3.0.3
 

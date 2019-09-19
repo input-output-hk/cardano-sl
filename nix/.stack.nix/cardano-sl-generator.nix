@@ -3,7 +3,7 @@
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = { name = "cardano-sl-generator"; version = "3.0.3"; };
+      identifier = { name = "cardano-sl-generator"; version = "3.1.0"; };
       license = "MIT";
       copyright = "2017 IOHK";
       maintainer = "hi@serokell.io";

@@ -1,4 +1,5 @@
 {-# LANGUAGE BinaryLiterals #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Communication-related serialization -- messages mostly.
 
@@ -12,7 +13,7 @@ import           Universum
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
-import           Pos.Binary.Class (serialize, serialize')
+import           Pos.Binary.Class (Bi, serialize, serialize')
 import           Pos.Chain.Block ()
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
@@ -28,14 +29,14 @@ import           Pos.Network.Block.Types (MsgBlock (..),
 -- ```
 -- serialize (MsgBlock b) = serializeMsgSerializedBlock (MsgSerializedBlock $ serialize b)
 -- ```
-serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
+serializeMsgSerializedBlock :: forall block . Bi block => MsgSerializedBlock block -> BS.ByteString
 serializeMsgSerializedBlock (MsgSerializedBlock b)   = "\x82\x0" <> unSerialized b
-serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
+serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t :: MsgBlock block)
 
 -- Serialize `MsgSerializedBlock` with the property
 -- ```
 -- serialize (MsgStreamBlock b) = serializeMsgStreamBlock (MsgSerializedBlock $ serialize b)
 -- ```
-serializeMsgStreamBlock :: MsgSerializedBlock -> LBS.ByteString
+serializeMsgStreamBlock :: forall block . Bi block => MsgSerializedBlock block -> LBS.ByteString
 serializeMsgStreamBlock (MsgSerializedBlock b)   = "\x82\x0" <> LBS.fromStrict (unSerialized b)
-serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t)
+serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t :: MsgStreamBlock block)

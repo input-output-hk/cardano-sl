@@ -15,7 +15,7 @@ import           Universum
 import           Data.Conduit (ConduitT, transPipe)
 import           Data.Tagged (Tagged)
 
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
@@ -26,16 +26,16 @@ import           Pos.Communication (NodeId)
 import           Pos.Core (StakeholderId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.DB.Block (GetHashesRangeError, GetHeadersFromManyToError)
-import           Pos.DB.Class (SerializedBlock)
+import           Pos.DB.Class (Serialized)
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
-data Logic m = Logic
+data Logic tx block header m = Logic
     { -- | Get serialized block, perhaps from a database.
-      getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
-    , streamBlocks       :: forall t . HeaderHash -> (ConduitT () SerializedBlock m () -> m t) -> m t
+      getSerializedBlock :: HeaderHash -> m (Maybe (Serialized block))
+    , streamBlocks       :: forall t . HeaderHash -> (ConduitT () (Serialized block) m () -> m t) -> m t
       -- | Get a block header.
-    , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
+    , getBlockHeader     :: HeaderHash -> m (Maybe header)
       -- TODO CSL-2089 use conduits in this and the following methods
       -- | Retrieve block header hashes from specified interval.
     , getHashesRange     :: Maybe Word -- Optional limit on how many to bring in.
@@ -48,21 +48,23 @@ data Logic m = Logic
     , getBlockHeaders    :: Maybe Word -- Optional limit on how many to bring in.
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
-                         -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
+                         -> m (Either GetHeadersFromManyToError (NewestFirst NE header))
       -- | Compute LCA with the main chain: the first component are those hashes
       -- which are in the main chain, second is those which are not.
       -- Input is assumed to be a valid chain: if some element is not in the
       -- chain, then none of the later elements are.
     , getLcaMainChain    :: OldestFirst [] HeaderHash
                          -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
-      -- | Get the current tip of chain.
-    , getTip             :: m Block
+      -- | Get the header of the current tip of chain. When the tip of chain is
+      -- an EBB that has a main block parent, the main block header should be
+      -- given instead.
+    , getTip             :: m header
       -- | Get state of last adopted BlockVersion. Related to update system.
     , getAdoptedBVData   :: m BlockVersionData
 
       -- | Give a block header to the logic layer.
       -- NodeId is needed for first iteration, but will be removed later.
-    , postBlockHeader    :: BlockHeader -> NodeId -> m ()
+    , postBlockHeader    :: header -> NodeId -> m ()
 
       -- | Tx, update, ssc...
       -- Common pattern is:
@@ -76,7 +78,7 @@ data Logic m = Logic
       -- system minimal, so the logic layer must define how to do all of
       -- these things for every relayed piece of data.
       -- See comment on the 'KeyVal' type.
-    , postTx             :: KeyVal (Tagged TxMsgContents TxId) TxMsgContents m
+    , postTx             :: KeyVal (Tagged (TxMsgContents tx) TxId) (TxMsgContents tx) m
     , postUpdate         :: KeyVal (Tagged (UpdateProposal, [UpdateVote]) UpId) (UpdateProposal, [UpdateVote]) m
     , postVote           :: KeyVal (Tagged UpdateVote VoteId) UpdateVote m
     , postSscCommitment  :: KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
@@ -102,8 +104,8 @@ hoistLogic
   :: ( Monad m )
   => (forall x . m x -> n x)
   -> (forall x . n x -> m x)
-  -> Logic m
-  -> Logic n
+  -> Logic tx block header m
+  -> Logic tx block header n
 hoistLogic nat rnat logic = logic
     { getSerializedBlock = nat . getSerializedBlock logic
     , streamBlocks = \hh k -> nat (streamBlocks logic hh (rnat . k . transPipe nat))
@@ -179,7 +181,7 @@ dummyKeyVal = KeyVal
     }
 
 -- | A diffusion layer that does nothing, and probably crashes the program.
-dummyLogic :: Monad m => Logic m
+dummyLogic :: Monad m => Logic tx block header m
 dummyLogic = Logic
     { getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
     , streamBlocks       = \_ k -> k (pure ())

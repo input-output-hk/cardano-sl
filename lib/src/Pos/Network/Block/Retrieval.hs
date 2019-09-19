@@ -54,13 +54,13 @@ import           Pos.Util.Wlog (logDebug, logError, logInfo, logWarning)
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
 retrievalWorker
-    :: forall ctx m.
+    :: forall ctx tx m.
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
     => Genesis.Config
     -> TxpConfiguration
-    -> Diffusion m -> m ()
+    -> Diffusion tx Block BlockHeader m -> m ()
 retrievalWorker genesisConfig txpConfig diffusion = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
@@ -266,7 +266,7 @@ dropRecoveryHeader nodeId = do
 dropRecoveryHeaderAndRepeat
     :: BlockWorkMode ctx m
     => Genesis.Config
-    -> Diffusion m
+    -> Diffusion tx Block BlockHeader m
     -> NodeId
     -> m ()
 dropRecoveryHeaderAndRepeat genesisConfig diffusion nodeId = do
@@ -287,11 +287,11 @@ dropRecoveryHeaderAndRepeat genesisConfig diffusion nodeId = do
 -- Returns only if blocks were successfully downloaded and
 -- processed. Throws exception if something goes wrong.
 getProcessBlocks
-    :: forall ctx m
+    :: forall ctx tx m
      . (BlockWorkMode ctx m, HasMisbehaviorMetrics ctx)
     => Genesis.Config
     -> TxpConfiguration
-    -> Diffusion m
+    -> Diffusion tx Block BlockHeader m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
@@ -331,11 +331,11 @@ getProcessBlocks genesisConfig txpConfig diffusion nodeId desired checkpoints = 
 -- Will fall back to getProcessBlocks if streaming is disabled
 -- or not supported by peer.
 streamProcessBlocks
-    :: forall ctx m
+    :: forall ctx tx m
      . (BlockWorkMode ctx m, HasMisbehaviorMetrics ctx)
     => Genesis.Config
     -> TxpConfiguration
-    -> Diffusion m
+    -> Diffusion tx Block BlockHeader m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]

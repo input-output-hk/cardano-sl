@@ -20,9 +20,9 @@ import           Universum
 import           Node.Message.Class (Message (..))
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeListLen, enforceSize)
-import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Chrono (NE, NewestFirst (..))
-import           Pos.DB.Class (SerializedBlock)
+import           Pos.DB.Class (Serialized)
 import           Pos.Util.Util (cborError)
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
@@ -90,12 +90,16 @@ deriveSimpleBi ''MsgGetBlocks [
     ]]
 
 -- | 'Headers' message (see protocol specification).
-data MsgHeaders
-    = MsgHeaders (NewestFirst NE BlockHeader)
+data MsgHeaders header
+    = MsgHeaders (NewestFirst NE header)
     | MsgNoHeaders Text
     deriving (Eq, Show, Generic)
 
-instance Bi MsgHeaders where
+instance Buildable header => Buildable (MsgHeaders header) where
+    build (MsgNoHeaders txt)  = bprint ("MsgNoHeaders "%build) txt
+    build (MsgHeaders   hdrs) = bprint ("MsgHeaders "%listJson) hdrs
+
+instance Bi header => Bi (MsgHeaders header) where
     encode = \case
         MsgHeaders b -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         MsgNoHeaders t -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -107,17 +111,17 @@ instance Bi MsgHeaders where
             1 -> MsgNoHeaders <$> decode
             t -> cborError $ "MsgHeaders wrong tag: " <> show t
 
-instance Message MsgHeaders where
+instance Message (MsgHeaders header) where
     messageCode _ = 5
     formatMessage _ = "BlockHeaders"
 
 -- | 'Block' message (see protocol specification).
-data MsgBlock
-    = MsgBlock Block
+data MsgBlock blk
+    = MsgBlock blk
     | MsgNoBlock Text
     deriving (Eq, Show, Generic)
 
-instance Bi MsgBlock where
+instance Bi blk => Bi (MsgBlock blk) where
     encode = \case
         MsgBlock b -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         MsgNoBlock t -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -129,13 +133,13 @@ instance Bi MsgBlock where
             1 -> MsgNoBlock <$> decode
             t -> cborError $ "MsgBlock wrong tag: " <> show t
 
-instance Message MsgBlock where
+instance Message (MsgBlock blk) where
     messageCode _ = 7
     formatMessage _ = "Block"
 
 -- | 'SerializedBlock' message
-data MsgSerializedBlock
-    = MsgSerializedBlock SerializedBlock
+data MsgSerializedBlock blk
+    = MsgSerializedBlock (Serialized blk)
     | MsgNoSerializedBlock Text
     deriving (Generic)
 
@@ -182,13 +186,13 @@ instance Message MsgStream where
     messageCode _ = 15
     formatMessage _ = "Stream"
 
-data MsgStreamBlock
-    = MsgStreamBlock Block
+data MsgStreamBlock blk
+    = MsgStreamBlock blk
     | MsgStreamNoBlock Text
     | MsgStreamEnd
     deriving (Eq, Show, Generic)
 
-instance Bi MsgStreamBlock where
+instance Bi blk => Bi (MsgStreamBlock blk) where
     encode = \case
         MsgStreamBlock b -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         MsgStreamNoBlock t -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -200,10 +204,10 @@ instance Bi MsgStreamBlock where
             0 -> MsgStreamBlock <$> decode
             1 -> MsgStreamNoBlock <$> decode
             2 -> do
-                 (_ :: Word8 )<- decode
+                 (_ :: Word8 ) <- decode
                  pure MsgStreamEnd
             t -> cborError $ "MsgStreamBlock wrong tag: " <> show t
 
-instance Message MsgStreamBlock where
+instance Message (MsgStreamBlock blk) where
     messageCode _ = 16
     formatMessage _ = "StreamBlock"

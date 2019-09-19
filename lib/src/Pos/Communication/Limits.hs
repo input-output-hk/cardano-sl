@@ -219,7 +219,7 @@ maxTxSize = bvdMaxTxSize
 mlTxAux :: BlockVersionData -> Limit TxAux
 mlTxAux = Limit . fromIntegral . maxTxSize
 
-mlTxMsgContents :: BlockVersionData -> Limit TxMsgContents
+mlTxMsgContents :: BlockVersionData -> Limit (TxMsgContents TxAux)
 mlTxMsgContents = fmap TxMsgContents . mlTxAux
 
 ----------------------------------------------------------------------------
@@ -265,7 +265,7 @@ mlMsgGetHeaders blkSecurityParam = MsgGetHeaders <$> vectorOf maxGetHeadersNum m
     maxGetHeadersNum = ceiling $
         log (fromIntegral blkSecurityParam) + (5 :: Double)
 
-mlMsgHeaders :: BlockVersionData -> Int -> Limit MsgHeaders
+mlMsgHeaders :: BlockVersionData -> Int -> Limit (MsgHeaders BlockHeader)
 mlMsgHeaders bvd recoveryHeadersMessage = MsgHeaders . NewestFirst <$> vectorOfNE recoveryHeadersMessage (mlBlockHeader bvd)
 
 mlGenesisBlockHeader :: BlockVersionData -> Limit GenesisBlockHeader
@@ -287,7 +287,7 @@ mlMainBlock = Limit . fromIntegral . bvdMaxBlockSize
 mlBlock :: BlockVersionData -> Limit Block
 mlBlock bvd = mlEither (mlGenesisBlock bvd) (mlMainBlock bvd)
 
-mlMsgBlock :: BlockVersionData -> Limit MsgBlock
+mlMsgBlock :: BlockVersionData -> Limit (MsgBlock Block)
 mlMsgBlock = fmap MsgBlock . mlBlock
 
 mlMsgStream :: Limit MsgStream
@@ -296,7 +296,7 @@ mlMsgStream = mlMsgStreamStart
 mlMsgStreamStart :: Limit MsgStream
 mlMsgStreamStart = 0x7ffff -- XXX A 512k limit, if these numbers are bytes.
 
-mlMsgStreamBlock :: BlockVersionData -> Limit MsgStreamBlock
+mlMsgStreamBlock :: BlockVersionData -> Limit (MsgStreamBlock Block)
 mlMsgStreamBlock = fmap MsgStreamBlock . mlBlock -- XXX MsgStreamNoBlock has an arbitrary text field...
 
 ----------------------------------------------------------------------------

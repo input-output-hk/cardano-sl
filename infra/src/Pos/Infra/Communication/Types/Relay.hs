@@ -51,7 +51,7 @@ instance Message k => Message (InvMsg (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)
     formatMessage _ = "Tagged InvMsg"
 
-instance Message (InvMsg TxMsgContents) where
+instance Message (InvMsg (TxMsgContents tx)) where
     messageCode _ = 36
     formatMessage _ = "Inventory"
 
@@ -99,7 +99,7 @@ instance Message k => Message (ReqMsg (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)
     formatMessage _ = "Tagged ReqMsg"
 
-instance Message (ReqMsg TxMsgContents) where
+instance Message (ReqMsg (TxMsgContents tx)) where
     messageCode _ = 32
     formatMessage _ = "Request"
 
@@ -138,7 +138,7 @@ instance Message k => Message (MempoolMsg (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)
     formatMessage _ = "Tagged MempoolMsg"
 
-instance Message (MempoolMsg TxMsgContents) where
+instance Message (MempoolMsg (TxMsgContents tx)) where
     messageCode _ = 34
     formatMessage _ = "Mempool"
 
@@ -188,8 +188,8 @@ instance Bi (DataMsg ProxySKHeavy) where
     encode = encode . dmContents
     decode = DataMsg <$> decode
 
-instance Bi (DataMsg TxMsgContents) where
-    encode (DataMsg (TxMsgContents txAux)) = encode txAux
+instance Bi tx => Bi (DataMsg (TxMsgContents tx)) where
+    encode (DataMsg (TxMsgContents tx)) = encode tx
     decode = DataMsg <$> (TxMsgContents <$> decode)
 
 instance Bi (DataMsg UpdateVote) where
@@ -210,7 +210,7 @@ instance Message k => Message (DataMsg (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)
     formatMessage _ = "Tagged DataMsg"
 
-instance Message (DataMsg TxMsgContents) where
+instance Message (DataMsg (TxMsgContents tx)) where
     messageCode _ = 35
     formatMessage _ = "Data"
 
@@ -248,7 +248,7 @@ instance Message k => Message (InvOrData key (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)
     formatMessage _ = "Tagged InvOrData"
 
-instance Message (InvOrData key TxMsgContents) where
+instance Message (InvOrData key (TxMsgContents tx)) where
     messageCode _ = 37
     formatMessage _ = "TxMsgContents"
 
@@ -303,7 +303,7 @@ instance Message k => Message (ReqOrRes (Tagged k v)) where
     messageCode _ = messageCode (Proxy :: Proxy k)
     formatMessage _ = "Tagged ReqOrRes"
 
-instance Message (ReqOrRes TxMsgContents) where
+instance Message (ReqOrRes (TxMsgContents tx)) where
     messageCode _ = 33
     formatMessage _ = "ReqOrRes"
 

@@ -99,7 +99,7 @@ sscWorkers
      )
   => StakeholderId
   -> Genesis.Config
-  -> [ (Text, Diffusion m -> m ()) ]
+  -> [ (Text, Diffusion tx block header m -> m ()) ]
 sscWorkers sid genesisConfig =
     [ ("ssc on new slot", onNewSlotSsc sid genesisConfig)
     , ("ssc check for ignored", checkForIgnoredCommitmentsWorker genesisConfig)
@@ -132,7 +132,7 @@ onNewSlotSsc
     :: SscMode ctx m
     => StakeholderId
     -> Genesis.Config
-    -> Diffusion m
+    -> Diffusion tx block header m
     -> m ()
 onNewSlotSsc sid genesisConfig diffusion = onNewSlot (configEpochSlots genesisConfig) defaultOnNewSlotParams $ \slotId ->
     recoveryCommGuard (configBlkSecurityParam genesisConfig) "onNewSlot worker in SSC" $ do
@@ -464,12 +464,12 @@ waitUntilSend k msgTag epoch slMultiplier = do
 ----------------------------------------------------------------------------
 
 checkForIgnoredCommitmentsWorker
-    :: forall ctx m.
+    :: forall ctx tx block header m.
        ( SscMode ctx m
        , HasMisbehaviorMetrics ctx
        )
     => Genesis.Config
-    -> Diffusion m
+    -> Diffusion tx block header m
     -> m ()
 checkForIgnoredCommitmentsWorker genesisConfig _ = do
     counter <- newTVarIO 0

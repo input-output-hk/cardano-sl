@@ -60,27 +60,27 @@ sendUpdateProposal logTrace enqueue upid proposal votes = do
 
 updateListeners
     :: Trace IO (Severity, Text)
-    -> Logic IO
+    -> Logic tx header block IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> MkListeners
 updateListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (usRelays logic)
 
 -- | Relays for data related to update system
-usRelays :: Logic IO -> [Relay]
+usRelays :: Logic tx block header IO -> [Relay]
 usRelays logic = [proposalRelay logic, voteRelay logic]
 
 -- | 'OutSpecs' for the update system, to keep up with the 'InSpecs'/'OutSpecs'
 -- motif required for communication.
 -- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
-updateOutSpecs :: Logic IO -> OutSpecs
+updateOutSpecs :: Logic tx header block IO -> OutSpecs
 updateOutSpecs logic = relayPropagateOut (usRelays logic)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal relays
 ----------------------------------------------------------------------------
 
-proposalRelay :: Logic IO -> Relay
+proposalRelay :: Logic tx header block IO -> Relay
 proposalRelay logic =
     InvReqData
         NoMempool $
@@ -99,7 +99,7 @@ proposalRelay logic =
 -- UpdateVote listeners
 ----------------------------------------------------------------------------
 
-voteRelay :: Logic IO -> Relay
+voteRelay :: Logic tx header block IO -> Relay
 voteRelay logic =
     InvReqData
         NoMempool $

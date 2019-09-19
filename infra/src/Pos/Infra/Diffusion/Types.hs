@@ -18,12 +18,10 @@ import           Data.Map.Strict (Map)
 import           Formatting (Format, stext)
 import           System.Metrics.Gauge (Gauge)
 
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
-                     MainBlockHeader)
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
-import           Pos.Chain.Txp (TxAux)
 import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Core (StakeholderId)
 import           Pos.Core.Chrono (OldestFirst (..))
@@ -58,29 +56,44 @@ data DiffusionHealth = DiffusionHealth {
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
-data Diffusion m = Diffusion
+--
+-- It is parameteric in the types for transactions, blocks, and headers.
+-- This is to allow for its use in applications which wish to communicate with
+-- Byron peers, but not to use the cardano-sl types for these things. So long
+-- as they have 'Pos.Binary.Class.Core.Bi' instances which agree with the
+-- cardano-sl Byron encoding, things will work out. Without this, the cardano-sl
+-- type would be deserialized by the diffusion layer, and a nontrivial amount
+-- of work would have to be done to convert it to the new application type,
+-- which can be prohibitively expensive in situations like sync'ing a long
+-- part of a chain.
+--
+-- The @HeaderHash@ type is not parametric, because it's a newtype over
+-- the cryptonite @Digest@ type and so can be converted for free. Other types
+-- like SSC and update data are not parameters because they have not been
+-- needed so far.
+data Diffusion tx block header m = Diffusion
     { -- | Get all blocks from a set of checkpoints to a given tip.
       -- The blocks come in oldest first, and form a chain (prev header of
       -- {n}'th is the header of {n-1}th.
       getBlocks          :: NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> m (OldestFirst [] Block)
+                         -> m (OldestFirst [] block)
     , streamBlocks       :: forall t .
                             NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> StreamBlocks Block m t
+                         -> StreamBlocks block m t
                          -> m (Maybe t)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
-    , requestTip          :: m (Map NodeId (m BlockHeader))
+    , requestTip          :: m (Map NodeId (m header))
       -- | Announce a block header.
-    , announceBlockHeader :: MainBlockHeader -> m ()
+    , announceBlockHeader :: header -> m ()
       -- | Returns a Bool iff at least one peer accepted the transaction.
       -- I believe it's for the benefit of wallets who wish to know that the
       -- transaction has a hope of making it into a block.
-    , sendTx             :: TxAux -> m Bool
+    , sendTx             :: tx -> m Bool
       -- | Send an update proposal.
     , sendUpdateProposal :: UpId -> UpdateProposal -> [UpdateVote] -> m ()
       -- | Send a vote for a proposal.
@@ -116,17 +129,17 @@ data Diffusion m = Diffusion
     }
 
 -- | A diffusion layer: its interface, and a way to run it.
-data DiffusionLayer m = DiffusionLayer
+data DiffusionLayer tx block header m = DiffusionLayer
     { runDiffusionLayer :: forall x . m x -> m x
-    , diffusion         :: Diffusion m
+    , diffusion         :: Diffusion tx block header m
     }
 
 hoistDiffusion
     :: Functor m
     => (forall t . m t -> n t)
     -> (forall t . n t -> m t)
-    -> Diffusion m
-    -> Diffusion n
+    -> Diffusion tx block header m
+    -> Diffusion tx block header n
 hoistDiffusion nat rnat orig = Diffusion
     { getBlocks = \nid bh hs -> nat $ getBlocks orig nid bh hs
     , streamBlocks = \nid hh hhs k -> nat $ streamBlocks orig nid hh hhs (hoistStreamBlocks rnat k)
@@ -146,7 +159,7 @@ hoistDiffusion nat rnat orig = Diffusion
     }
 
 -- | A diffusion layer that does nothing.
-dummyDiffusionLayer :: Applicative d => IO (DiffusionLayer d)
+dummyDiffusionLayer :: Applicative d => IO (DiffusionLayer tx block header d)
 dummyDiffusionLayer = do
     ss <- emptySubscriptionStates
     return DiffusionLayer
@@ -154,7 +167,7 @@ dummyDiffusionLayer = do
         , diffusion         = dummyDiffusion ss
         }
   where
-    dummyDiffusion :: Applicative m => SubscriptionStates NodeId -> Diffusion m
+    dummyDiffusion :: Applicative m => SubscriptionStates NodeId -> Diffusion tx block header m
     dummyDiffusion subscriptionStates = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = pure mempty

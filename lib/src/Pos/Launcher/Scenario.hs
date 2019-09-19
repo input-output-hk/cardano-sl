@@ -16,11 +16,12 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Serokell.Util (listJson)
 
+import           Pos.Chain.Block (Block, BlockHeader)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      GenesisDelegation (..), GenesisWStakeholders (..),
                      configBootStakeholders, configFtsSeed,
                      configHeavyDelegation)
-import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration, bootDustThreshold)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion, ourSystemTag)
 import           Pos.Context (NodeContext (..), getOurPublicKey, npSecretKey)
@@ -50,9 +51,9 @@ runNode'
        )
     => Genesis.Config
     -> NodeResources ext
-    -> [ (Text, Diffusion m -> m ()) ]
-    -> [ (Text, Diffusion m -> m ()) ]
-    -> Diffusion m -> m ()
+    -> [ (Text, Diffusion TxAux Block BlockHeader m -> m ()) ]
+    -> [ (Text, Diffusion TxAux Block BlockHeader m -> m ()) ]
+    -> Diffusion TxAux Block BlockHeader m -> m ()
 runNode' genesisConfig NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
@@ -89,7 +90,7 @@ runNode' genesisConfig NodeResources {..} workers' plugins' = \diffusion -> do
 
     waitSystemStart
     let
-      runWithReportHandler :: (Text, Diffusion m -> m ()) -> m ()
+      runWithReportHandler :: (Text, Diffusion TxAux Block BlockHeader m -> m ()) -> m ()
       runWithReportHandler (workerName, action) = action diffusion `catch` (reportHandler workerName)
 
     void (mapConcurrently runWithReportHandler (workers' ++ plugins'))
@@ -112,8 +113,8 @@ runNode
     => Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
-    -> [ (Text, Diffusion m -> m ()) ]
-    -> Diffusion m -> m ()
+    -> [ (Text, Diffusion TxAux Block BlockHeader m -> m ()) ]
+    -> Diffusion TxAux Block BlockHeader m -> m ()
 runNode genesisConfig txpConfig nr plugins =
     runNode' genesisConfig nr workers' plugins
     where workers' = allWorkers sid genesisConfig txpConfig nr

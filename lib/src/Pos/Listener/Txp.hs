@@ -73,10 +73,10 @@ type TxpMode ctx m =
     , MonadTxpLocal m
     , MonadTxpMem (MempoolExt m) ctx m
     , Each '[Message]
-        '[ Relay.InvOrData (Tagged TxMsgContents TxId) TxMsgContents
-         , Relay.InvMsg    (Tagged TxMsgContents TxId)
-         , Relay.ReqOrRes  (Tagged TxMsgContents TxId)
-         , Relay.ReqMsg    (Tagged TxMsgContents TxId)
-         , Relay.MempoolMsg TxMsgContents
+        '[ Relay.InvOrData (Tagged (TxMsgContents TxAux) TxId) (TxMsgContents TxAux)
+         , Relay.InvMsg    (Tagged (TxMsgContents TxAux) TxId)
+         , Relay.ReqOrRes  (Tagged (TxMsgContents TxAux) TxId)
+         , Relay.ReqMsg    (Tagged (TxMsgContents TxAux) TxId)
+         , Relay.MempoolMsg (TxMsgContents TxAux)
          ]
     )

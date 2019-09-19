@@ -17,13 +17,13 @@ import           Pos.Infra.Diffusion.Types (Diffusion (..))
 -- depends on it makes building other projects like cardano-byron-proxy
 -- easier. We leave the API here, but turn all operations into a NO-OP.
 
-extendWithNodeInfo :: MonadIO m => Diffusion m -> reportType -> m reportType
+extendWithNodeInfo :: MonadIO m => Diffusion tx block header m -> reportType -> m reportType
 extendWithNodeInfo _oq rt = pure rt
 
 -- | Uses a 'Diffusion' to get a text representation of the current network
 -- state as seen by this node. Also includes this node's external IP addresses.
 -- FIXME whether to include IP addresses should be decided by the diffusion.
-getNodeInfo :: MonadIO m => Diffusion m -> m Text
+getNodeInfo :: MonadIO m => Diffusion tx block header m -> m Text
 getNodeInfo diffusion = do
     statusText <- formatStatus diffusion sformat
     (ips :: [Text]) <-

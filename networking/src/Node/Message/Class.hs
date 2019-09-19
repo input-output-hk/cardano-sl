@@ -65,7 +65,7 @@ instance Message (UpdateProposal, [UpdateVote]) where
     messageCode _ = 93
     formatMessage _ = "UpdateProposal"
 
-instance Message TxMsgContents where
+instance Message (TxMsgContents tx) where
     messageCode _ = 94
     formatMessage _ = "TxMsgContents"
 

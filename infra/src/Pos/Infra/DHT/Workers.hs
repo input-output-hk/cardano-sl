@@ -41,7 +41,7 @@ type DhtWorkMode ctx m =
 dhtWorkers
     :: DhtWorkMode ctx m
     => BlockCount
-    -> KademliaDHTInstance -> [Diffusion m -> m ()]
+    -> KademliaDHTInstance -> [Diffusion tx block header m -> m ()]
 dhtWorkers k kademliaInst@KademliaDHTInstance {..} =
     [ dumpKademliaStateWorker k kademliaInst ]
 
@@ -49,7 +49,7 @@ dumpKademliaStateWorker
     :: DhtWorkMode ctx m
     => BlockCount
     -> KademliaDHTInstance
-    -> Diffusion m
+    -> Diffusion tx block header m
     -> m ()
 dumpKademliaStateWorker k kademliaInst _ = onNewSlot epochSlots onsp $ \slotId ->
     when (isTimeToDump slotId) $ recoveryCommGuard k "dump kademlia state" $ do

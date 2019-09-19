@@ -33,13 +33,13 @@ import qualified System.Metrics as Monitoring
 
 import           System.Random (newStdGen)
 
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
-                     MainBlockHeader)
+import           Pos.Binary (Bi)
+import           Pos.Chain.Block (HasHeaderHash, HeaderHash)
 import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Ssc (InnerSharesMap, MCCommitment (..),
                      MCOpening (..), MCShares (..), MCVssCertificate (..),
                      Opening, SignedCommitment, VssCertificate)
-import           Pos.Chain.Txp (TxAux)
+import           Pos.Chain.Txp (TxId)
 import           Pos.Chain.Update (BlockVersion, BlockVersionData (..), UpId,
                      UpdateProposal, UpdateVote)
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
@@ -48,7 +48,7 @@ import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      PackingType, PeerData, SendActions, VerInfo (..),
                      bipPacking, convH, createOutSpecs, makeEnqueueMsg,
                      makeSendActions, toOutSpecs)
-import           Pos.Core (ProtocolConstants (..), StakeholderId)
+import           Pos.Core (HasDifficulty, ProtocolConstants (..), StakeholderId)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 import           Pos.Crypto.Configuration (ProtocolMagic (..), getProtocolMagic)
@@ -90,7 +90,7 @@ import           Pos.Util.Trace.Named (LogNamed, appendName, named)
 {-# ANN module ("HLint: ignore Use whenJust" :: Text) #-}
 {-# ANN module ("HLint: ignore Use record patterns" :: Text) #-}
 
-data FullDiffusionConfiguration = FullDiffusionConfiguration
+data FullDiffusionConfiguration tx = FullDiffusionConfiguration
     { fdcProtocolMagic          :: !ProtocolMagic
     , fdcProtocolConstants      :: !ProtocolConstants
     , fdcRecoveryHeadersMessage :: !Word
@@ -101,6 +101,7 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcStreamWindow           :: !Word32
       -- ^ Size of window for block streaming.
     , fdcTrace                  :: !(Trace IO (LogNamed (Severity, Text)))
+    , fdcTxId                 :: tx -> TxId
     }
 
 data RunFullDiffusionInternals = RunFullDiffusionInternals
@@ -122,12 +123,22 @@ data FullDiffusionInternals = FullDiffusionInternals
 -- The 'NetworkConfig's topology is also used to fill in various options
 -- related to subscription, health status reporting, etc.
 diffusionLayerFull
-    :: FullDiffusionConfiguration
+    :: ( Bi block
+       , Bi header
+       , Bi tx
+       , HasHeaderHash block
+       , HasHeaderHash header
+       , HasDifficulty block
+       , HasDifficulty header
+       , Buildable header
+       , Buildable tx
+       )
+    => FullDiffusionConfiguration tx
     -> NetworkConfig KademliaParams
     -> Maybe EkgNodeMetrics
-    -> (Diffusion IO -> Logic IO)
+    -> (Diffusion tx block header IO -> Logic tx block header IO)
        -- ^ The logic layer can use the diffusion layer.
-    -> (DiffusionLayer IO -> IO x)
+    -> (DiffusionLayer tx block header IO -> IO x)
     -> IO x
 diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
     let -- A trace for the Outbound Queue. We use the one from the
@@ -160,6 +171,7 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
                                                   mKademliaParams
                                                   healthStatus
                                                   mEkgNodeMetrics
+                                                  (fdcTxId fdconf)
                                                   logic
             let logic = mkLogic fullDiffusion
         k $ DiffusionLayer
@@ -179,7 +191,18 @@ resetKeepAlive slotDuration timersVar nodeId =
              Nothing -> pure timers
 
 diffusionLayerFullExposeInternals
-    :: FullDiffusionConfiguration
+    :: forall tx block header .
+       ( Bi block
+       , Bi header
+       , Bi tx
+       , HasHeaderHash block
+       , HasHeaderHash header
+       , HasDifficulty block
+       , HasDifficulty header
+       , Buildable header
+       , Buildable tx
+       )
+    => FullDiffusionConfiguration tx
     -> Transport
     -> OQ.OutboundQ EnqueuedConversation NodeId Bucket
     -> Word16 -- ^ Port on which peers are assumed to listen.
@@ -193,8 +216,9 @@ diffusionLayerFullExposeInternals
        -- ^ Amazon Route53 health check support (stopgap measure, see note
        --   in Pos.Infra.Diffusion.Types, above 'healthStatus' record field).
     -> Maybe EkgNodeMetrics
-    -> Logic IO
-    -> IO (Diffusion IO, RunFullDiffusionInternals)
+    -> (tx -> TxId) 
+    -> Logic tx block header IO
+    -> IO (Diffusion tx block header IO, RunFullDiffusionInternals)
 diffusionLayerFullExposeInternals fdconf
                                   transport
                                   oq
@@ -204,6 +228,7 @@ diffusionLayerFullExposeInternals fdconf
                                   mKademliaParams
                                   healthStatus -- named to be picked up by record wildcard
                                   mEkgNodeMetrics
+                                  mkTxId
                                   logic = do
 
     let protocolMagic = fdcProtocolMagic fdconf
@@ -291,7 +316,7 @@ diffusionLayerFullExposeInternals fdconf
         -- requestTipOuts from Pos.Network.Block.Types
         securityWorkerOutSpecs = toOutSpecs
             [ convH (Proxy :: Proxy MsgGetHeaders)
-                    (Proxy :: Proxy MsgHeaders)
+                    (Proxy :: Proxy (MsgHeaders header))
             ]
 
         -- announceBlockHeaderOuts from blkCreatorWorker
@@ -302,17 +327,17 @@ diffusionLayerFullExposeInternals fdconf
             [ announceBlockHeaderOuts
             , announceBlockHeaderOuts
             , announceBlockHeaderOuts <> toOutSpecs [ convH (Proxy :: Proxy MsgGetBlocks)
-                                                            (Proxy :: Proxy MsgBlock)
+                                                            (Proxy :: Proxy (MsgBlock block))
                                                     ]
             , streamBlockHeaderOuts
             ]
 
-        announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgHeaders)
+        announceBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy (MsgHeaders header))
                                                      (Proxy :: Proxy MsgGetHeaders)
                                              ]
 
         streamBlockHeaderOuts = toOutSpecs [ convH (Proxy :: Proxy MsgStream)
-                                                   (Proxy :: Proxy MsgStreamBlock)
+                                                   (Proxy :: Proxy (MsgStreamBlock block))
                                            ]
 
         -- Plainly mempty from the definition of allWorkers.
@@ -371,25 +396,25 @@ diffusionLayerFullExposeInternals fdconf
         getBlocks :: NodeId
                   -> HeaderHash
                   -> [HeaderHash]
-                  -> IO (OldestFirst [] Block)
+                  -> IO (OldestFirst [] block)
         getBlocks = Diffusion.Block.getBlocks logTrace logic recoveryHeadersMessage enqueue
 
-        requestTip :: IO (Map NodeId (IO BlockHeader))
+        requestTip :: IO (Map NodeId (IO header))
         requestTip = Diffusion.Block.requestTip logTrace logic enqueue recoveryHeadersMessage
 
         streamBlocks :: forall t .
                         NodeId
                      -> HeaderHash
                      -> [HeaderHash]
-                     -> StreamBlocks Block IO t
+                     -> StreamBlocks block IO t
                      -> IO (Maybe t)
         streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic batchSize streamWindow enqueue
 
-        announceBlockHeader :: MainBlockHeader -> IO ()
+        announceBlockHeader :: header -> IO ()
         announceBlockHeader = void . Diffusion.Block.announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue
 
-        sendTx :: TxAux -> IO Bool
-        sendTx = Diffusion.Txp.sendTx logTrace enqueue
+        sendTx :: tx -> IO Bool
+        sendTx = \tx -> Diffusion.Txp.sendTx logTrace enqueue (mkTxId tx) tx
 
         sendUpdateProposal :: UpId -> UpdateProposal -> [UpdateVote] -> IO ()
         sendUpdateProposal = Diffusion.Update.sendUpdateProposal logTrace enqueue
@@ -417,7 +442,7 @@ diffusionLayerFullExposeInternals fdconf
         formatStatus :: forall r . (forall a . Format r a -> a) -> IO r
         formatStatus formatter = OQ.dumpState oq formatter
 
-        diffusion :: Diffusion IO
+        diffusion :: Diffusion tx block header IO
         diffusion = Diffusion {..}
 
         runInternals = RunFullDiffusionInternals

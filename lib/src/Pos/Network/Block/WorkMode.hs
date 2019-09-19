@@ -12,8 +12,8 @@ import           Universum
 import           Data.Default (Default)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
-                     LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
+                     HasSlogContext, LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
@@ -40,14 +40,14 @@ import           Pos.Util.Wlog (WithLogger)
 type BlockInstancesConstraint =
     ( Each '[Bi]
         [ MsgGetHeaders
-        , MsgHeaders
+        , MsgHeaders BlockHeader
         , MsgGetBlocks
-        , MsgBlock ]
+        , MsgBlock Block ]
     , Each '[Message]
         [ MsgGetHeaders
-        , MsgHeaders
+        , MsgHeaders BlockHeader
         , MsgGetBlocks
-        , MsgBlock ]
+        , MsgBlock Block ]
     )
 
 -- | A subset of @WorkMode@.

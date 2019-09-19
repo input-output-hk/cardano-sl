@@ -15,9 +15,10 @@ import           Data.Functor.Contravariant (contramap)
 import           Universum
 
 import           Ntp.Client (NtpConfiguration)
+import           Pos.Chain.Block (Block, BlockHeader)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
@@ -111,7 +112,7 @@ launchNode nArgs cArgs lArgs action = do
 -- | Run basic core node
 actionWithCoreNode
     :: (HasConfigurations, HasCompileInfo)
-    => (Diffusion IO -> IO a)
+    => (Diffusion TxAux Block BlockHeader IO -> IO a)
     -> Genesis.Config
     -> WalletConfiguration
     -> TxpConfiguration

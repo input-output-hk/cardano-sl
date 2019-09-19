@@ -4,17 +4,15 @@ module Pos.Chain.Txp.TxMsg
 
 import           Universum
 
-import           Formatting (bprint, (%))
+import           Formatting (bprint, build, (%))
 import           Formatting.Buildable (Buildable (..))
-
-import           Pos.Chain.Txp.TxAux (TxAux (..), txaF)
 
 -- | Data message. Can be used to send one transaction per message.
 -- Transaction is sent with auxilary data.
-newtype TxMsgContents = TxMsgContents
-    { getTxMsgContents :: TxAux
+newtype TxMsgContents tx = TxMsgContents
+    { getTxMsgContents :: tx
     } deriving (Generic, Show, Eq)
 
-instance Buildable TxMsgContents where
-    build (TxMsgContents txAux) =
-        bprint ("TxMsgContents { txAux ="%txaF%", .. }") txAux
+instance Buildable tx => Buildable (TxMsgContents tx) where
+    build (TxMsgContents tx) =
+        bprint ("TxMsgContents { txAux ="%Formatting.build%", .. }") tx

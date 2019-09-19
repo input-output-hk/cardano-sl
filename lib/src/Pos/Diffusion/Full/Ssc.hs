@@ -36,14 +36,14 @@ import           Pos.Util.Trace (Severity, Trace)
 
 sscListeners
     :: Trace IO (Severity, Text)
-    -> Logic IO
+    -> Logic tx header block IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> MkListeners
 sscListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (sscRelays logic)
 
 sscRelays
-    :: Logic IO
+    :: Logic tx header block IO
     -> [Relay]
 sscRelays logic =
     [ commitmentRelay logic (postSscCommitment logic)
@@ -54,30 +54,30 @@ sscRelays logic =
 
 -- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
 -- motif required for communication.
--- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
-sscOutSpecs :: Logic IO -> OutSpecs
+-- The 'Logic' isn't *really* needed, it's just an artefact of the design.
+sscOutSpecs :: Logic tx header block IO -> OutSpecs
 sscOutSpecs logic = relayPropagateOut (sscRelays logic)
 
 commitmentRelay
-    :: Logic IO
+    :: Logic tx header block IO
     -> KV.KeyVal (Tagged MCCommitment StakeholderId) MCCommitment IO
     -> Relay
 commitmentRelay logic kv = sscRelay logic kv (mlMCCommitment <$> getAdoptedBVData logic)
 
 openingRelay
-    :: Logic IO
+    :: Logic tx header block IO
     -> KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening IO
     -> Relay
 openingRelay logic kv = sscRelay logic kv (pure mlMCOpening)
 
 sharesRelay
-    :: Logic IO
+    :: Logic tx header block IO
     -> KV.KeyVal (Tagged MCShares StakeholderId) MCShares IO
     -> Relay
 sharesRelay logic kv = sscRelay logic kv (mlMCShares <$> getAdoptedBVData logic)
 
 vssCertRelay
-    :: Logic IO
+    :: Logic tx header block IO
     -> KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate IO
     -> Relay
 vssCertRelay logic kv = sscRelay logic kv (pure mlMCVssCertificate)
@@ -90,7 +90,7 @@ sscRelay
        , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
        )
-    => Logic IO
+    => Logic tx header block IO
     -> KV.KeyVal (Tagged contents StakeholderId) contents IO
     -> IO (Limit contents)
     -> Relay

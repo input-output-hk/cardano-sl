@@ -26,7 +26,7 @@ import qualified Formatting.Buildable as B
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 
-import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader,
+import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader (..),
                      Blund, HasHeaderHash (..), HeaderHash, LastKnownHeaderTag,
                      blockHeader, gbHeader, headerHashG, prevBlockL)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
@@ -101,7 +101,7 @@ instance Exception BlockNetLogicException where
 triggerRecovery
     :: ( BlockWorkMode ctx m
        )
-    => Genesis.Config -> Diffusion m -> m ()
+    => Genesis.Config -> Diffusion tx Block BlockHeader m -> m ()
 triggerRecovery genesisConfig diffusion = unlessM (recoveryInProgress $ configEpochSlots genesisConfig) $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
     -- The 'catch' here is for an exception when trying to enqueue the request.
@@ -223,14 +223,14 @@ updateLastKnownHeader lastKnownH header = do
 
 -- | Carefully apply blocks that came from the network.
 handleBlocks
-    :: forall ctx m .
+    :: forall ctx tx m .
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
     => Genesis.Config
     -> TxpConfiguration
     -> OldestFirst NE Block
-    -> Diffusion m
+    -> Diffusion tx Block BlockHeader m
     -> m ()
 handleBlocks genesisConfig txpConfig blocks diffusion = do
     logDebug "handleBlocks: processing"
@@ -256,13 +256,13 @@ handleBlocks genesisConfig txpConfig blocks diffusion = do
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
-    :: forall ctx m.
+    :: forall ctx tx m.
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
     => Genesis.Config
     -> TxpConfiguration
-    -> Diffusion m
+    -> Diffusion tx Block BlockHeader m
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback genesisConfig txpConfig diffusion blocks = do
@@ -307,7 +307,7 @@ applyWithRollback
        )
     => Genesis.Config
     -> TxpConfiguration
-    -> Diffusion m
+    -> Diffusion tx Block BlockHeader m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
@@ -349,9 +349,9 @@ applyWithRollback genesisConfig txpConfig diffusion toApply lca toRollback = do
         getOldestFirst $ toApply
 
 relayBlock
-    :: forall ctx m.
+    :: forall ctx tx m.
        (BlockWorkMode ctx m)
-    => SlotCount -> Diffusion m -> Block -> m ()
+    => SlotCount -> Diffusion tx Block BlockHeader m -> Block -> m ()
 relayBlock _ _ (Left _) = logDebug "Not relaying Genesis block"
 relayBlock epochSlots diffusion (Right mainBlk) = do
     recoveryInProgress epochSlots >>= \case
@@ -359,7 +359,9 @@ relayBlock epochSlots diffusion (Right mainBlk) = do
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%shortHashF%".")
                        (mainBlk ^. gbHeader . headerHashG)
-            void $ Diffusion.announceBlockHeader diffusion $ mainBlk ^. gbHeader
+            let bh :: BlockHeader
+                bh = BlockHeaderMain (mainBlk ^. gbHeader)
+            void $ Diffusion.announceBlockHeader diffusion bh
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points

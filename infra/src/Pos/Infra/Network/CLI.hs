@@ -203,9 +203,11 @@ monitorStaticConfig logTrace cfg@NetworkConfigOpts{..} origMetadata initPeers = 
          -> IO ()
     loop events peers handlers = readChan events >>= \case
         MonitorRegister handler -> do
+            traceWith logTrace (Notice, sformat ("monitorStaticConfig INIT: "%shown) peers)
             runHandler peers handler -- Call new handler with current value
             loop events peers (handler:handlers)
         MonitorSIGHUP -> do
+            traceWith logTrace (Notice, sformat ("monitorStaticConfig SIGHUP: "%shown) peers)
             let fp = fromJust ncoTopology
             mParsedTopology <- try $ readTopology fp
             case mParsedTopology of
@@ -272,12 +274,14 @@ intNetworkConfigOpts
     -> NetworkConfigOpts
     -> IO (T.NetworkConfig DHT.KademliaParams)
 intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
+    traceWith logTrace (Notice, "intNetworkConfigOpts start")
     parsedTopology <-
         case ncoTopology of
             Nothing -> pure defaultTopology
             Just fp -> readTopology fp
     (ourTopology, tcpAddr) <- case parsedTopology of
         Y.TopologyStatic topologyAllPeers -> do
+            traceWith logTrace (Notice, "intNetworkConfigOpts got static topology")
             (md@(NodeMetadata
                      nmType
                      _

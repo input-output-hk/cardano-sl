@@ -10,12 +10,13 @@ import           Universum hiding (id)
 
 import           Control.Lens (at, to)
 import           Data.Conduit (ConduitT)
+import qualified Data.Conduit as Conduit (mapOutput)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
-                     HeaderHash)
+                     HeaderHash, blockHeader, prevBlockL)
 import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots)
@@ -37,7 +38,7 @@ import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..),
-                     SerializedBlock)
+                     Serialized (..), SerializedBlock)
 import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
 import           Pos.DB.Ssc (sscIsDataUseful, sscProcessCertificate,
                      sscProcessCommitment, sscProcessOpening, sscProcessShares)
@@ -99,26 +100,41 @@ logicFull
     => Genesis.Config
     -> TxpConfiguration
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
-    -> Logic m
+    -> Logic TxAux Block BlockHeader m
 logicFull genesisConfig txpConfig jsonLogTx =
     let
         genesisHash = configGenesisHash genesisConfig
 
-        getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
-        getSerializedBlock = DB.dbGetSerBlock genesisHash
+        convertSerializedBlock :: SerializedBlock -> Serialized Block
+        convertSerializedBlock (Serialized bytes) = Serialized bytes
+
+        getSerializedBlock :: HeaderHash -> m (Maybe (Serialized Block))
+        getSerializedBlock = (fmap . fmap) convertSerializedBlock . DB.dbGetSerBlock genesisHash
 
         streamBlocks
           :: forall t .
              HeaderHash
-          -> (ConduitT () SerializedBlock m () -> m t)
+          -> (ConduitT () (Serialized Block) m () -> m t)
           -> m t
-        streamBlocks = \hh k -> k $
+        streamBlocks = \hh k -> k $ Conduit.mapOutput convertSerializedBlock $
           Block.streamBlocks (DB.dbGetSerBlock genesisHash)
                              Block.resolveForwardLink
                              hh
 
-        getTip :: m Block
-        getTip = DB.getTipBlock genesisHash
+        getBlockHeader :: HeaderHash -> m (Maybe BlockHeader)
+        getBlockHeader = DB.getHeader
+
+        -- Gives a main block header rather than epoch boundary block header
+        -- in case the latest block is an EBB but has a main block parent.
+        getTip :: m BlockHeader
+        getTip = do
+          tip <- DB.getTipBlock genesisHash
+          let tipHeader = tip ^. blockHeader
+          case tip of
+            Left  _ -> do
+              mHeader <- getBlockHeader (tip ^. prevBlockL)
+              pure $ fromMaybe tipHeader mHeader
+            Right _ -> pure tipHeader
 
         getAdoptedBVData :: m BlockVersionData
         getAdoptedBVData = gsAdoptedBVData
@@ -126,9 +142,6 @@ logicFull genesisConfig txpConfig jsonLogTx =
         recoveryInProgress :: m Bool
         recoveryInProgress =
             Recovery.recoveryInProgress $ configEpochSlots genesisConfig
-
-        getBlockHeader :: HeaderHash -> m (Maybe BlockHeader)
-        getBlockHeader = DB.getHeader
 
         getHashesRange
             :: Maybe Word -- ^ Optional limit on how many to pull in.

@@ -33,15 +33,16 @@ import           Node.Conversation (sendRaw)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Gauge
 
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
-import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
-                     MainBlockHeader, blockHeader, headerHash, prevBlockL)
+import           Pos.Binary.Limit (castLimit)
+import           Pos.Chain.Block (HasHeaderHash, HeaderHash, headerHash)
 import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
-import           Pos.Core (ProtocolConstants (..), difficultyL)
+import           Pos.Core (ProtocolConstants (..), HasDifficulty, difficultyL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Exception (cardanoExceptionFromException,
@@ -113,14 +114,16 @@ enqueueMsgSingle enqueue msg conv = do
 -- | Get some blocks from the network.
 -- No verification is done
 getBlocks
-    :: Trace IO (Severity, Text)
-    -> Logic IO
+    :: forall tx blk header .
+       ( Bi blk, Bi header, HasHeaderHash header )
+    => Trace IO (Severity, Text)
+    -> Logic tx blk header IO
     -> Word -- ^ Historical: limit on how many headers you can get back... always 2200
     -> EnqueueMsg
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
-    -> IO (OldestFirst [] Block)
+    -> IO (OldestFirst [] blk)
 getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash checkpoints = do
     -- It is apparently an error to request headers for the tipHeader and
     -- [tipHeader], i.e. 1 checkpoint equal to the header of the block that
@@ -164,7 +167,7 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
         , mgbTo = wantedBlock
         }
 
-    requestHeaders :: BlockVersionData -> IO (NewestFirst NE BlockHeader)
+    requestHeaders :: BlockVersionData -> IO (NewestFirst NE header)
     requestHeaders bvd = enqueueMsgSingle
         enqueue
         (MsgRequestBlockHeaders (Just (S.singleton nodeId)))
@@ -172,12 +175,12 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
 
     requestHeadersConversation
         :: BlockVersionData
-        -> ConversationActions MsgGetHeaders MsgHeaders
-        -> IO (NewestFirst NE BlockHeader)
+        -> ConversationActions MsgGetHeaders (MsgHeaders header)
+        -> IO (NewestFirst NE header)
     requestHeadersConversation bvd conv = do
         traceWith logTrace (Debug, sformat ("requestHeaders: sending "%build) mgh)
         send conv mgh
-        mHeaders <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
+        mHeaders <- recvLimited conv (castLimit (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage)))
         inRecovery <- Logic.recoveryInProgress logic
         -- TODO: it's very suspicious to see False here as RequestHeaders
         -- is only called when we're in recovery mode.
@@ -201,7 +204,7 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
                     nodeId)
                 return headers
 
-    requestBlocks :: BlockVersionData -> OldestFirst [] HeaderHash -> IO (NewestFirst [] Block)
+    requestBlocks :: BlockVersionData -> OldestFirst [] HeaderHash -> IO (NewestFirst [] blk)
     requestBlocks _   (OldestFirst [])     = pure (NewestFirst [])
     requestBlocks bvd (OldestFirst (b:bs)) = enqueueMsgSingle
         enqueue
@@ -211,8 +214,8 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
     requestBlocksConversation
         :: BlockVersionData
         -> OldestFirst NE HeaderHash
-        -> ConversationActions MsgGetBlocks MsgBlock
-        -> IO (NewestFirst [] Block)
+        -> ConversationActions MsgGetBlocks (MsgBlock blk)
+        -> IO (NewestFirst [] blk)
     requestBlocksConversation bvd headers conv = do
         -- Preserved behaviour from existing logic code: all of the headers
         -- except for the first and last are tossed away.
@@ -240,10 +243,10 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
     -- A piece of the block retrieval conversation in which the blocks are
     -- pulled in one-by-one.
     retrieveBlocks
-        :: ConversationActions MsgGetBlocks MsgBlock
+        :: ConversationActions MsgGetBlocks (MsgBlock blk)
         -> BlockVersionData
         -> Int
-        -> ExceptT Text IO (NewestFirst [] Block)
+        -> ExceptT Text IO (NewestFirst [] blk)
     retrieveBlocks conv bvd numBlocks = retrieveBlocksDo conv bvd numBlocks []
 
     -- Content of retrieveBlocks.
@@ -255,14 +258,14 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
     -- (presumably the server sends them oldest first, as that assumption was
     -- required for the old version to correctly say OldestFirst).
     retrieveBlocksDo
-        :: ConversationActions MsgGetBlocks MsgBlock
+        :: ConversationActions MsgGetBlocks (MsgBlock blk)
         -> BlockVersionData
         -> Int        -- ^ Index of block we're requesting
-        -> [Block]    -- ^ Accumulator
-        -> ExceptT Text IO (NewestFirst [] Block)
+        -> [blk  ]    -- ^ Accumulator
+        -> ExceptT Text IO (NewestFirst [] blk)
     retrieveBlocksDo conv bvd !i !acc
         | i <= 0    = pure $ NewestFirst acc
-        | otherwise = lift (recvLimited conv (mlMsgBlock bvd)) >>= \case
+        | otherwise = lift (recvLimited conv (castLimit (mlMsgBlock bvd))) >>= \case
               Nothing ->
                   throwError $ sformat ("Block retrieval cut short by peer at index #"%int) i
               Just (MsgNoBlock t) ->
@@ -273,24 +276,25 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
 -- | Datatype used for the queue of blocks, produced by network streaming and
 -- then consumed by a continuation resonsible for writing blocks to store.
 -- StreamEnd signals end of stream.
-data StreamEntry = StreamEnd | StreamBlock !Block
+data StreamEntry blk = StreamEnd | StreamBlock !blk
 
 -- | Stream some blocks from the network.
 -- If streaming is not supported by the client or peer, you get 'Nothing'. We
 -- don't fall back to batching because we can't: that method requires having
 -- all of the header hashes for the blocks you desire.
 streamBlocks
-    :: forall t .
-       Trace IO (Severity, Text)
+    :: forall t tx blk header .
+       ( Bi blk, HasDifficulty blk, HasDifficulty header, HasHeaderHash blk )
+    => Trace IO (Severity, Text)
     -> Maybe DiffusionHealth
-    -> Logic IO
+    -> Logic tx blk header IO
     -> Word32 -- ^ Size of batches of blocks (deliver to StreamBlocks).
     -> Word32 -- ^ Size of stream window. 0 implies 'Nothing' is returned.
     -> EnqueueMsg
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
-    -> StreamBlocks Block IO t
+    -> StreamBlocks blk IO t
     -> IO (Maybe t)
 streamBlocks _        _   _     _         0            _       _      _         _           _ =
     return Nothing -- Fallback to batch mode
@@ -357,12 +361,12 @@ streamBlocks logTrace smM logic batchSize streamWindow enqueue nodeId tipHeader 
     -- the current conversation is unusable since there is no way for us to learn
     -- which blocks we shall fetch.
     batchConversation
-      :: ConversationActions MsgGetBlocks MsgBlock
+      :: ConversationActions MsgGetBlocks (MsgBlock blk)
       -> IO (Maybe t)
     batchConversation _ = pure Nothing
 
     streamBlocksConversation
-        :: ConversationActions MsgStream MsgStreamBlock
+        :: ConversationActions MsgStream (MsgStreamBlock blk)
         -> IO (Maybe t)
     streamBlocksConversation conv = do
         let newestHash = headerHash tipHeader
@@ -389,8 +393,8 @@ streamBlocks logTrace smM logic batchSize streamWindow enqueue nodeId tipHeader 
     -- pulled in one-by-one.
     retrieveBlocks
         :: BlockVersionData
-        -> Conc.TBQueue StreamEntry
-        -> ConversationActions MsgStream MsgStreamBlock
+        -> Conc.TBQueue (StreamEntry blk)
+        -> ConversationActions MsgStream (MsgStreamBlock blk)
         -> Word32
         -> IO ()
     retrieveBlocks bvd blockChan conv window = do
@@ -421,10 +425,10 @@ streamBlocks logTrace smM logic batchSize streamWindow enqueue nodeId tipHeader 
 
     retrieveBlock
         :: BlockVersionData
-        -> ConversationActions MsgStream MsgStreamBlock
-        -> IO MsgStreamBlock
+        -> ConversationActions MsgStream (MsgStreamBlock blk)
+        -> IO (MsgStreamBlock blk)
     retrieveBlock bvd conv = do
-        blockE <- recvLimited conv (mlMsgStreamBlock bvd)
+        blockE <- recvLimited conv (castLimit (mlMsgStreamBlock bvd))
         case blockE of
             Nothing -> do
                 let msg = sformat ("Error retrieving blocks from peer "%build) nodeId
@@ -434,9 +438,9 @@ streamBlocks logTrace smM logic batchSize streamWindow enqueue nodeId tipHeader 
 
     processBlocks
       :: Word32
-      -> [Block]
-      -> Conc.TBQueue StreamEntry
-      -> StreamBlocks Block IO t
+      -> [blk]
+      -> Conc.TBQueue (StreamEntry blk)
+      -> StreamBlocks blk IO t
       -> IO t
     processBlocks n !blocks blockChan k = do
         streamEntry <- atomically $ Conc.readTBQueue blockChan
@@ -467,18 +471,20 @@ streamBlocks logTrace smM logic batchSize streamWindow enqueue nodeId tipHeader 
 
 
 requestTip
-    :: Trace IO (Severity, Text)
-    -> Logic IO
+    :: forall tx block header .
+       ( Bi header, Buildable header, HasHeaderHash header )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> EnqueueMsg
     -> Word
-    -> IO (Map NodeId (IO BlockHeader))
+    -> IO (Map NodeId (IO header))
 requestTip logTrace logic enqueue recoveryHeadersMessage = fmap waitForDequeues $
     enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
-        \(conv :: ConversationActions MsgGetHeaders MsgHeaders) -> do
+        \(conv :: ConversationActions MsgGetHeaders (MsgHeaders header)) -> do
             traceWith logTrace (Debug, "Requesting tip...")
             bvd <- Logic.getAdoptedBVData logic
             send conv (MsgGetHeaders [] Nothing)
-            received <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
+            received <- recvLimited conv (castLimit (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage)))
             case received of
                 Just headers -> handleTip nodeId headers
                 Nothing      -> throwIO $ DialogUnexpected "peer didnt' respond with tips"
@@ -487,17 +493,18 @@ requestTip logTrace logic enqueue recoveryHeadersMessage = fmap waitForDequeues 
         traceWith logTrace (Debug, sformat ("Got tip "%shortHashF%" from "%shown%", processing") (headerHash tip) nodeId)
         pure tip
     handleTip _ t = do
-        traceWith logTrace (Warning, sformat ("requestTip: got enexpected response: "%shown) t)
+        traceWith logTrace (Warning, sformat ("requestTip: got enexpected response: "%build) t)
         throwIO $ DialogUnexpected "peer sent more than one tip"
 
 -- | Announce a block header.
 announceBlockHeader
-    :: Trace IO (Severity, Text)
-    -> Logic IO
+    :: ( Buildable header, Bi header, HasHeaderHash header )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> ProtocolConstants
     -> Word
     -> EnqueueMsg
-    -> MainBlockHeader
+    -> header
     -> IO (Map NodeId (IO ()))
 announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue header =  do
     traceWith logTrace (Debug, sformat ("Announcing header to others:\n"%build) header)
@@ -509,7 +516,7 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
                 ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId)
-        send cA $ MsgHeaders (one (BlockHeaderMain header))
+        send cA $ MsgHeaders (one header)
         -- After we announce, the peer is given an opportunity to request more
         -- headers within the same conversation.
         handleHeadersCommunication logTrace logic protocolConstants recoveryHeadersMessage cA
@@ -517,16 +524,19 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
 -- | A conversation for incoming MsgGetHeaders messages.
 -- For each of these messages, we'll try to send back the relevant headers,
 -- until the client closes up.
+--
+-- 
 handleHeadersCommunication
-    :: Trace IO (Severity, Text)
-    -> Logic IO
+    :: forall tx block header .
+       Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> ProtocolConstants
     -> Word
-    -> ConversationActions MsgHeaders MsgGetHeaders
+    -> ConversationActions (MsgHeaders header) MsgGetHeaders
     -> IO ()
 handleHeadersCommunication logTrace logic protocolConstants recoveryHeadersMessage conv = do
     let bc = fromIntegral (pcK protocolConstants)
-    whenJustM (recvLimited conv (mlMsgGetHeaders bc)) $ \mgh@(MsgGetHeaders {..}) -> do
+    whenJustM (recvLimited conv (castLimit (mlMsgGetHeaders bc))) $ \mgh@(MsgGetHeaders {..}) -> do
         traceWith logTrace (Debug, sformat ("Got request on handleGetHeaders: "%build) mgh)
         -- FIXME
         -- Diffusion layer is entirely capable of serving blocks even if the
@@ -535,7 +545,7 @@ handleHeadersCommunication logTrace logic protocolConstants recoveryHeadersMessa
             headers <- case (mghFrom,mghTo) of
                 -- This is how a peer requests our tip: empty checkpoint list,
                 -- Nothing for the limiting hash.
-                ([], Nothing) -> Right . one <$> getLastMainHeader
+                ([], Nothing) -> Right . one <$> Logic.getTip logic
                 -- This is how a peer requests one particular header: empty
                 -- checkpoint list, Just for the limiting hash.
                 ([], Just h)  -> do
@@ -549,18 +559,7 @@ handleHeadersCommunication logTrace logic protocolConstants recoveryHeadersMessa
                     Logic.getBlockHeaders logic (Just recoveryHeadersMessage) (c1:|cxs) mghTo
             either onNoHeaders handleSuccess headers
   where
-    -- retrieves header of the newest main block if there's any,
-    -- genesis otherwise.
-    getLastMainHeader :: IO BlockHeader
-    getLastMainHeader = do
-        tip :: Block <- Logic.getTip logic
-        let tipHeader = tip ^. blockHeader
-        case tip of
-            Left _  -> do
-                mHeader <- Logic.getBlockHeader logic (tip ^. prevBlockL)
-                pure $ fromMaybe tipHeader mHeader
-            Right _ -> pure tipHeader
-    handleSuccess :: NewestFirst NE BlockHeader -> IO ()
+    handleSuccess :: NewestFirst NE header -> IO ()
     handleSuccess h = do
         send conv (MsgHeaders h)
         traceWith logTrace (Debug, "handleGetHeaders: responded successfully")
@@ -573,6 +572,21 @@ handleHeadersCommunication logTrace logic protocolConstants recoveryHeadersMessa
         traceWith logTrace (Debug, "handleGetHeaders: not responding, we're in recovery mode")
         send conv (MsgNoHeaders "server node is in recovery mode")
 
+{-
+-- | retrieves header of the newest main block if there's any,
+-- genesis otherwise.
+--
+-- TODO remove this definition
+lastMainHeader :: Logic tx Block BlockHeader IO -> IO BlockHeader
+lastMainHeader logic = do
+    tip <- Logic.getTip logic
+    let tipHeader = tip ^. blockHeader
+    case tip of
+        Left _  -> do
+            mHeader <- Logic.getBlockHeader logic (tip ^. prevBlockL)
+            pure $ fromMaybe tipHeader mHeader
+        Right _ -> pure tipHeader
+-}
 
 -- |
 -- = Listeners
@@ -581,8 +595,9 @@ newtype ResetNodeTimer = ResetNodeTimer (NodeId -> IO ())
 
 -- | All block-related listeners.
 blockListeners
-    :: Trace IO (Severity, Text)
-    -> Logic IO
+    :: ( Bi block, Bi header, Buildable header )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> ProtocolConstants
     -> Word
     -> OQ.OutboundQ pack NodeId Bucket
@@ -606,9 +621,10 @@ blockListeners logTrace logic protocolConstants recoveryHeadersMessage oq keepal
 -- headers from some checkpoints that are older than optional @to@
 -- field.
 handleGetHeaders
-    :: forall pack.
-       Trace IO (Severity, Text)
-    -> Logic IO
+    :: forall pack tx block header .
+       ( Bi header )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> ProtocolConstants
     -> Word
     -> OQ.OutboundQ pack NodeId Bucket
@@ -620,9 +636,10 @@ handleGetHeaders logTrace logic protocolConstants recoveryHeadersMessage oq = li
 -- | Handler for a GetBlocks request from a client.
 -- It looks up the Block corresponding to each HeaderHash and sends it.
 handleGetBlocks
-    :: forall pack.
-       Trace IO (Severity, Text)
-    -> Logic IO
+    :: forall pack tx block header .
+       ( Bi block )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> Word
     -> OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec, OutSpecs)
@@ -649,10 +666,9 @@ handleGetBlocks logTrace logic recoveryHeadersMessage oq = listenerConv logTrace
                     Logic.getSerializedBlock logic hHash >>= \case
                         -- TODO: we should get lazy bytestring from the db layer to
                         -- stream the bytes to the network
-                        Just b -> sendRaw conv $ BSL.fromStrict $ serializeMsgSerializedBlock $ MsgSerializedBlock b
+                        Just b -> sendRaw conv $ BSL.fromStrict $ serializeMsgSerializedBlock (MsgSerializedBlock b :: MsgSerializedBlock block)
                         Nothing  -> do
-                            send conv $ MsgNoBlock ("Couldn't retrieve block with hash " <>
-                                                    pretty hHash)
+                            send conv (MsgNoBlock ("Couldn't retrieve block with hash " <> pretty hHash) :: MsgBlock block)
                             failMalformed
                 traceWith logTrace (Debug, "handleGetBlocks: blocks sending done")
             Left e -> traceWith logTrace (Warning, "getBlocksByHeaders@retrieveHeaders returned error: " <> show e)
@@ -664,12 +680,13 @@ handleGetBlocks logTrace logic recoveryHeadersMessage oq = listenerConv logTrace
         "have corresponding block in storage."
 
 handleStreamStart
-    :: forall pack.
-       Trace IO (Severity, Text)
-    -> Logic IO
+    :: forall pack tx block header .
+       ( Bi header, Bi block )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec, OutSpecs)
-handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo nodeId conv -> do
+handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo nodeId (conv :: ConversationActions (MsgStreamBlock block) MsgStream) -> do
     msMsg <- recvLimited conv mlMsgStream
     whenJust msMsg $ \ms -> do
         case ms of
@@ -677,7 +694,7 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                  traceWith logTrace (Debug, sformat ("Streaming Request from node "%build) nodeId)
                  stream nodeId conv (mssFrom s) (mssTo s) (mssWindow s)
              MsgUpdate _ -> do
-                 send conv $ MsgStreamNoBlock "MsgUpdate without MsgStreamStart"
+                 send conv (MsgStreamNoBlock "MsgUpdate without MsgStreamStart" :: MsgStreamBlock block)
                  traceWith logTrace (Debug, sformat ("MsgStream without MsgStreamStart from node "%build) nodeId)
                  return ()
 
@@ -705,7 +722,7 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
 
     loop nodeId conv 0 = do
         lift $ traceWith logTrace (Debug, "handleStreamStart:loop waiting on window update")
-        msMsg <- lift $ recvLimited conv mlMsgStream
+        msMsg <- lift $ recvLimited conv (castLimit mlMsgStream)
         whenJust msMsg $ \ms -> do
              case ms of
                   MsgStart _ -> do
@@ -718,7 +735,7 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                       loop nodeId conv (msuWindow u)
     loop nodeId conv window =
         whenJustM await $ \b -> do
-            lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
+            lift $ sendRaw conv $ serializeMsgStreamBlock (MsgSerializedBlock b :: MsgSerializedBlock block)
             loop nodeId conv (window - 1)
 
 ----------------------------------------------------------------------------
@@ -727,9 +744,10 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
 
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
-    :: forall pack .
-       Trace IO (Severity, Text)
-    -> Logic IO
+    :: forall pack tx block header .
+       ( Buildable header, Bi header )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> Word
     -> ResetNodeTimer
@@ -741,7 +759,7 @@ handleBlockHeaders logTrace logic oq recoveryHeadersMessage (ResetNodeTimer keep
     -- we don't really send any messages.
     traceWith logTrace (Debug, "handleBlockHeaders: got some unsolicited block header(s)")
     bvd <- Logic.getAdoptedBVData logic
-    mHeaders <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
+    mHeaders <- recvLimited conv (castLimit (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage)))
     whenJust mHeaders $ \case
         (MsgHeaders headers) -> do
             -- Reset the keepalive timer.
@@ -751,9 +769,10 @@ handleBlockHeaders logTrace logic oq recoveryHeadersMessage (ResetNodeTimer keep
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: Trace IO (Severity, Text)
-    -> Logic IO
-    -> NonEmpty BlockHeader
+    :: ( Buildable header )
+    => Trace IO (Severity, Text)
+    -> Logic tx block header IO
+    -> NonEmpty header
     -> NodeId
     -> IO ()
 handleUnsolicitedHeaders _ logic (header :| []) nodeId =

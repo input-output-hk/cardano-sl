@@ -12,8 +12,9 @@ import           Universum
 
 import           Pos.Worker.Block (blkWorkers)
 -- Message instances.
+import           Pos.Chain.Block (Block, BlockHeader)
 import           Pos.Chain.Genesis as Genesis (Config, configEpochSlots)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (StakeholderId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -33,7 +34,7 @@ allWorkers
     -> Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
-    -> [ (Text, Diffusion m -> m ()) ]
+    -> [ (Text, Diffusion TxAux Block BlockHeader m -> m ()) ]
 allWorkers sid genesisConfig txpConfig NodeResources {..} = mconcat
     [ sscWorkers sid genesisConfig
     , usWorkers genesisConfig

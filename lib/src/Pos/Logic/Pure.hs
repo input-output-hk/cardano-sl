@@ -36,7 +36,7 @@ import           Pos.Crypto.Configuration (ProtocolMagic (..),
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),
                      Signature (..), deterministicKeyGen, signRaw)
-import           Pos.DB.Class (Serialized (..), SerializedBlock)
+import           Pos.DB.Class (Serialized (..))
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
@@ -44,7 +44,7 @@ import           Pos.Logic.Types (KeyVal (..), Logic (..))
 -- any request.
 pureLogic
     :: ( Monad m )
-    => Logic m
+    => Logic tx Block BlockHeader m
 pureLogic = Logic
     { getSerializedBlock = \_ -> pure (Just serializedBlock)
     , streamBlocks       = \_ k -> k (pure ())
@@ -54,7 +54,7 @@ pureLogic = Logic
       -- This definition of getLcaMainChain decides that all of the input
       -- hashes are *not* in the chain.
     , getLcaMainChain    = \hashes -> pure (NewestFirst [], hashes)
-    , getTip             = pure block
+    , getTip             = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
     , postBlockHeader    = \_ _ -> pure ()
     , postPskHeavy       = \_ -> pure True
@@ -126,7 +126,7 @@ blockVersionData = BlockVersionData
 block :: Block
 block = Right mainBlock
 
-serializedBlock :: SerializedBlock
+serializedBlock :: Serialized Block
 serializedBlock = Serialized $ serialize' block
 
 mainBlock :: MainBlock

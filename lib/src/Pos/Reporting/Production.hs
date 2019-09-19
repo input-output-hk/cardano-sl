@@ -29,7 +29,7 @@ data ProductionReporterParams = ProductionReporterParams
 
 productionReporter
     :: ProductionReporterParams
-    -> Diffusion IO -- ^ Used to get status info, not to do any network stuff.
+    -> Diffusion tx block header IO -- ^ Used to get status info, not to do any network stuff.
     -> Reporter IO
 productionReporter params diffusion = Reporter $ \rt -> withWlogTempFile logConfig $ \mfp -> do
     rt' <- extendWithNodeInfo diffusion rt

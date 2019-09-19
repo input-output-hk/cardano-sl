@@ -6,6 +6,7 @@
 
 module Pos.Binary.Limit
        ( Limit (..)
+       , castLimit
        , (<+>)
        , mlBool
        , mlMaybe
@@ -32,6 +33,9 @@ instance Functor Limit where
 infixl 4 <+>
 (<+>) :: Limit (a -> b) -> Limit a -> Limit b
 Limit x <+> Limit y = Limit $ x + y
+
+castLimit :: Limit a -> Limit b
+castLimit (Limit w) = Limit w
 
 mlBool :: Limit Bool
 mlBool = 1

@@ -20,17 +20,17 @@ import qualified Control.Monad.Reader as Mtl
 import           Data.Default (Default)
 import           System.Exit (ExitCode (..))
 
-import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
-                     streamWindow)
+import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
+                     recoveryHeadersMessage, streamWindow)
 import           Pos.Chain.Genesis as Genesis (Config (..))
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux (..), TxpConfiguration)
 import           Pos.Chain.Update (UpdateConfiguration, lastKnownBlockVersion,
                      updateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core.JsonLog (jsonLog)
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Crypto (ProtocolMagic, hash)
 import           Pos.DB.Txp (MonadTxpLocal)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)
@@ -76,7 +76,7 @@ runRealMode
     -> Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
-    -> (Diffusion (RealMode ext) -> RealMode ext a)
+    -> (Diffusion TxAux Block BlockHeader (RealMode ext) -> RealMode ext a)
     -> IO a
 runRealMode uc genesisConfig txpConfig nr@NodeResources {..} act =
     runServer
@@ -90,15 +90,15 @@ runRealMode uc genesisConfig txpConfig nr@NodeResources {..} act =
   where
     NodeContext {..} = nrContext
     NodeParams {..}  = ncNodeParams
-    logic :: Logic (RealMode ext)
+    logic :: Logic TxAux Block BlockHeader (RealMode ext)
     logic = logicFull genesisConfig txpConfig jsonLog
     pm = configProtocolMagic genesisConfig
-    makeLogicIO :: Diffusion IO -> Logic IO
+    makeLogicIO :: Diffusion TxAux Block BlockHeader IO -> Logic TxAux Block BlockHeader IO
     makeLogicIO diffusion = hoistLogic
       (elimRealMode uc pm nr diffusion)
       liftIO
       logic
-    act' :: Diffusion IO -> IO a
+    act' :: Diffusion TxAux Block BlockHeader IO -> IO a
     act' diffusion =
         let diffusion' = hoistDiffusion liftIO (elimRealMode uc pm nr diffusion) diffusion
          in elimRealMode uc pm nr diffusion (act diffusion')
@@ -111,7 +111,7 @@ elimRealMode
     => UpdateConfiguration
     -> ProtocolMagic
     -> NodeResources ext
-    -> Diffusion IO
+    -> Diffusion TxAux Block BlockHeader IO
     -> RealMode ext t
     -> IO t
 elimRealMode uc pm NodeResources {..} diffusion action = do
@@ -156,8 +156,8 @@ runServer
     -> NodeParams
     -> EkgNodeMetrics
     -> ShutdownContext
-    -> (Diffusion IO -> Logic IO)
-    -> (Diffusion IO -> IO t)
+    -> (Diffusion TxAux Block BlockHeader IO -> Logic TxAux Block BlockHeader IO)
+    -> (Diffusion TxAux Block BlockHeader IO -> IO t)
     -> IO t
 runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown $
     diffusionLayerFull fdconf
@@ -185,6 +185,7 @@ runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic ac
         , fdcStreamWindow = streamWindow
         -- TODO should be configurable
         , fdcBatchSize    = 64
+        , fdcTxId         = hash . taTx
         }
     exitOnShutdown action = do
         result <- race (waitForShutdown shdnContext) action

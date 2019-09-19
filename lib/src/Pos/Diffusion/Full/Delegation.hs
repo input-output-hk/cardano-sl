@@ -25,7 +25,7 @@ import           Pos.Util.Trace (Severity, Trace)
 
 delegationListeners
     :: Trace IO (Severity, Text)
-    -> Logic IO
+    -> Logic tx header block IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> MkListeners
@@ -33,7 +33,7 @@ delegationListeners logTrace logic oq enqueue = relayListeners logTrace oq enque
 
 -- | Listeners for requests related to delegation processing.
 delegationRelays
-    :: Logic IO
+    :: Logic tx header block IO
     -> [Relay]
 delegationRelays logic = [ pskHeavyRelay logic ]
 
@@ -41,12 +41,12 @@ delegationRelays logic = [ pskHeavyRelay logic ]
 -- motif required for communication.
 -- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
 delegationOutSpecs
-    :: Logic IO
+    :: Logic tx header block IO
     -> OutSpecs
 delegationOutSpecs logic = relayPropagateOut (delegationRelays logic)
 
 pskHeavyRelay
-    :: Logic IO
+    :: Logic tx header block IO
     -> Relay
 pskHeavyRelay logic = Data $ DataParams
     MsgMPC

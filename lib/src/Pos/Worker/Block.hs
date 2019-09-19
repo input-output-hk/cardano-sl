@@ -21,7 +21,7 @@ import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 
-import           Pos.Chain.Block (BlockHeader (..), HasBlockConfiguration,
+import           Pos.Chain.Block (Block, BlockHeader (..), HasBlockConfiguration,
                      blockHeaderHash, criticalCQ, criticalCQBootstrap,
                      fixedTimeCQSec, gbHeader, lsiFlatSlotId, networkDiameter,
                      nonCriticalCQ, nonCriticalCQBootstrap,
@@ -34,7 +34,7 @@ import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
                      configSlotSecurityParam)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
 import           Pos.Core (BlockCount, ChainDifficulty, EpochIndex (..),
                      FlatSlotId, SlotCount, SlotId (..), Timestamp (Timestamp),
@@ -88,7 +88,7 @@ blkWorkers
        )
     => Genesis.Config
     -> TxpConfiguration
-    -> [ (Text, Diffusion m -> m ()) ]
+    -> [ (Text, Diffusion TxAux Block BlockHeader m -> m ()) ]
 blkWorkers genesisConfig txpConfig =
     [ ("block creator", blkCreatorWorker genesisConfig txpConfig)
     , ("block informer", informerWorker $ configBlkSecurityParam genesisConfig)
@@ -98,7 +98,7 @@ blkWorkers genesisConfig txpConfig =
 
 informerWorker
     :: BlockWorkMode ctx m
-    => BlockCount -> Diffusion m -> m ()
+    => BlockCount -> Diffusion TxAux Block BlockHeader m -> m ()
 informerWorker k _ =
     onNewSlot epochSlots defaultOnNewSlotParams $ \slotId ->
         recoveryCommGuard k "onNewSlot worker, informerWorker" $ do
@@ -128,7 +128,7 @@ blkCreatorWorker
        )
     => Genesis.Config
     -> TxpConfiguration
-    -> Diffusion m -> m ()
+    -> Diffusion TxAux Block BlockHeader m -> m ()
 blkCreatorWorker genesisConfig txpConfig diffusion =
     onNewSlot (configEpochSlots genesisConfig) onsp $ \slotId ->
         recoveryCommGuard (configBlkSecurityParam genesisConfig)
@@ -149,7 +149,7 @@ blockCreator
     => Genesis.Config
     -> TxpConfiguration
     -> SlotId
-    -> Diffusion m -> m ()
+    -> Diffusion TxAux Block BlockHeader m -> m ()
 blockCreator genesisConfig txpConfig slotId diffusion = do
     era <- getConsensusEra
     case era of
@@ -186,7 +186,7 @@ blockCreatorObft
     => Genesis.Config
     -> TxpConfiguration
     -> SlotId
-    -> Diffusion m -> m ()
+    -> Diffusion TxAux Block BlockHeader m -> m ()
 blockCreatorObft genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
     (leader, pske) <- getSlotLeaderObft genesisConfig slotId
     ourPk <- getOurPublicKey
@@ -227,7 +227,7 @@ blockCreatorOriginal
     => Genesis.Config
     -> TxpConfiguration
     -> SlotId
-    -> Diffusion m -> m ()
+    -> Diffusion TxAux Block BlockHeader m -> m ()
 blockCreatorOriginal genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlockAndApply genesisConfig txpConfig siEpoch
@@ -316,7 +316,7 @@ onNewSlotWhenLeader
     -> TxpConfiguration
     -> SlotId
     -> ProxySKBlockInfo
-    -> Diffusion m
+    -> Diffusion TxAux Block BlockHeader m
     -> m ()
 onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion = do
     let logReason =
@@ -347,7 +347,7 @@ onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (configEpochSlots genesisConfig) (Right createdBlk)
-            void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
+            void $ Diffusion.announceBlockHeader diffusion $ BlockHeaderMain $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------
@@ -358,7 +358,7 @@ recoveryTriggerWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        )
-    => Genesis.Config -> Diffusion m -> m ()
+    => Genesis.Config -> Diffusion TxAux Block BlockHeader m -> m ()
 recoveryTriggerWorker genesisConfig diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).

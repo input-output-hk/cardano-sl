@@ -31,7 +31,7 @@ import           Pos.Util.Wlog (logDebug, logInfo)
 
 -- | Update System related workers.
 usWorkers
-    :: forall ctx m . UpdateMode ctx m => Genesis.Config -> [ (Text, Diffusion m -> m ()) ]
+    :: forall ctx tx block header m . UpdateMode ctx m => Genesis.Config -> [ (Text, Diffusion tx block header m -> m ()) ]
 usWorkers genesisConfig = [ ("us new slot", processNewSlotWorker), ("us check updates", checkForUpdateWorker) ]
   where
     epochSlots = configEpochSlots genesisConfig
@@ -84,7 +84,7 @@ checkForUpdate = do
 -- application. When an update is downloaded, it shuts the system
 -- down. It should be used in there is no high-level code which shuts
 -- down the system (e. g. in regular node w/o wallet or in explorer).
-updateTriggerWorker :: UpdateMode ctx m => Diffusion m -> m ()
+updateTriggerWorker :: UpdateMode ctx m => Diffusion tx block header m -> m ()
 updateTriggerWorker = \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar . ucDownloadedUpdate =<< view (lensOf @UpdateContext)

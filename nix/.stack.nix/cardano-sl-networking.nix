@@ -4,7 +4,7 @@
     package = {
       specVersion = "1.20";
       identifier = { name = "cardano-sl-networking"; version = "3.1.0"; };
-      license = "MIT";
+      license = "Apache-2.0";
       copyright = "";
       maintainer = "";
       author = "";

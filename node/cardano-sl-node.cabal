@@ -4,8 +4,10 @@ synopsis:            Cardano SL simple node executable
 description:         Provides a 'cardano-node-simple' executable which can
                      connect to the Cardano network and act as a full node
                      but does not have any wallet capabilities.
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:              Serokell
 maintainer:          Serokell <hi@serokell.io>
 copyright:           2016 IOHK

@@ -2,8 +2,10 @@ name:                cardano-sl-tools-post-mortem
 version:             3.1.0
 synopsis:            Cardano SL - post-mortem tool
 description:         Cardano SL - post-mortem tool
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:              IOHK
 maintainer:          operations@iohk.io
 copyright:           2018 IOHK

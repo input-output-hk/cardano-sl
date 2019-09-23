@@ -3,7 +3,7 @@
     flags = { benchmarks = false; };
     package = {
       specVersion = "1.20";
-      identifier = { name = "cardano-sl-networking"; version = "3.0.3"; };
+      identifier = { name = "cardano-sl-networking"; version = "3.1.0"; };
       license = "MIT";
       copyright = "";
       maintainer = "";

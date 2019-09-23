@@ -5,7 +5,7 @@
       specVersion = "1.10";
       identifier = {
         name = "cardano-sl-tools-post-mortem";
-        version = "3.0.3";
+        version = "3.1.0";
         };
       license = "MIT";
       copyright = "2018 IOHK";

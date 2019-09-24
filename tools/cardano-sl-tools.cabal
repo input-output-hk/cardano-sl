@@ -2,8 +2,10 @@ name:                cardano-sl-tools
 version:             3.1.0
 synopsis:            Cardano SL - Tools
 description:         Cardano SL - Tools
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:              Serokell
 maintainer:          hi@serokell.io
 copyright:           2016 IOHK

@@ -4,7 +4,7 @@
     package = {
       specVersion = "1.10";
       identifier = { name = "cardano-sl-node"; version = "3.1.0"; };
-      license = "MIT";
+      license = "Apache-2.0";
       copyright = "2016 IOHK";
       maintainer = "Serokell <hi@serokell.io>";
       author = "Serokell";

@@ -4,8 +4,10 @@ synopsis:            Cardano SL - general utilities
 description:         This package contains utility functions not specific
                      to Cardano SL which extend 3rd party libraries or implement
                      something from scratch.
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 homepage:            https://github.com/input-output-hk/cardano-sl
 author:              IOHK
 maintainer:          support@iohk.io

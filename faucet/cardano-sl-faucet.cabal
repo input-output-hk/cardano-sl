@@ -1,7 +1,10 @@
 name:           cardano-sl-faucet
 version:        3.1.0
 description:    Cardano SL - faucet
-license:        MIT
+license:        Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:         Ben Ford
 maintainer:     ben.ford@tweag.io
 copyright:      2018 IOHK

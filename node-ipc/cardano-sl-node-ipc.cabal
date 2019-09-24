@@ -1,7 +1,9 @@
 name:                cardano-sl-node-ipc
 version:             3.1.0
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:              Michael Bishop
 maintainer:          cleverca22@gmail.com
 build-type:          Simple

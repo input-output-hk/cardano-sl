@@ -2,8 +2,10 @@ name:                cardano-sl-db-test
 version:             3.1.0
 synopsis:            Cardano SL - arbitrary instances for cardano-sl-db
 description:         Cardano SL - arbitrary instances for cardano-sl-db
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:              IOHK
 maintainer:          IOHK <support@iohk.io>
 copyright:           2018 IOHK

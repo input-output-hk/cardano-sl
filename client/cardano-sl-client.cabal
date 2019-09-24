@@ -2,8 +2,10 @@ name:                cardano-sl-client
 version:             3.1.0
 synopsis:            Cardano SL client modules
 description:         Cardano SL client modules
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:              Serokell
 maintainer:          hi@serokell.io
 copyright:           2017 IOHK

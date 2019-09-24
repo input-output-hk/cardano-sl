@@ -3,8 +3,10 @@ version:             3.1.0
 synopsis:            Cardano SL - binary serialization
 description:         This package defines a type class for binary serialization,
                      helpers and instances.
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 author:              Serokell
 maintainer:          hi@serokell.io
 copyright:           2016 IOHK

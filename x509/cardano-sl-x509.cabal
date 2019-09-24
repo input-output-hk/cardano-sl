@@ -6,8 +6,10 @@ homepage:            https://github.com/input-output-hk/cardano-sl/x509/README.m
 author:              IOHK Engineering Team
 maintainer:          operations@iohk.io
 copyright:           2018 IOHK
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:
+  LICENSE
+  NOTICE
 category:            Data
 build-type:          Simple
 extra-source-files:  README.md

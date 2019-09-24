@@ -13,6 +13,7 @@
 ### Improvements
 
 - Configuration files and environments map moved to iohk-nix [#4227](https://github.com/input-output-hk/cardano-sl/pull/4227)
+- License update to apache 2 [#4242](https://github.com/input-output-hk/cardano-sl/pull/4242)
 
 
 ## Cardano SL 3.0.3

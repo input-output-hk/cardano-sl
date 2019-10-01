@@ -36,7 +36,6 @@ import qualified Cardano.Wallet.API.V1 as V1
 -- * 'Cardano.Wallet.Server' contains the main server;
 -- * 'Cardano.Wallet.API.V1.Handlers' contains all the @Handler@s serving the V1 API;
 -- * 'Cardano.Wallet.API.Internal.Handlers' contains all the @Handler@s serving the Internal API;
---
 
 type WalletAPI = LoggingApi WalletLoggingConfig (V1API :<|> InternalAPI)
 walletAPI :: Proxy WalletAPI

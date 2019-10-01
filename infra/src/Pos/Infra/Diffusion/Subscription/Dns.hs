@@ -60,7 +60,8 @@ dnsSubscriptionTarget logTrace timeoutError defaultPort addrs =
       threadDelay 30000000
       getSubscriptionTarget (dnsSubscriptionTarget logTrace timeoutError defaultPort addrs)
     listTargets ([] : fallbacks)                 = listTargets fallbacks
-    listTargets ((nodeId : nodeIds) : fallbacks) = pure (Just (nodeId, SubscriptionTarget (listTargets (nodeIds : fallbacks))))
+    listTargets ((nodeId : nodeIds) : fallbacks) = pure $
+        Just (nodeId, SubscriptionTarget (listTargets (nodeIds : fallbacks)))
 
     logTraceError :: Trace IO Text
     logTraceError = contramap ((,) Error) logTrace

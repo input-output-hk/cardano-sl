@@ -32,7 +32,7 @@ in
 
     export PATH="${makeBinPath genesisTools}"
     src="${configSource}"
-    out="${1-}"
+    out=$1
 
     if [ -z "$out" ]; then
       echo "usage: $0 OUTDIR"

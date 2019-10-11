@@ -4,6 +4,7 @@ let
 in { customConfig ? {}
 , target ? builtins.currentSystem
 , gitrev ? commitIdFromGitRepo ./.git
+, genesisArgs ? {}
 }:
 #
 #
@@ -41,6 +42,10 @@ let
   scripts = import ./nix/scripts.nix {
     inherit commonLib nixTools customConfig cardanoConfig;
   };
+  mkGenesis = pkgs.callPackage ./scripts/prepare-genesis (genesisArgs // {
+    inherit (nixTools.nix-tools.libs) cardano-sl;
+    inherit (nixTools.nix-tools.exes) cardano-sl-tools;
+  });
   # Tests contains code quality tests like shellcheck, yaml validation, and haskell style requirements to pass CI
   tests = import ./nix/tests.nix {
     inherit commonLib src nixTools;
@@ -70,7 +75,7 @@ let
     };
   in commonLib.forEnvironments mkTest;
 in {
-  inherit pkgs acceptanceTests daedalus-bridge tests
+  inherit pkgs acceptanceTests daedalus-bridge tests mkGenesis
           cardanoConfig faucetFrontend explorerFrontend explorerPythonAPI;
   inherit (nixTools) nix-tools;
 } // scripts

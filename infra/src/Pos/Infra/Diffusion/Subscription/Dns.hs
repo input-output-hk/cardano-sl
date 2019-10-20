@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BangPatterns    #-}
 
 -- | 'SubscriptionTarget' backed by DNS.
 
@@ -8,15 +9,17 @@ module Pos.Infra.Diffusion.Subscription.Dns
     , retryInterval
     ) where
 
-import           Universum hiding (atomically)
+import           Universum hiding (atomically, set)
 
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (forConcurrently_)
-import           Control.Concurrent.MVar (modifyMVar_)
+import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import           Control.Concurrent.STM (atomically)
 import           Control.Exception (IOException, SomeException, toException)
 import           Data.Either (partitionEithers)
 import qualified Data.Map.Strict as Map
+import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Data.Time.Units (Microsecond, Millisecond, convertUnit,
                      fromMicroseconds, toMicroseconds)
 import           Formatting (int, sformat, shown, (%))
@@ -32,7 +35,7 @@ import           Pos.Infra.Network.DnsDomains (NodeAddr)
 import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..),
                      NodeId (..), NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer, newTimer, startTimer, waitTimer)
-import           Pos.Util.Trace (Severity (..), Trace, traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, contramap, traceWith)
 
 -- | Resolve a fixed list of names to a NodeId (using a given port) repeatedly.
 -- If the resolution may give more than one address, the addresses are given
@@ -50,21 +53,29 @@ dnsSubscriptionTarget logTrace timeoutError defaultPort addrs =
 
   where
 
-    listTargets :: [NodeId] -> IO (Maybe (NodeId, SubscriptionTarget IO NodeId))
+    listTargets :: [[NodeId]] -> IO (Maybe (NodeId, SubscriptionTarget IO NodeId))
     listTargets [] = do
       -- Wait 30s before another round; otherwise the node will exhaust
       -- available opened file descriptors.
       threadDelay 30000000
       getSubscriptionTarget (dnsSubscriptionTarget logTrace timeoutError defaultPort addrs)
-    listTargets (nodeId : nodeIds) = pure (Just (nodeId, SubscriptionTarget (listTargets nodeIds)))
+    listTargets ([] : fallbacks)                 = listTargets fallbacks
+    listTargets ((nodeId : nodeIds) : fallbacks) = pure (Just (nodeId, SubscriptionTarget (listTargets (nodeIds : fallbacks))))
 
-    resolve :: IO [NodeId]
+    logTraceError :: Trace IO Text
+    logTraceError = contramap ((,) Error) logTrace
+
+    -- Resolve the DNS domains to a list of fallbacks: each list corresponds to
+    -- one domain name and later lists are fallbacks in case earlier lists
+    -- are exhausted.
+    resolve :: IO [[NodeId]]
     resolve = do
-        outcome <- fmap Right (resolveOne logTrace defaultPort addrs)
+        outcome <- fmap Right (resolveOne logTraceError defaultPort addrs)
             `catch` handleDnsError
             `catch` handleIoError
         case outcome of
             Left err -> do
+                -- If nothing was resolved, wait a while before trying again.
                 traceWith logTrace (Error, formatErr err)
                 timeoutError >>= threadDelay . fromIntegral
                 resolve
@@ -80,21 +91,23 @@ dnsSubscriptionTarget logTrace timeoutError defaultPort addrs =
     formatErr err = sformat ("exception while resolving domains "%shown%": "%shown) addrs err
 
 -- | Find peers via DNS, preserving order.
--- In case multiple addresses are returned for one name, they're flattened
--- and we forget the boundaries, but all of the addresses for a given name
--- are adjacent.
+-- It's possible for multiple addresses to be returned for one name, so they
+-- are returned in a list.
+-- Any failures are traced here. Also, if none of the names resolved to any
+-- addresses (the concatenation of the resulting list of lists is empty) that
+-- will be traced as well.
 resolveOne
-    :: Trace IO (Severity, Text)
+    :: Trace IO Text
     -> Word16
     -> [NodeAddr DNS.Domain]
-    -> IO [NodeId]
+    -> IO [[NodeId]]
 resolveOne logTrace defaultPort nodeAddrs = do
     mNodeIds <- resolveDnsDomains defaultPort nodeAddrs
     let (errs, nids_) = partitionEithers mNodeIds
         nids = mconcat nids_
-    when (null nids)   $ traceWith logTrace (Error, msgNoRelays)
-    unless (null errs) $ traceWith logTrace (Error, msgDnsFailure errs)
-    return nids
+    when (null nids)   $ traceWith logTrace msgNoRelays
+    unless (null errs) $ traceWith logTrace (msgDnsFailure errs)
+    return nids_
 
   where
 
@@ -141,13 +154,29 @@ dnsSubscriptionWorker
 dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimerVar slotDuration subStatus sendActions = do
     -- Shared state between threads, used to set the outbound queue known
     -- peers.
+    -- Also used to eliminate duplicate subscriptions between threads: you
+    -- can give the same DNS domain multiple times, and in case it resolves
+    -- to more than one address, more than one will be picked if possible.
+    subscriptionsVar <- newMVar Set.empty
     peersVar <- newMVar Map.empty
     traceWith logTrace (Notice, sformat ("dnsSubscriptionWorker: valency "%int) (length dnsDomains))
     forConcurrently_ dnsDomains $ \domain -> do
-        subscriber (subscribeTo peersVar)
+        subscriber (subscribeToNoDuplicates subscriptionsVar peersVar)
                    (dnsSubscriptionTarget logTrace timeoutError defaultPort domain)
     traceWith logTrace (Notice, sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length dnsDomains))
   where
+
+    -- Attempt to subscribe to a given address, only if there are no other
+    -- threads already subscribed to it. That's possible in case different
+    -- DNS names given in alternatives resolve to the same address.
+    subscribeToNoDuplicates
+      :: MVar (Set NodeId)
+      -> MVar (Map (NodeType, NodeId) Int)
+      -> SubscribeTo IO NodeId
+    subscribeToNoDuplicates subscriptionsVar peersVar nodeId = bracket
+        (addToSubscriptionsVar subscriptionsVar nodeId)
+        (removeFromSubscriptionsVar subscriptionsVar nodeId)
+        (\goAhead -> when goAhead (subscribeTo peersVar nodeId))
 
     subscribeTo :: MVar (Map (NodeType, NodeId) Int) -> SubscribeTo IO NodeId
     subscribeTo peersVar nodeId = do
@@ -165,6 +194,22 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimerVar 
         deleteTimer nodeId
         timeToWait <- retryInterval duration <$> slotDuration
         threadDelay (fromIntegral timeToWait * 1000)
+
+    -- Gives True if the peer was not in the set and was added.
+    -- Gives False if the peer was in the set and therefore was not added.
+    addToSubscriptionsVar :: MVar (Set NodeId) -> NodeId -> IO Bool
+    addToSubscriptionsVar subscriptionsVar nodeId = modifyMVar subscriptionsVar $ \set ->
+        if Set.member nodeId set
+        then pure (set, False)
+        else let !set' = Set.insert nodeId set in pure (set', True)
+
+    -- To bracket with addToSubscriptionsVar. Do nothing if the Bool is
+    -- False, because the peer was not added by this bracket. If True, remove
+    -- it from the set.
+    removeFromSubscriptionsVar :: MVar (Set NodeId) -> NodeId -> Bool -> IO ()
+    removeFromSubscriptionsVar subscriptionsVar nodeId True  = modifyMVar subscriptionsVar $ \set ->
+        let !set' = Set.delete nodeId set in pure (set', ())
+    removeFromSubscriptionsVar _                _      False = pure ()
 
     createTimer :: NodeId -> IO Timer
     createTimer nodeId = do

@@ -14916,6 +14916,14 @@ mainnet_ci_full: &mainnet_ci_full
     attribResrictEpoch: 2
     addrAttribSize: 128
     txAttribSize: 128
+  update:
+    <<: *mainnet_base_update
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
 
 ##############################################################################
 ##                                                                          ##

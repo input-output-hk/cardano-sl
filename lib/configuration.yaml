@@ -15127,7 +15127,7 @@ shelley_staging_short_full: &shelley_staging_short_full
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
-      bvMajor: 1
+      bvMajor: 0
       bvMinor: 0
       bvAlt: 0
 

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Cardano SL Unreleased
+
+### Fixes
+- Improve DNS subscription valency and fallback behaviour [#4243](https://github.com/input-output-hk/cardano-sl/pull/4243)
+
+
 ## Cardano SL 3.1.0
 
 ### Features
@@ -9,7 +15,6 @@
 ### Fixes
 
 - Correct change category in 3.0.3 and add section for unreleased changes [#4232](https://github.com/input-output-hk/cardano-sl/pull/4232)
-- Improve DNS subscription valency and fallback behaviour [#4243](https://github.com/input-output-hk/cardano-sl/pull/4243)
 
 ### Improvements
 

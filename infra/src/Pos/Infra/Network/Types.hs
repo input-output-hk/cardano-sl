@@ -109,6 +109,10 @@ data NetworkConfig kademlia = NetworkConfig
     , ncTcpAddr       :: !TCP.TCPAddr
       -- ^ External TCP address of the node.
       -- It encapsulates both bind address and address visible to other nodes.
+    , ncCheckPeerHost :: !Bool
+      -- ^ Whether to perform the peer host address consistency check.
+      -- The check is necessary to avoid easy denial-of-service attacks,
+      -- but can be restrictive in certain scenarios.
     }
 
 instance Show kademlia => Show (NetworkConfig kademlia) where

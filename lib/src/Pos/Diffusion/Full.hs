@@ -149,7 +149,7 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
         logTrace :: Trace IO Text
         logTrace = contramap ((,) Error) $ named $
             appendName "transport" (fdcTrace fdconf)
-    bracketTransportTCP logTrace (fdcConvEstablishTimeout fdconf) (ncTcpAddr networkConfig) $ \transport -> do
+    bracketTransportTCP logTrace (fdcConvEstablishTimeout fdconf) (ncTcpAddr networkConfig) (ncCheckPeerHost networkConfig) $ \transport -> do
         rec (fullDiffusion, internals) <-
                 diffusionLayerFullExposeInternals fdconf
                                                   transport

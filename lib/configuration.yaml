@@ -14881,6 +14881,52 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
 
 ##############################################################################
 ##                                                                          ##
+##   CI Mainnet lookalike: chosen to be similar to mainnet.                 ##
+##                                                                          ##
+##############################################################################
+
+mainnet_ci: &mainnet_ci
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec:
+        <<: *mainnet_base_spec
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          unlockStakeEpoch: 9999999999999999999 # we're starting in OBFT mode
+    requiresNetworkMagic: RequiresNoMagic
+  txValidationRules:
+    attribResrictEpoch: 2
+    addrAttribSize: 128
+    txAttribSize: 128
+
+mainnet_ci_full: &mainnet_ci_full
+  <<: *mainnet_ci
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      src:
+        file: mainnet-ci-genesis.json
+        hash: 12da51c484b5310fe26ca06ab24b94b323cde3698a0a50cb3f212abd08c2731e
+    requiresNetworkMagic: RequiresNoMagic
+  txValidationRules:
+    attribResrictEpoch: 2
+    addrAttribSize: 128
+    txAttribSize: 128
+  update:
+    <<: *mainnet_base_update
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+
+##############################################################################
+##                                                                          ##
 ##   Testnet config                                                         ##
 ##                                                                          ##
 ##############################################################################
@@ -15089,7 +15135,7 @@ shelley_staging_short_full: &shelley_staging_short_full
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
-      bvMajor: 1
+      bvMajor: 0
       bvMinor: 0
       bvAlt: 0
 

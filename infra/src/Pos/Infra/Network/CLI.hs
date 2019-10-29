@@ -78,6 +78,10 @@ data NetworkConfigOpts = NetworkConfigOpts
       -- address.
     , ncoExternalAddress :: !(Maybe NetworkAddress)
       -- ^ A node must be addressable on the network.
+    , ncoCheckPeerHost   :: !Bool
+      -- ^ Whether to perform the peer host address consistency check.
+      -- The check is necessary to avoid easy denial-of-service attacks,
+      -- but can be restrictive in certain scenarios.
     } deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -122,6 +126,12 @@ networkConfigOption = do
             [ Opt.long "policies"
             , Opt.metavar "FILEPATH"
             , Opt.help "Path to a YAML file containing the network policies"
+            ]
+    ncoCheckPeerHost <- (not <$>) .
+        Opt.switch $
+        mconcat
+            [ Opt.long "disable-peer-host-check"
+            , Opt.help "DANGER: disable the peer host address consistency check. Makes your node vulnerable"
             ]
     ncoExternalAddress <- optional $ externalNetworkAddressOption Nothing
     ncoBindAddress <- optional $ listenNetworkAddressOption Nothing
@@ -375,6 +385,7 @@ intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
             , ncDequeuePolicy = dequeuePolicy
             , ncFailurePolicy = failurePolicy
             , ncTcpAddr       = tcpAddr
+            , ncCheckPeerHost = ncoCheckPeerHost
             }
 
     pure networkConfig

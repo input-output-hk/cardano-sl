@@ -75,6 +75,7 @@ correctNodeParams AuxxOptions {..} np = do
         , ncFailurePolicy = topologyFailurePolicy topology
         , ncTopology = topology
         , ncTcpAddr = TCP.Unaddressable
+        , ncCheckPeerHost = True
         }
 
 runNodeWithSinglePlugin ::

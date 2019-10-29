@@ -211,7 +211,10 @@ dropObftEbb genesisConfig txpConfig = do
     tipHeader <- DB.getTipHeader
     case tipHeader of
         BlockHeaderMain _      -> pure ()
-        BlockHeaderGenesis _   -> do
+        -- If we're starting up a chain in OBFT mode, we need to ensure
+        -- that we don't rollback the actual genesis block out of existence
+        -- (i.e. the EBB at epoch 0):
+        BlockHeaderGenesis _   -> unless (tipHeader ^. epochIndexL == 0) $ do
             mbEbbBlund <- getBlund (configGenesisHash genesisConfig)
                                    (blockHeaderHash tipHeader)
             case mbEbbBlund of

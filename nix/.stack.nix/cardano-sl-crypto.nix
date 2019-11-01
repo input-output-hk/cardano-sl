@@ -1,4 +1,43 @@
-{ system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
+let
+  buildDepError = pkg:
+    builtins.throw ''
+      The Haskell package set does not contain the package: ${pkg} (build dependency).
+      
+      If you are using Stackage, make sure that you are using a snapshot that contains the package. Otherwise you may need to update the Hackage snapshot you are using, usually by updating haskell.nix.
+      '';
+  sysDepError = pkg:
+    builtins.throw ''
+      The Nixpkgs package set does not contain the package: ${pkg} (system dependency).
+      
+      You may need to augment the system package mapping in haskell.nix so that it can be found.
+      '';
+  pkgConfDepError = pkg:
+    builtins.throw ''
+      The pkg-conf packages does not contain the package: ${pkg} (pkg-conf dependency).
+      
+      You may need to augment the pkg-conf package mapping in haskell.nix so that it can be found.
+      '';
+  exeDepError = pkg:
+    builtins.throw ''
+      The local executable components do not include the component: ${pkg} (executable dependency).
+      '';
+  legacyExeDepError = pkg:
+    builtins.throw ''
+      The Haskell package set does not contain the package: ${pkg} (executable dependency).
+      
+      If you are using Stackage, make sure that you are using a snapshot that contains the package. Otherwise you may need to update the Hackage snapshot you are using, usually by updating haskell.nix.
+      '';
+  buildToolDepError = pkg:
+    builtins.throw ''
+      Neither the Haskell package set or the Nixpkgs package set contain the package: ${pkg} (build tool dependency).
+      
+      If this is a system dependency:
+      You may need to augment the system package mapping in haskell.nix so that it can be found.
+      
+      If this is a Haskell dependency:
+      If you are using Stackage, make sure that you are using a snapshot that contains the package. Otherwise you may need to update the Hackage snapshot you are using, usually by updating haskell.nix.
+      '';
+in { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {};
     package = {
@@ -13,69 +52,72 @@
       synopsis = "Cardano SL - cryptography primitives";
       description = "This package contains cryptography primitives used in Cardano SL.";
       buildType = "Simple";
+      isLocal = true;
       };
     components = {
       "library" = {
         depends = [
-          (hsPkgs.aeson)
-          (hsPkgs.base)
-          (hsPkgs.binary)
-          (hsPkgs.bytestring)
-          (hsPkgs.canonical-json)
-          (hsPkgs.cardano-crypto)
-          (hsPkgs.cardano-sl-binary)
-          (hsPkgs.cardano-sl-util)
-          (hsPkgs.cborg)
-          (hsPkgs.cereal)
-          (hsPkgs.cryptonite)
-          (hsPkgs.cryptonite-openssl)
-          (hsPkgs.data-default)
-          (hsPkgs.formatting)
-          (hsPkgs.hashable)
-          (hsPkgs.lens)
-          (hsPkgs.memory)
-          (hsPkgs.mtl)
-          (hsPkgs.pvss)
-          (hsPkgs.reflection)
-          (hsPkgs.safecopy)
-          (hsPkgs.safe-exceptions)
-          (hsPkgs.scrypt)
-          (hsPkgs.serokell-util)
-          (hsPkgs.text)
-          (hsPkgs.formatting)
-          (hsPkgs.universum)
-          (hsPkgs.unordered-containers)
+          (hsPkgs."aeson" or (buildDepError "aeson"))
+          (hsPkgs."base" or (buildDepError "base"))
+          (hsPkgs."binary" or (buildDepError "binary"))
+          (hsPkgs."bytestring" or (buildDepError "bytestring"))
+          (hsPkgs."canonical-json" or (buildDepError "canonical-json"))
+          (hsPkgs."cardano-crypto" or (buildDepError "cardano-crypto"))
+          (hsPkgs."cardano-sl-binary" or (buildDepError "cardano-sl-binary"))
+          (hsPkgs."cardano-sl-util" or (buildDepError "cardano-sl-util"))
+          (hsPkgs."cborg" or (buildDepError "cborg"))
+          (hsPkgs."cereal" or (buildDepError "cereal"))
+          (hsPkgs."cryptonite" or (buildDepError "cryptonite"))
+          (hsPkgs."cryptonite-openssl" or (buildDepError "cryptonite-openssl"))
+          (hsPkgs."data-default" or (buildDepError "data-default"))
+          (hsPkgs."formatting" or (buildDepError "formatting"))
+          (hsPkgs."hashable" or (buildDepError "hashable"))
+          (hsPkgs."lens" or (buildDepError "lens"))
+          (hsPkgs."memory" or (buildDepError "memory"))
+          (hsPkgs."mtl" or (buildDepError "mtl"))
+          (hsPkgs."pvss" or (buildDepError "pvss"))
+          (hsPkgs."reflection" or (buildDepError "reflection"))
+          (hsPkgs."safecopy" or (buildDepError "safecopy"))
+          (hsPkgs."safe-exceptions" or (buildDepError "safe-exceptions"))
+          (hsPkgs."scrypt" or (buildDepError "scrypt"))
+          (hsPkgs."serokell-util" or (buildDepError "serokell-util"))
+          (hsPkgs."text" or (buildDepError "text"))
+          (hsPkgs."formatting" or (buildDepError "formatting"))
+          (hsPkgs."universum" or (buildDepError "universum"))
+          (hsPkgs."unordered-containers" or (buildDepError "unordered-containers"))
           ];
         build-tools = [
-          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs))
+          (hsPkgs.buildPackages.cpphs or (pkgs.buildPackages.cpphs or (buildToolDepError "cpphs")))
           ];
+        buildable = true;
         };
       tests = {
         "crypto-test" = {
           depends = [
-            (hsPkgs.QuickCheck)
-            (hsPkgs.base)
-            (hsPkgs.bytestring)
-            (hsPkgs.cardano-crypto)
-            (hsPkgs.cardano-sl-binary)
-            (hsPkgs.cardano-sl-binary-test)
-            (hsPkgs.cardano-sl-crypto)
-            (hsPkgs.cardano-sl-util)
-            (hsPkgs.cardano-sl-util-test)
-            (hsPkgs.cryptonite)
-            (hsPkgs.formatting)
-            (hsPkgs.generic-arbitrary)
-            (hsPkgs.hedgehog)
-            (hsPkgs.hspec)
-            (hsPkgs.memory)
-            (hsPkgs.quickcheck-instances)
-            (hsPkgs.text)
-            (hsPkgs.universum)
-            (hsPkgs.unordered-containers)
+            (hsPkgs."QuickCheck" or (buildDepError "QuickCheck"))
+            (hsPkgs."base" or (buildDepError "base"))
+            (hsPkgs."bytestring" or (buildDepError "bytestring"))
+            (hsPkgs."cardano-crypto" or (buildDepError "cardano-crypto"))
+            (hsPkgs."cardano-sl-binary" or (buildDepError "cardano-sl-binary"))
+            (hsPkgs."cardano-sl-binary-test" or (buildDepError "cardano-sl-binary-test"))
+            (hsPkgs."cardano-sl-crypto" or (buildDepError "cardano-sl-crypto"))
+            (hsPkgs."cardano-sl-util" or (buildDepError "cardano-sl-util"))
+            (hsPkgs."cardano-sl-util-test" or (buildDepError "cardano-sl-util-test"))
+            (hsPkgs."cryptonite" or (buildDepError "cryptonite"))
+            (hsPkgs."formatting" or (buildDepError "formatting"))
+            (hsPkgs."generic-arbitrary" or (buildDepError "generic-arbitrary"))
+            (hsPkgs."hedgehog" or (buildDepError "hedgehog"))
+            (hsPkgs."hspec" or (buildDepError "hspec"))
+            (hsPkgs."memory" or (buildDepError "memory"))
+            (hsPkgs."quickcheck-instances" or (buildDepError "quickcheck-instances"))
+            (hsPkgs."text" or (buildDepError "text"))
+            (hsPkgs."universum" or (buildDepError "universum"))
+            (hsPkgs."unordered-containers" or (buildDepError "unordered-containers"))
             ];
           build-tools = [
-            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover))
+            (hsPkgs.buildPackages.hspec-discover or (pkgs.buildPackages.hspec-discover or (buildToolDepError "hspec-discover")))
             ];
+          buildable = true;
           };
         };
       };

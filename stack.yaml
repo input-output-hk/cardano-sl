@@ -131,16 +131,6 @@ packages:
     commit: ddfe3593b80b5ceb88842bb7a6f2268df75d2c2f
   extra-dep: true
 
-
-# The latest release of clock on hackage is *way* too old (0.7.2)
-# and can not be cross compiled.  As
-# https://github.com/corsis/clock/commit/f7fe4fb5691d56c342e6fbf5a99c121ab24a6b41
-# hasn't made it into any release yet.
-- location:
-    git: https://github.com/corsis/clock.git
-    commit: ef60bd51a3587a173adf565c33bf2886df6e3842
-  extra-dep: true
-
 # Library has never been released on Hackage yet
 - location:
     git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
@@ -194,6 +184,7 @@ extra-deps:
 
 # Needed to LTS-12.16 compatibility
 - wai-middleware-throttle-0.3.0.0
+- clock-0.8
 - ether-0.5.1.0
 - servant-quickcheck-0.0.7.2
 - o-clock-0.1.1

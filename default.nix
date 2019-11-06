@@ -32,8 +32,8 @@ let
   crossSystem = if target == "x86_64-windows" then lib.systems.examples.mingwW64 else null;
   # commonLib provides iohk-nix tooling and extra libraries specific to cardano-sl.
   commonLib = import ./lib.nix;
-  pkgs = import commonLib.nixpkgs { inherit system crossSystem; };
-  src = commonLib.cleanSourceHaskell ./.;
+  pkgs = import ./nix/nixpkgs-haskell.nix  { inherit system crossSystem; }; ## TODO:  drive 'config' as well, perhaps from customConfig
+  src = pkgs.haskell-nix.cleanSourceHaskell ./.;
 
   # nixTools contains all the haskell binaries and libraries built by haskell.nix
   nixTools = import ./nix/nix-tools.nix { inherit system crossSystem; };

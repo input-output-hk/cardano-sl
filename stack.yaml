@@ -198,7 +198,7 @@ extra-deps:
 - servant-quickcheck-0.0.7.2
 - o-clock-0.1.1
 - beam-sqlite-0.3.2.3
-- katip-0.6.3.0
+- katip-0.8.3.0
 - Chart-1.9
 - Chart-diagrams-1.9
 - SVGFonts-1.6.0.3

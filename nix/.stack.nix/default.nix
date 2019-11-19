@@ -12,7 +12,7 @@
         "servant-quickcheck" = (((hackage.servant-quickcheck)."0.0.7.2").revisions).default;
         "o-clock" = (((hackage.o-clock)."0.1.1").revisions).default;
         "beam-sqlite" = (((hackage.beam-sqlite)."0.3.2.3").revisions).default;
-        "katip" = (((hackage.katip)."0.6.3.0").revisions).default;
+        "katip" = (((hackage.katip)."0.8.3.0").revisions).default;
         "Chart" = (((hackage.Chart)."1.9").revisions).default;
         "Chart-diagrams" = (((hackage.Chart-diagrams)."1.9").revisions).default;
         "SVGFonts" = (((hackage.SVGFonts)."1.6.0.3").revisions).default;

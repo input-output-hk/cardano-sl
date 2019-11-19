@@ -11,7 +11,7 @@ module Pos.Util.Log.Scribes
     , mkJsonFileScribe
     ) where
 
-import           Universum
+import           Universum hiding (whenM)
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
                      mkAutoUpdate)
@@ -87,7 +87,7 @@ mkFileScribe rot sevfilter fdesc formatter colorize s v = do
                 return (hdl, b, t)
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item =
-          when (checkItem s sevfilter item) $
+          whenM (checkItem s sevfilter item) $
               modifyMVar_ scribestate $ \(hdl, bytes, rottime) -> do
                   byteswritten <- formatter hdl colorize v item
                   -- remove old files
@@ -103,7 +103,7 @@ mkFileScribe rot sevfilter fdesc formatter colorize s v = do
                      else
                         return (hdl, bytes', rottime)
 
-    return $ Scribe logger finalizer
+    return $ Scribe logger finalizer (const $ pure True)
 
 -- | create a katip scribe for logging to a file
 mkFileScribeH :: Handle -> Bool -> NamedSeverity -> Log.Severity -> Verbosity -> IO Scribe
@@ -111,10 +111,10 @@ mkFileScribeH h colorize sevfilter s v = do
     hSetBuffering h LineBuffering
     locklocal <- newMVar ()
     let logger :: Item a -> IO ()
-        logger item = when (checkItem s sevfilter item) $
+        logger item = whenM (checkItem s sevfilter item) $
             bracket_ (takeMVar locklocal) (putMVar locklocal ()) $
                 TIO.hPutStrLn h $! toLazyText $ formatItem colorize v item
-    pure $ Scribe logger (hClose h)
+    pure $ Scribe logger (hClose h) (const $ pure True)
 
 -- | create a katip scribe for logging to the console
 mkStdoutScribe :: NamedSeverity -> Log.Severity -> Verbosity -> IO Scribe
@@ -131,13 +131,13 @@ mkDevNullScribe lh sevfilter s v = do
     let colorize = False
     hSetBuffering h LineBuffering
     let logger :: Item a -> IO ()
-        logger item = when (checkItem s sevfilter item) $
+        logger item = whenM (checkItem s sevfilter item) $
             Internal.incrementLinesLogged lh
               >> (TIO.hPutStrLn h $! toLazyText $ formatItem colorize v item)
-    pure $ Scribe logger (hClose h)
+    pure $ Scribe logger (hClose h) (const $ pure True)
 
 -- | check if item passes severity filter
-checkItem :: Log.Severity -> NamedSeverity -> Item a -> Bool
+checkItem :: Monad m => Log.Severity -> NamedSeverity -> Item a -> m Bool
 checkItem s sevfilter item@Item{..} =
     permitItem (Internal.sev2klog severity) item
   where

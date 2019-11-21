@@ -1,5 +1,5 @@
 name:                cardano-sl-script-runner
-version:             3.1.0
+version:             3.2.0
 synopsis:            Cardano SL - Script Runner
 description:         Cardano SL - ScriptRunner
 license:             Apache-2.0

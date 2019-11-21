@@ -1,5 +1,5 @@
 name:                cardano-sl-db-test
-version:             3.1.0
+version:             3.2.0
 synopsis:            Cardano SL - arbitrary instances for cardano-sl-db
 description:         Cardano SL - arbitrary instances for cardano-sl-db
 license:             Apache-2.0

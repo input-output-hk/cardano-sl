@@ -1,5 +1,5 @@
 name:                cardano-sl-node
-version:             3.1.0
+version:             3.2.0
 synopsis:            Cardano SL simple node executable
 description:         Provides a 'cardano-node-simple' executable which can
                      connect to the Cardano network and act as a full node

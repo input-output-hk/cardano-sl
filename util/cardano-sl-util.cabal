@@ -1,5 +1,5 @@
 name:                cardano-sl-util
-version:             3.1.0
+version:             3.2.0
 synopsis:            Cardano SL - general utilities
 description:         This package contains utility functions not specific
                      to Cardano SL which extend 3rd party libraries or implement

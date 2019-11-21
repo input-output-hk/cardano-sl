@@ -157,4 +157,9 @@ in
       buildkite-agent artifact upload cardano-node.svg
       printf '\033]1338;url='"artifact://cardano-node.svg"';alt='"Heap profile"'\a\n'
     fi
+
+    ${optionalString (!resume) ''
+      # Remove our state to make space for other jobs
+      rm -rf ${stateDir}
+    ''}
   ''

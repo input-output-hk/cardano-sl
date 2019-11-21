@@ -1,5 +1,5 @@
 name:                cardano-sl-chain
-version:             3.1.0
+version:             3.2.0
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             Apache-2.0

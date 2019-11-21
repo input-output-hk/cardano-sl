@@ -1,5 +1,5 @@
 name:                cardano-sl-infra-test
-version:             3.1.0
+version:             3.2.0
 synopsis:            Cardano SL - generators for cardano-sl-infra
 description:         This package contains generators for the infrastructural data types used in Cardano SL.
 license:             Apache-2.0

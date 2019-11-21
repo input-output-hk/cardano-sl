@@ -3,7 +3,7 @@
     flags = { benchmarks = false; };
     package = {
       specVersion = "1.20";
-      identifier = { name = "cardano-sl-networking"; version = "3.1.0"; };
+      identifier = { name = "cardano-sl-networking"; version = "3.2.0"; };
       license = "Apache-2.0";
       copyright = "";
       maintainer = "";

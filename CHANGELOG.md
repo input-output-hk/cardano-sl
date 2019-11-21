@@ -2,7 +2,7 @@
 
 ## Cardano SL 3.2.0
 
-### Fixes
+### Improvements
 - Improve DNS subscription valency and fallback behaviour [#4243](https://github.com/input-output-hk/cardano-sl/pull/4243)
 - Single-machine multi-node mixed cluster CI prerequisites [#4247](https://github.com/input-output-hk/cardano-sl/pull/4247)
 

@@ -95,15 +95,7 @@ packages:
 # As above, seems relatively straightforward to PR.
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 2634e5e32178bb0456d800d133f8664321daa2ef # csl-0.6.0
-  extra-dep: true
-
-# This one has more changes:
-# https://github.com/haskell-distributed/network-transport-inmemory/compare/master...avieth:5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a?expand=1
-# Do we have an issue that documents why we made these changes, so we can make a PR upstream?
-- location:
-      git: https://github.com/avieth/network-transport-inmemory
-      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+    commit: 46f2942423d9ad3c81040565a9e9d5b9e08ddcc4 # csl-0.6.0
   extra-dep: true
 
 # Waiting on the space leak bug fix PR to be merged:

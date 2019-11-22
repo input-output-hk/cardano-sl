@@ -56567,8 +56567,8 @@ version = "0.6.0";
 src = fetchgit {
 
 url = "https://github.com/avieth/network-transport-tcp";
-sha256 = "03shp9prflhgqzw7pymw1pq2q7s1wf46pyjm2csx8646snrhf35i";
-rev = "2634e5e32178bb0456d800d133f8664321daa2ef";
+sha256 = "1nkj414whns56s7p9znn8qn43zp49q7pc5p0py3hdqcva50fd45d";
+rev = "46f2942423d9ad3c81040565a9e9d5b9e08ddcc4";
 fetchSubmodules = true;
 
 };

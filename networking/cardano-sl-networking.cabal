@@ -17,8 +17,6 @@ flag benchmarks
 Library
   exposed-modules:      Network.QDisc.Fair
 
-                        Network.Discovery.Abstract
-
                         Network.Broadcast.OutboundQueue
                         Network.Broadcast.OutboundQueue.Types
                         Network.Broadcast.OutboundQueue.ConcurrentMultiQueue

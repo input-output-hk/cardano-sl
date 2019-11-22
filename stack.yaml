@@ -98,14 +98,6 @@ packages:
     commit: 2634e5e32178bb0456d800d133f8664321daa2ef # csl-0.6.0
   extra-dep: true
 
-# This one has more changes:
-# https://github.com/haskell-distributed/network-transport-inmemory/compare/master...avieth:5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a?expand=1
-# Do we have an issue that documents why we made these changes, so we can make a PR upstream?
-- location:
-      git: https://github.com/avieth/network-transport-inmemory
-      commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
-  extra-dep: true
-
 # Waiting on the space leak bug fix PR to be merged:
 # https://github.com/acid-state/acid-state/pull/104
 - location:

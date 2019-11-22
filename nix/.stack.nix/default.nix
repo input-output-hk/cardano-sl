@@ -71,7 +71,6 @@
         kademlia = ./kademlia.nix;
         network-transport = ./network-transport.nix;
         network-transport-tcp = ./network-transport-tcp.nix;
-        network-transport-inmemory = ./network-transport-inmemory.nix;
         acid-state = ./acid-state.nix;
         socket-io = ./socket-io.nix;
         engine-io = ./engine-io.nix;

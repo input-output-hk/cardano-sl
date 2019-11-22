@@ -95,7 +95,7 @@ packages:
 # As above, seems relatively straightforward to PR.
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 2634e5e32178bb0456d800d133f8664321daa2ef # csl-0.6.0
+    commit: 46f2942423d9ad3c81040565a9e9d5b9e08ddcc4 # csl-0.6.0
   extra-dep: true
 
 # This one has more changes:

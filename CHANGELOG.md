@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Cardano SL vNEXT
+
+### Improvements
+
+- Updated the legal disclaimer text in the footer of https://cardanoexplorer.com/ [#4261](https://github.com/input-output-hk/cardano-sl/pull/4261)
+
 ## Cardano SL 3.2.0
 
 ### Improvements

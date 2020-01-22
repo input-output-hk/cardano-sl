@@ -130,7 +130,7 @@ packages:
 # hasn't made it into any release yet.
 - location:
     git: https://github.com/corsis/clock.git
-    commit: ef60bd51a3587a173adf565c33bf2886df6e3842
+    commit: 98ff9a0d9aa61382dc8dcda5f74943f5f0029e1a
   extra-dep: true
 
 # Library has never been released on Hackage yet

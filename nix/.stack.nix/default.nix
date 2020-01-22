@@ -31,7 +31,6 @@
         "config-ini" = (((hackage.config-ini)."0.2.4.0").revisions).default;
         "stylish-haskell" = (((hackage.stylish-haskell)."0.9.2.2").revisions).default;
         "hedgehog" = (((hackage.hedgehog)."1.0").revisions).default;
-        } // {
         cardano-sl-util = ./cardano-sl-util.nix;
         cardano-sl-util-test = ./cardano-sl-util-test.nix;
         cardano-sl-networking = ./cardano-sl-networking.nix;
@@ -87,5 +86,154 @@
       compiler.nix-name = "ghc844";
       };
   resolver = "lts-12.26";
+  modules = [
+    ({ lib, ... }:
+      {
+        packages = {
+          "ether" = {
+            flags = { "disable-tup-instances" = lib.mkOverride 900 true; };
+            };
+          };
+        })
+    {
+      packages = {
+        "cardano-sl-binary-test" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-auxx" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-db" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-tools" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-generator" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-crypto-test" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-mnemonic" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-core-test" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-node" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-infra" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-binary" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-tools-post-mortem" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-node-ipc" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-util-test" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-x509" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-util" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-client" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-chain-test" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-networking" = {
+          package = {
+            ghcOptions = "-Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-core" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-crypto" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-explorer" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-db-test" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-wallet" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-chain" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        "cardano-sl-cluster" = {
+          package = {
+            ghcOptions = "-Wall -Werror -Wcompat -fwarn-redundant-constraints";
+            };
+          };
+        };
+      }
+    ];
   compiler = "ghc-8.4.4";
   }

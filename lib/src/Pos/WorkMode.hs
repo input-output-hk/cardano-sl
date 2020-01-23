@@ -40,7 +40,6 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      MonadTxpLocal (..), TxpHolderTag, txNormalize,
                      txProcessTransaction)
-import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
 import           Pos.Infra.Reporting (MonadReporting (..), Reporter (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
@@ -99,7 +98,7 @@ instance HasLens DelegationVar (RealModeContext ext) DelegationVar where
     lensOf = rmcDelegationVar_L
 
 instance HasNodeType (RealModeContext ext) where
-    getNodeType = getNodeTypeDefault @KademliaParams
+    getNodeType = getNodeTypeDefault @()
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag NodeContext r =>

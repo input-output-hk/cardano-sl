@@ -20,7 +20,6 @@ import           Pos.Chain.Update (UpdateParams)
 import           Pos.Core (HasPrimaryKey (..))
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (SecretKey)
-import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Infra.Network.Types (NetworkConfig)
 import           Pos.Infra.Statistics (EkgParams, StatsdParams)
@@ -61,7 +60,7 @@ data NodeParams = NodeParams
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
-    , npNetworkConfig  :: !(NetworkConfig KademliaParams)
+    , npNetworkConfig  :: !(NetworkConfig ())
     , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
     , npAssetLockPath  :: !(Maybe FilePath)     -- ^ Path to assetLocked source address file.
     , npFInjects       :: !(FInjects IO)        -- ^ Failure injection handle
@@ -80,7 +79,7 @@ instance HasLens SecurityParams NodeParams SecurityParams where
 instance HasLens SscBehavior NodeParams SscBehavior where
     lensOf = npBehaviorConfig_L . bcSscBehavior_L
 
-instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
+instance HasLens (NetworkConfig ()) NodeParams (NetworkConfig ()) where
     lensOf = npNetworkConfig_L
 
 instance HasPrimaryKey NodeParams where

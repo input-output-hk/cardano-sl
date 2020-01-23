@@ -94,12 +94,12 @@ instance (Demote u, ToSchema a) => ToSchema (MeasuredIn u a) where
     declareNamedSchema _ = do
         NamedSchema _ schema <- declareNamedSchema (Proxy @a)
         pure $ NamedSchema (Just "MeasuredIn") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["quantity", "unit"]
             & properties .~ (mempty
                 & at "quantity" ?~ Inline schema
                 & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
+                    & type_ ?~ SwaggerString
                     & enum_ ?~ [toJSON $ demote $ Proxy @u]
                     )
                 )

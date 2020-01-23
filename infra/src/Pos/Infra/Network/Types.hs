@@ -15,7 +15,6 @@ module Pos.Infra.Network.Types
        , topologySubscribers
        , topologyUnknownNodeType
        , topologySubscriptionWorker
-       , topologyRunKademlia
        , topologyEnqueuePolicy
        , topologyDequeuePolicy
        , topologyFailurePolicy
@@ -96,6 +95,9 @@ instance ToString NodeName where
     toString (NodeName txt) = toString txt
 
 -- | Information about the network in which a node participates.
+--
+-- the type parameter is a relic from earlier times, and was left there to
+-- save a balooning refactor cost.
 data NetworkConfig kademlia = NetworkConfig
     { ncTopology      :: !(Topology kademlia)
       -- ^ Network topology from the point of view of the current node
@@ -161,7 +163,6 @@ data Topology kademlia =
     -- This is used for core and relay nodes
     TopologyCore {
         topologyStaticPeers :: !StaticPeers
-      , topologyOptKademlia :: !(Maybe kademlia)
       }
 
   | TopologyRelay {
@@ -171,7 +172,6 @@ data Topology kademlia =
       , topologyDnsDomains  :: !(DnsDomains DNS.Domain)
       , topologyValency     :: !Valency
       , topologyFallbacks   :: !Fallbacks
-      , topologyOptKademlia :: !(Maybe kademlia)
       , topologyMaxSubscrs  :: !OQ.MaxBucketSize
       }
 
@@ -185,19 +185,19 @@ data Topology kademlia =
       }
 
     -- | We discover our peers through Kademlia
+    -- DEPREACTED kademlia is not used.
   | TopologyP2P {
         topologyValency    :: !Valency
       , topologyFallbacks  :: !Fallbacks
-      , topologyKademlia   :: !kademlia
       , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
+    -- DEPREACTED kademlia is not used.
   | TopologyTraditional {
         topologyValency    :: !Valency
       , topologyFallbacks  :: !Fallbacks
-      , topologyKademlia   :: !kademlia
       , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
 
@@ -267,6 +267,7 @@ topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
 
 data SubscriptionWorker =
     SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
+  -- DEPRECATED kademlia is not used.
   | SubscriptionWorkerKademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
@@ -289,19 +290,6 @@ topologySubscriptionWorker = go
                                           topologyValency
                                           topologyFallbacks
     go TopologyAuxx{}   = Nothing
-
--- | Should we register to the Kademlia network? If so, is it essential that we
--- successfully join it (contact at least one existing peer)? Second component
--- is 'True' if yes.
-topologyRunKademlia :: Topology kademlia -> Maybe (kademlia, Bool)
-topologyRunKademlia = go
-  where
-    go TopologyCore{..}        = flip (,) False <$> topologyOptKademlia
-    go TopologyRelay{..}       = flip (,) False <$> topologyOptKademlia
-    go TopologyBehindNAT{}     = Nothing
-    go TopologyP2P{..}         = Just (topologyKademlia, True)
-    go TopologyTraditional{..} = Just (topologyKademlia, True)
-    go TopologyAuxx{}          = Nothing
 
 -- | Enqueue policy for the given topology
 topologyEnqueuePolicy :: Topology kademia -> OQ.EnqueuePolicy NodeId

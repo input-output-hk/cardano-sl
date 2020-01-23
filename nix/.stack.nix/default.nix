@@ -17,7 +17,7 @@
         "Chart-diagrams" = (((hackage.Chart-diagrams)."1.9").revisions).default;
         "SVGFonts" = (((hackage.SVGFonts)."1.6.0.3").revisions).default;
         "pvss" = (((hackage.pvss)."0.2.0").revisions).default;
-        "systemd" = (((hackage.systemd)."1.1.2").revisions).default;
+        "systemd" = (((hackage.systemd)."2.0.0").revisions).default;
         "base58-bytestring" = (((hackage.base58-bytestring)."0.1.0").revisions).default;
         "pipes-interleave" = (((hackage.pipes-interleave)."1.1.3").revisions).default;
         "tabl" = (((hackage.tabl)."1.0.3").revisions).default;
@@ -31,6 +31,21 @@
         "config-ini" = (((hackage.config-ini)."0.2.4.0").revisions).default;
         "stylish-haskell" = (((hackage.stylish-haskell)."0.9.2.2").revisions).default;
         "hedgehog" = (((hackage.hedgehog)."1.0").revisions).default;
+        "network" = (((hackage.network)."3.1.0.1").revisions).default;
+        "simple-sendfile" = (((hackage.simple-sendfile)."0.2.28").revisions).default;
+        "io-streams-haproxy" = (((hackage.io-streams-haproxy)."1.0.1.0").revisions).default;
+        "socks" = (((hackage.socks)."0.6.0").revisions).default;
+        "snap-server" = (((hackage.snap-server)."1.1.1.1").revisions).default;
+        "swagger2" = (((hackage.swagger2)."2.4").revisions).default;
+        "insert-ordered-containers" = (((hackage.insert-ordered-containers)."0.2.2").revisions).default;
+        "servant-swagger" = (((hackage.servant-swagger)."1.1.7.1").revisions).default;
+        "servant" = (((hackage.servant)."0.15").revisions).default;
+        "servant-client" = (((hackage.servant-client)."0.15").revisions).default;
+        "servant-client-core" = (((hackage.servant-client-core)."0.15").revisions).default;
+        "servant-server" = (((hackage.servant-server)."0.15").revisions).default;
+        "connection" = (((hackage.connection)."0.3.0").revisions).default;
+        "warp" = (((hackage.warp)."3.2.27").revisions).default;
+        "wai-extra" = (((hackage.wai-extra)."3.0.26").revisions).default;
         } // {
         cardano-sl-util = ./cardano-sl-util.nix;
         cardano-sl-util-test = ./cardano-sl-util-test.nix;
@@ -68,7 +83,6 @@
         cardano-crypto = ./cardano-crypto.nix;
         ip = ./ip.nix;
         time-units = ./time-units.nix;
-        kademlia = ./kademlia.nix;
         network-transport = ./network-transport.nix;
         network-transport-tcp = ./network-transport-tcp.nix;
         acid-state = ./acid-state.nix;

@@ -45,7 +45,6 @@
           (hsPkgs.http-client)
           (hsPkgs.http-client-tls)
           (hsPkgs.iproute)
-          (hsPkgs.kademlia)
           (hsPkgs.lens)
           (hsPkgs.megaparsec)
           (hsPkgs.mtl)
@@ -97,7 +96,6 @@
             (hsPkgs.hedgehog)
             (hsPkgs.hspec)
             (hsPkgs.iproute)
-            (hsPkgs.kademlia)
             (hsPkgs.universum)
             (hsPkgs.yaml)
             ];

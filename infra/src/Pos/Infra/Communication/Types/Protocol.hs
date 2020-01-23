@@ -351,9 +351,6 @@ instance Monoid MkListeners where
 -- needs to periodically send keep-alive like data to node B in order to ensure
 -- that the connection is valid.
 --
--- Kademlia nodes might also use this if they want a guarantee that they receive
--- messages from their peers (without subscription we rely on luck for some
--- nodes to decide to add us to their list of known peers).
 data MsgSubscribe = MsgSubscribe | MsgSubscribeKeepAlive
     deriving (Generic, Show, Eq)
 

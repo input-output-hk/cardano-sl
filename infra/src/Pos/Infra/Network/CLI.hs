@@ -43,8 +43,6 @@ import qualified Options.Applicative as Opt
 
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
                      addrParserNoWildcard)
-import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),
-                     MalformedDHTKey (..), fromYamlConfig)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 import           Pos.Infra.Network.Types (NodeId, NodeName (..))
 import qualified Pos.Infra.Network.Types as T
@@ -65,8 +63,6 @@ import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)
 data NetworkConfigOpts = NetworkConfigOpts
     { ncoTopology        :: !(Maybe FilePath)
       -- ^ Filepath to .yaml file with the network topology
-    , ncoKademlia        :: !(Maybe FilePath)
-      -- ^ Filepath to .yaml config of kademlia
     , ncoSelf            :: !(Maybe NodeName)
       -- ^ Name of the current node
     , ncoPort            :: !Word16
@@ -96,14 +92,6 @@ networkConfigOption = do
             [ Opt.long "topology"
             , Opt.metavar "FILEPATH"
             , Opt.help "Path to a YAML file containing the network topology"
-            ]
-    ncoKademlia <-
-        optional $ Opt.strOption $
-        mconcat
-            [ Opt.long "kademlia"
-            , Opt.metavar "FILEPATH"
-            , Opt.help
-                  "Path to a YAML file containing the kademlia configuration"
             ]
     ncoSelf <-
         optional $ Opt.option (fromString <$> Opt.str) $
@@ -220,13 +208,11 @@ monitorStaticConfig logTrace cfg@NetworkConfigOpts{..} origMetadata initPeers = 
             mParsedTopology <- try $ readTopology fp
             case mParsedTopology of
               Right (Y.TopologyStatic allPeers) -> do
-                (newMetadata, newPeers, _) <-
+                (newMetadata, newPeers) <-
                     fromPovOf cfg allPeers
 
                 unless (nmType newMetadata == nmType origMetadata) $
                     traceWith logTrace (Error, changedType fp)
-                unless (nmKademlia newMetadata == nmKademlia origMetadata) $
-                    traceWith logTrace (Error, changedKademlia fp)
                 unless (nmMaxSubscrs newMetadata == nmMaxSubscrs origMetadata) $
                     traceWith logTrace (Error, changedMaxSubscrs fp)
 
@@ -247,10 +233,9 @@ monitorStaticConfig logTrace cfg@NetworkConfigOpts{..} origMetadata initPeers = 
           Left  ex -> traceWith logTrace (Error, handlerError ex)
           Right () -> return ()
 
-    changedFormat, changedType, changedKademlia :: FilePath -> Text
+    changedFormat, changedType :: FilePath -> Text
     changedFormat     = sformat $ "SIGHUP ("%shown%"): Cannot dynamically change topology."
     changedType       = sformat $ "SIGHUP ("%shown%"): Cannot dynamically change own node type."
-    changedKademlia   = sformat $ "SIGHUP ("%shown%"): Cannot dynamically start/stop Kademlia."
     changedMaxSubscrs = sformat $ "SIGHUP ("%shown%"): Cannot dynamically change maximum number of subscribers."
 
     readFailed :: FilePath -> SomeException -> Text
@@ -280,7 +265,7 @@ launchStaticConfigMonitoring topology = liftIO action
 intNetworkConfigOpts
     :: Trace IO (Severity, Text)
     -> NetworkConfigOpts
-    -> IO (T.NetworkConfig DHT.KademliaParams)
+    -> IO (T.NetworkConfig ())
 intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
     parsedTopology <-
         case ncoTopology of
@@ -296,29 +281,10 @@ intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
                      nmValency
                      nmFallbacks
                      _
-                     nmKademlia
                      _
-                     nmMaxSubscrs), initPeers, kademliaPeers) <-
+                     nmMaxSubscrs), initPeers) <-
                 fromPovOf cfg topologyAllPeers
             topologyStaticPeers <- monitorStaticConfig logTrace cfg md initPeers
-            -- If kademlia is enabled here then we'll try to read the configuration
-            -- file. However it's not necessary that the file exists. If it doesn't,
-            -- we can fill in some sensible defaults using the static routing and
-            -- kademlia flags for other nodes.
-            topologyOptKademlia <-
-                if nmKademlia
-                then getKademliaParamsFromFile >>= \case
-                    Right kparams -> return $ Just kparams
-                    Left MissingKademliaConfig ->
-                        let ekparams' = getKademliaParamsFromStatic kademliaPeers
-                        in  either (throwIO . CannotParseKademliaConfig . Left)
-                                   (return . Just)
-                                   ekparams'
-                    Left err -> throwIO err
-                else do when (isJust ncoKademlia) $
-                            throwIO $ RedundantCliParameter $
-                            "TopologyStatic doesn't require kademlia, but it was passed"
-                        pure Nothing
             topology <- case nmType of
                 T.NodeCore  -> return T.TopologyCore{..}
                 T.NodeRelay -> return T.TopologyRelay {
@@ -326,11 +292,10 @@ intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
                                  topologyDnsDomains = nmSubscribe,
                                  topologyValency    = nmValency,
                                  topologyFallbacks  = nmFallbacks,
-                                 topologyOptKademlia,
                                  topologyMaxSubscrs = nmMaxSubscrs
                                }
                 T.NodeEdge  -> throwIO NetworkConfigSelfEdge
-            tcpAddr <- createTcpAddr topologyOptKademlia
+            tcpAddr <- createTcpAddr
             pure (topology, tcpAddr)
         Y.TopologyBehindNAT
               topologyValency
@@ -340,9 +305,6 @@ intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
           -- throws an exception if the --listen parameter is given, to avoid
           -- confusion: if a user gives a --listen parameter then they probably
           -- think the program will bind a socket.
-          whenJust ncoKademlia $ const $ throwIO $
-              RedundantCliParameter
-              "BehindNAT topology is used, so no kademlia config is expected"
           when (isJust ncoBindAddress) $ throwIO $ RedundantCliParameter $
               "BehindNAT topology is used, no bind address is expected"
           when (isJust ncoExternalAddress) $ throwIO $ RedundantCliParameter $
@@ -352,17 +314,15 @@ intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
               topologyValency
               topologyFallbacks
               topologyMaxSubscrs -> do
-          kparams <- either throwIO return =<< getKademliaParamsFromFile
-          tcpAddr <- createTcpAddr (Just kparams)
-          pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
+          tcpAddr <- createTcpAddr
+          pure ( T.TopologyP2P{..}
                , tcpAddr )
         Y.TopologyTraditional
               topologyValency
               topologyFallbacks
               topologyMaxSubscrs -> do
-              kparams <- either throwIO return =<< getKademliaParamsFromFile
-              tcpAddr <- createTcpAddr (Just kparams)
-              pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}
+              tcpAddr <- createTcpAddr
+              pure ( T.TopologyTraditional{..}
                    , tcpAddr )
 
     (enqueuePolicy, dequeuePolicy, failurePolicy) <- case ncoPolicies of
@@ -390,69 +350,25 @@ intNetworkConfigOpts logTrace cfg@NetworkConfigOpts{..} = do
 
     pure networkConfig
   where
-    -- Creates transport params out of config. If kademlia config is
-    -- specified, kademlia external address should match external
-    -- address of transport (which will be checked in this function).
-    createTcpAddr :: Maybe DHT.KademliaParams -> IO TCP.TCPAddr
-    createTcpAddr kademliaBind = do
-        let kademliaExternal :: Maybe NetworkAddress
-            kademliaExternal = DHT.kpExternalAddress =<< kademliaBind
+    -- Creates transport params out of config.
+    createTcpAddr :: IO TCP.TCPAddr
+    createTcpAddr = do
         bindAddr@(bindHost, bindPort) <-
             maybe (throwIO MissingBindAddress) pure ncoBindAddress
-        whenJust ((,) <$> kademliaExternal <*> ncoExternalAddress) $ \(kademliaEx::NetworkAddress,paramEx::NetworkAddress) ->
-            when (kademliaEx /= paramEx) $
-            throwIO $ InconsistentParameters $
-            sformat ("Kademlia network address is "%build%
-                     " but external address passed in cli is "%build%
-                     ". They must be the same")
-                    kademliaEx
-                    paramEx
         let (externalHost, externalPort) = fromMaybe bindAddr ncoExternalAddress
         let tcpHost = BS.C8.unpack bindHost
             tcpPort = show bindPort
             tcpMkExternal = const (BS.C8.unpack externalHost, show externalPort)
         pure $ TCP.Addressable $ TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal
 
-    -- Come up with kademlia parameters, possibly giving 'Left' in case
-    -- there's no configuration file path given, or if it couldn't be parsed.
-    getKademliaParamsFromFile
-        :: IO (Either NetworkConfigException DHT.KademliaParams)
-    getKademliaParamsFromFile = case ncoKademlia of
-        Nothing -> pure $ Left MissingKademliaConfig
-        Just fp -> do
-            kconf <- parseKademlia fp
-            pure $ first (CannotParseKademliaConfig . Left . DHT.MalformedDHTKey)
-                         (DHT.fromYamlConfig kconf)
-
-    -- Derive kademlia parameters from the set of kademlia-enabled peers. They
-    -- are used as the initial peers, and everything else is unspecified, and will
-    -- be defaulted.
-    getKademliaParamsFromStatic
-        :: [Y.KademliaAddress]
-        -> Either DHT.MalformedDHTKey DHT.KademliaParams
-    -- Since 'Nothing' is given for the kpId, it's impossible to get a 'Left'
-    getKademliaParamsFromStatic kpeers =
-        first DHT.MalformedDHTKey $
-        DHT.fromYamlConfig $ Y.KademliaParams
-            { Y.kpId              = Nothing
-            , Y.kpPeers           = kpeers
-            , Y.kpAddress         = Nothing
-            , Y.kpBind            = Nothing
-            , Y.kpExplicitInitial = Nothing
-            , Y.kpDumpFile        = Nothing
-            }
-
 -- | Perspective on 'AllStaticallyKnownPeers' from the point of view of
 -- a single node.
 --
 -- First component is this node's metadata.
 -- Second component is the set of all known peers (routes included).
--- Third component is the set of addresses of peers running kademlia.
---   If this node runs kademlia, its address will appear as the last entry in
---   the list.
 fromPovOf :: NetworkConfigOpts
           -> Y.AllStaticallyKnownPeers
-          -> IO (NodeMetadata, Peers NodeId, [Y.KademliaAddress])
+          -> IO (NodeMetadata, Peers NodeId)
 fromPovOf cfg@NetworkConfigOpts{..} allPeers = case ncoSelf of
     Nothing   -> throwIO NetworkConfigSelfUnknown
     Just self -> T.initDnsOnUse $ \resolve -> do
@@ -460,26 +376,8 @@ fromPovOf cfg@NetworkConfigOpts{..} allPeers = case ncoSelf of
         resolved     <- resolvePeers resolve (Y.allStaticallyKnownPeers allPeers)
         routes       <- mkRoutes (second addressToNodeId <$> resolved) (Y.nmRoutes selfMetadata)
         let directory     = M.fromList (map (\(a, b) -> (addressToNodeId b, a)) (M.elems resolved))
-            hasKademlia   = M.filter nmKademlia (Y.allStaticallyKnownPeers allPeers)
-            selfKademlia  = M.member self hasKademlia
-            otherKademlia = M.delete self hasKademlia
-            -- Linter claims that
-            --   [self | selfKademlia]
-            -- is more readable than
-            --   if selfKademlia then [self] else []
-            allKademlia   = M.keys otherKademlia ++ [self | selfKademlia]
-
-            kademliaPeers =
-                mkKademliaAddress . snd <$>
-                mapMaybe (\name -> M.lookup name resolved) allKademlia
-        pure (selfMetadata, peersFromList directory routes, kademliaPeers)
+        pure (selfMetadata, peersFromList directory routes)
   where
-
-    mkKademliaAddress :: NetworkAddress -> Y.KademliaAddress
-    mkKademliaAddress (addr, port) = Y.KademliaAddress
-        { Y.kaHost = BS.C8.unpack addr
-        , Y.kaPort = port
-        }
 
     -- Use the name/metadata association to come up with types and
     -- addresses for each name.
@@ -576,11 +474,6 @@ readPolicies fp = Yaml.decodeFileEither fp >>= \case
     Left  err            -> throwIO $ CannotParsePolicies err
     Right staticPolicies -> return staticPolicies
 
-parseKademlia :: FilePath -> IO Y.KademliaParams
-parseKademlia fp = Yaml.decodeFileEither fp >>= \case
-    Left  err      -> throwIO $ CannotParseKademliaConfig (Right err)
-    Right kademlia -> return kademlia
-
 ----------------------------------------------------------------------------
 -- Errors
 ----------------------------------------------------------------------------
@@ -595,9 +488,6 @@ data NetworkConfigException =
     -- | We cannot parse the topology .yaml file
     CannotParseNetworkConfig Yaml.ParseException
 
-    -- | A Kademlia configuration file is expected but was not specified.
-  | MissingKademliaConfig
-
     -- | Address to bind on is missing in CLI.
   | MissingBindAddress
 
@@ -606,9 +496,6 @@ data NetworkConfigException =
 
     -- | Some CLI parameter is redundant.
   | RedundantCliParameter Text
-
-    -- | We cannot parse the kademlia .yaml file
-  | CannotParseKademliaConfig (Either DHT.MalformedDHTKey Yaml.ParseException)
 
     -- | A policy description .yaml was specified but couldn't be parsed.
   | CannotParsePolicies Yaml.ParseException

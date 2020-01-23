@@ -1016,7 +1016,7 @@ instance (ToSchema a, Typeable a) => ToSchema (APIResponse a) where
         respRef <- declareSchemaRef (Proxy @ResponseStatus)
         metaRef <- declareSchemaRef (Proxy @Metadata)
         pure $ NamedSchema (Just $ "APIResponse-" <> tyName) $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["data", "status", "meta"]
             & properties .~
                 [ ("data", aRef)

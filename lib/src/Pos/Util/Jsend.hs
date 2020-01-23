@@ -16,6 +16,7 @@ module Pos.Util.Jsend
 
 import           Universum hiding (All, Generic)
 
+import           Control.Lens ((?~))
 import           Data.Aeson (GFromJSON, Object, ToJSON, Value (..), Zero,
                      genericParseJSON, object, tagSingleConstructors,
                      withObject, (.:), (.=))
@@ -151,8 +152,8 @@ instance Arbitrary ResponseStatus where
 instance ToSchema ResponseStatus where
     declareNamedSchema _ = do
         pure $ NamedSchema (Just "ResponseStatus") $ mempty
-            & type_ .~ SwaggerString
-            & enum_ .~ Just ["success", "fail", "error"]
+             & type_ ?~ SwaggerString
+             & enum_ .~ Just ["success", "fail", "error"]
 
 instance Buildable ResponseStatus where
     build SuccessStatus = "success"

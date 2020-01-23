@@ -37,7 +37,6 @@
           (hsPkgs.hedgehog)
           (hsPkgs.hspec)
           (hsPkgs.iproute)
-          (hsPkgs.kademlia)
           (hsPkgs.universum)
           (hsPkgs.yaml)
           ];

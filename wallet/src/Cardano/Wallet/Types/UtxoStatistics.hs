@@ -141,16 +141,16 @@ instance ToSchema UtxoStatistics where
         wordRef <- declareSchemaRef (Proxy :: Proxy Word64)
         btypeRef <- declareSchemaRef (Proxy :: Proxy BoundType)
         pure $ NamedSchema (Just "UtxoStatistics") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["histogram", "allStakes"]
             & properties .~ (mempty
                 & at "boundType" ?~ btypeRef
                 & at "allStakes" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
+                    & type_ ?~ SwaggerNumber
                     & minimum_ .~ Just 0
                 )
                 & at "histogram" ?~ Inline (mempty
-                    & type_ .~ SwaggerObject
+                    & type_ ?~ SwaggerObject
                     & properties .~ (mempty
                                      & at "10" ?~ wordRef
                                      & at "100" ?~ wordRef

@@ -7,7 +7,6 @@
         "normaldistribution" = (((hackage.normaldistribution)."1.1.0.3").revisions).default;
         "aeson-options" = (((hackage.aeson-options)."0.1.0").revisions).default;
         "servant-swagger-ui-redoc" = (((hackage.servant-swagger-ui-redoc)."0.3.0.1.21.2").revisions).default;
-        "wai-middleware-throttle" = (((hackage.wai-middleware-throttle)."0.3.0.0").revisions).default;
         "ether" = (((hackage.ether)."0.5.1.0").revisions).default;
         "servant-quickcheck" = (((hackage.servant-quickcheck)."0.0.7.2").revisions).default;
         "o-clock" = (((hackage.o-clock)."0.1.1").revisions).default;
@@ -46,6 +45,7 @@
         "connection" = (((hackage.connection)."0.3.0").revisions).default;
         "warp" = (((hackage.warp)."3.2.27").revisions).default;
         "wai-extra" = (((hackage.wai-extra)."3.0.26").revisions).default;
+        "wai-middleware-throttle" = (((hackage.wai-middleware-throttle)."0.3.0.1").revisions).default;
         } // {
         cardano-sl-util = ./cardano-sl-util.nix;
         cardano-sl-util-test = ./cardano-sl-util-test.nix;

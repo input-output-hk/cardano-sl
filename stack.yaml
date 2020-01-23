@@ -94,11 +94,11 @@ packages:
     commit: 984386467466d89621eda1cff8bbb435a9b9c0ef
   extra-dep: true
 
-# Waiting on the space leak bug fix PR to be merged:
-# https://github.com/acid-state/acid-state/pull/104
+# Works with latest network, because it does not depend upon network!
+# Blew away the Acid.Remote modules, since we don't use them anyway.
 - location:
-    git: https://github.com/parsonsmatt/acid-state
-    commit: a1b23e2056f134e53f705a694ab85deeecabec5c
+    git: https://github.com/avieth/acid-state
+    commit: 7c00aeeeb731f5c98fe1104693c0136b384cb824
   extra-dep: true
 
 # Required for explorer.
@@ -181,7 +181,6 @@ extra-deps:
 - servant-swagger-ui-redoc-0.3.0.1.21.2
 
 # Needed to LTS-12.16 compatibility
-- wai-middleware-throttle-0.3.0.0
 - ether-0.5.1.0
 - servant-quickcheck-0.0.7.2
 - o-clock-0.1.1
@@ -226,6 +225,8 @@ extra-deps:
 - connection-0.3.0
 - warp-3.2.27
 - wai-extra-3.0.26
+
+- wai-middleware-throttle-0.3.0.1 # cardano-wallet needs this
 
 
 # katip-0.6.3.0 conflicts with Win32-2.6.1.0

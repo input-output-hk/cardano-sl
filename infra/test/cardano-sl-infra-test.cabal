@@ -47,7 +47,6 @@ library
                      , hedgehog
                      , hspec
                      , iproute
-                     , kademlia
                      , universum
                      , yaml
 

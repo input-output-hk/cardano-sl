@@ -1,0 +1,32 @@
+diff --git a/src/Remote/Slave.hs b/src/Remote/Slave.hs
+index 577161f35f..508695de6b 100644
+--- a/src/Remote/Slave.hs
++++ b/src/Remote/Slave.hs
+@@ -146,11 +146,25 @@ socketToPipe sock = do
+
+ openSocket :: PortNumber -> IO Socket
+ openSocket port = do
+-  sock <- socket AF_INET Stream 0
++  addr <- resolve port
++  sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
+   setSocketOption sock ReuseAddr 1
+-  bind sock (SockAddrInet port iNADDR_ANY)
++  -- If the prefork technique is not used,
++  -- set CloseOnExec for the security reasons.
++  fd <- fdSocket sock
++  setCloseOnExecIfNeeded fd
++  bind sock (addrAddress addr)
+   listen sock 1
+   return sock
++  where
++    resolve port = do
++      addr:_ <- getAddrInfo (Just hints) Nothing (Just (show port))
++      return addr
++      where
++        hints = defaultHints {
++            addrFlags = [AI_PASSIVE]
++          , addrSocketType = Stream
++        }
+
+ acceptSocket :: Socket -> IO Socket
+ acceptSocket = fmap fst . accept

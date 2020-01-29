@@ -8,6 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns         #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cardano.Wallet.API.V1.Swagger where
 
 import           Universum hiding (get, put)
@@ -260,7 +261,7 @@ instance ToSchema Core.Address where
 
 instance ToParamSchema Core.Address where
   toParamSchema _ = mempty
-    & type_ .~ SwaggerString
+    & type_ ?~ SwaggerString
 
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)

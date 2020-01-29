@@ -52,7 +52,7 @@ documentationApi curSoftwareVersion prxy = toSwagger prxy
 
 instance ToParamSchema TxIn where
     toParamSchema _ = mempty
-        & type_ .~ SwaggerString
+        & type_ ?~ SwaggerString
 
 instance ToSchema TxIn where
     declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
@@ -60,14 +60,14 @@ instance ToSchema TxIn where
 instance ToSchema TxOut where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "TxOut") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["coin", "address"]
             & properties .~ (mempty
                 & at "coin" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
+                    & type_ ?~ SwaggerNumber
                     )
                 & at "address" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
+                    & type_ ?~ SwaggerString
                     )
                 )
 

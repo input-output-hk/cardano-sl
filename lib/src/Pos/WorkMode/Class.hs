@@ -34,7 +34,6 @@ import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.DB.Update (UpdateContext)
-import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (HasNodeType, NetworkConfig)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Shutdown (HasShutdownContext)
@@ -72,7 +71,7 @@ type WorkMode ctx m
       , HasLens' ctx UpdateParams
       , HasLens' ctx SecurityParams
       , HasLens' ctx TxpGlobalSettings
-      , HasLens' ctx (NetworkConfig KademliaParams)
+      , HasLens' ctx (NetworkConfig ())
       , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLrcContext ctx
       , HasSscContext ctx

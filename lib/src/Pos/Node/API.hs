@@ -63,7 +63,7 @@ type IsPropertiesMap m =
   (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
 
 genericSchemaDroppingPrefix
-    :: forall a m proxy.
+    :: forall a m.
     ( Generic a, ToJSON a, Example a, GToSchema (Rep a), IsPropertiesMap m
     , GenericHasSimpleShape
         a
@@ -72,7 +72,7 @@ genericSchemaDroppingPrefix
     )
     => String -- ^ Prefix to drop on each constructor tag
     -> ((Index m -> Text -> m -> m) -> m -> m) -- ^ Callback update to attach descriptions to underlying properties
-    -> proxy a -- ^ Underlying data-type proxy
+    -> Proxy a -- ^ Underlying data-type proxy
     -> Declare (Definitions Schema) NamedSchema
 genericSchemaDroppingPrefix prfx extraDoc proxy = do
     let opts = defaultSchemaOptions
@@ -150,7 +150,7 @@ instance ToSchema TimeInfo where
     declareNamedSchema _ = do
         NamedSchema _ localTimeSchema <- declareNamedSchema (Proxy @LocalTimeDifference)
         pure $ NamedSchema (Just "TimeInfo") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & description .~ Just
                 "When 'available', returns an extra 'localTimeDifference' about \
                 \the difference in microseconds between the node time and the \
@@ -158,7 +158,7 @@ instance ToSchema TimeInfo where
             & required .~ ["status"]
             & properties .~ (mempty
                 & at "status" ?~ Inline (mempty
-                    & type_ .~ SwaggerString
+                    & type_ ?~ SwaggerString
                     & enum_ ?~ [String "unavailable", String "pending", String "available"]
                 )
                 & at "localTimeDifference" ?~ Inline localTimeSchema
@@ -323,7 +323,7 @@ instance ToSchema SubscriptionStatus where
     declareNamedSchema _ = do
         let enum = toJSON <$> availableSubscriptionStatus
         pure $ NamedSchema (Just "SubscriptionStatus") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & enum_ ?~ enum
 
 instance Arbitrary NodeId where
@@ -353,7 +353,7 @@ instance ToJSONKey NodeId where
 
 instance ToSchema NodeId where
     declareNamedSchema _ = pure $ NamedSchema (Just "NodeId") $ mempty
-        & type_ .~ SwaggerString
+        & type_ ?~ SwaggerString
 
 instance (Buildable a, Buildable b) => Buildable (a, b) where
     build (a, b) = bprint ("("%build%", "%build%")") a b
@@ -465,7 +465,7 @@ instance FromJSON (V1 Core.SoftwareVersion) where
 instance ToSchema (V1 Core.SoftwareVersion) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1SoftwareVersion") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & properties .~ (mempty
                 & at "applicationName" ?~ Inline (toSchema (Proxy @Text))
                 & at "version" ?~ Inline (toSchema (Proxy @Word32))
@@ -509,7 +509,7 @@ instance ToSchema Version where
 instance ToSchema (V1 Version) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1Version") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
 
 
 newtype SecurityParameter = SecurityParameter Int
@@ -524,7 +524,7 @@ instance Buildable SecurityParameter where
 instance ToSchema SecurityParameter where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "SecurityParameter") $ mempty
-            & type_ .~ SwaggerNumber
+            & type_ ?~ SwaggerNumber
             & minimum_ .~ (Just 0)
 
 
@@ -533,7 +533,7 @@ instance ToSchema (V1 Core.SlotId) where
         word64Schema <- declareSchemaRef (Proxy @Word64)
         word16Schema <- declareSchemaRef (Proxy @Word16)
         return $ NamedSchema (Just "SlotId") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & properties .~ (mempty
                 & at "slot" ?~ word16Schema
                 & at "epoch" ?~ word64Schema)
@@ -588,7 +588,7 @@ instance ToSchema TxFeePolicy where
         NamedSchema _ a <- declareNamedSchema $ Proxy @(MeasuredIn 'LovelacePerByte Double)
         NamedSchema _ b <- declareNamedSchema $ Proxy @(MeasuredIn 'Lovelace Double)
         pure $ NamedSchema (Just "TxFeePolicy") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["a", "b"]
             & properties .~ (mempty
                 & at "a" ?~ Inline (a & description ?~ "Slope of the linear curve")
@@ -608,7 +608,7 @@ instance Arbitrary (V1 Core.SlotCount) where
 instance ToSchema (V1 Core.SlotCount) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1Core.SlotCount") $ mempty
-            & type_ .~ SwaggerNumber
+            & type_ ?~ SwaggerNumber
             & minimum_ .~ Just 0
 
 instance ToJSON (V1 Core.SlotCount) where

@@ -20,7 +20,7 @@ import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Control.Concurrent.STM as STM
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.Map as M
-import           Data.Time.Units (Microsecond, Millisecond, Second)
+import           Data.Time.Units (Microsecond, Millisecond)
 import           Formatting (Format)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (MsgType (..),
@@ -58,12 +58,7 @@ import qualified Pos.Diffusion.Full.Ssc as Diffusion.Ssc
 import qualified Pos.Diffusion.Full.Txp as Diffusion.Txp
 import qualified Pos.Diffusion.Full.Update as Diffusion.Update
 import           Pos.Infra.Communication.Relay.Logic (invReqDataFlowTK)
-import           Pos.Infra.DHT.Real (KademliaDHTInstance (..),
-                     KademliaParams (..), kademliaJoinNetworkNoThrow,
-                     kademliaJoinNetworkRetry, startDHTInstance,
-                     stopDHTInstance)
 import           Pos.Infra.Diffusion.Subscription.Common (subscriptionListeners)
-import           Pos.Infra.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Infra.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
@@ -73,8 +68,8 @@ import           Pos.Infra.Diffusion.Types (Diffusion (..),
                      StreamBlocks (..))
 import           Pos.Infra.Network.Types (Bucket (..), NetworkConfig (..),
                      NodeType, SubscriptionWorker (..), initQueue,
-                     topologyHealthStatus, topologyRunKademlia,
-                     topologySubscribers, topologySubscriptionWorker)
+                     topologyHealthStatus, topologySubscribers,
+                     topologySubscriptionWorker)
 import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
                      registerEkgNodeMetrics)
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
@@ -123,7 +118,7 @@ data FullDiffusionInternals = FullDiffusionInternals
 -- related to subscription, health status reporting, etc.
 diffusionLayerFull
     :: FullDiffusionConfiguration
-    -> NetworkConfig KademliaParams
+    -> NetworkConfig kademlia
     -> Maybe EkgNodeMetrics
     -> (Diffusion IO -> Logic IO)
        -- ^ The logic layer can use the diffusion layer.
@@ -142,7 +137,6 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
         mSubscriptionWorker = topologySubscriptionWorker topology
         mSubscribers = topologySubscribers topology
         healthStatus = topologyHealthStatus topology oq
-        mKademliaParams = topologyRunKademlia topology
         -- Transport needs a Trace IO Text. We re-use the 'Trace' given in
         -- the configuration at severity 'Error' (when transport has an
         -- exception trying to 'accept' a new connection).
@@ -157,7 +151,6 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
                                                   (ncDefaultPort networkConfig)
                                                   mSubscriptionWorker
                                                   mSubscribers
-                                                  mKademliaParams
                                                   healthStatus
                                                   mEkgNodeMetrics
                                                   logic
@@ -185,10 +178,6 @@ diffusionLayerFullExposeInternals
     -> Word16 -- ^ Port on which peers are assumed to listen.
     -> Maybe SubscriptionWorker
     -> Maybe (NodeType, OQ.MaxBucketSize)
-    -> Maybe (KademliaParams, Bool)
-       -- ^ KademliaParams and a default port for kademlia.
-       -- Bool says whether the node must join before starting normal
-       -- operation, as opposed to passively trying to join.
     -> IO HealthStatus
        -- ^ Amazon Route53 health check support (stopgap measure, see note
        --   in Pos.Infra.Diffusion.Types, above 'healthStatus' record field).
@@ -201,7 +190,6 @@ diffusionLayerFullExposeInternals fdconf
                                   defaultPort
                                   mSubscriptionWorker
                                   mSubscribers
-                                  mKademliaParams
                                   healthStatus -- named to be picked up by record wildcard
                                   mEkgNodeMetrics
                                   logic = do
@@ -275,7 +263,6 @@ diffusionLayerFullExposeInternals fdconf
             , securityWorkerOutSpecs
             , slottingWorkerOutSpecs
             , subscriptionWorkerOutSpecs
-            , dhtWorkerOutSpecs
             ]
 
         -- An onNewSlotWorker and a localWorker. Latter is mempty. Former
@@ -323,9 +310,6 @@ diffusionLayerFullExposeInternals fdconf
             , convH (Proxy @MsgSubscribe1) (Proxy @Void)
             ]
 
-        -- It's a localOnNewSlotWorker, so mempty.
-        dhtWorkerOutSpecs = mempty
-
         mkL :: MkListeners
         mkL = mconcat $
             [ Diffusion.Block.blockListeners logTrace logic protocolConstants recoveryHeadersMessage oq
@@ -345,8 +329,8 @@ diffusionLayerFullExposeInternals fdconf
         currentSlotDuration :: IO Millisecond
         currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
 
-        -- Bracket kademlia and network-transport, create a node. This
-        -- will be very involved. Should make it top-level I think.
+        -- Bracket network-transport, create a node. This will be very involved.
+        -- Should make it top-level I think.
         runDiffusionLayer :: forall y . (FullDiffusionInternals -> IO y) -> IO y
         runDiffusionLayer = runDiffusionLayerFull
             logTrace
@@ -355,7 +339,6 @@ diffusionLayerFullExposeInternals fdconf
             (fdcConvEstablishTimeout fdconf)
             ourVerInfo
             defaultPort
-            mKademliaParams
             mSubscriptionWorker
             mEkgNodeMetrics
             keepaliveTimerVar
@@ -426,8 +409,7 @@ diffusionLayerFullExposeInternals fdconf
 
     return (diffusion, runInternals)
 
--- | Create kademlia, network-transport, and run the outbound queue's
--- dequeue thread.
+-- | Create network-transport, and run the outbound queue's dequeue thread.
 runDiffusionLayerFull
     :: Trace IO (Severity, Text)
     -> Transport
@@ -435,7 +417,6 @@ runDiffusionLayerFull
     -> Microsecond -- ^ Conversation establish timeout
     -> VerInfo
     -> Word16 -- ^ Default port to use for resolved hosts (from dns)
-    -> Maybe (KademliaParams, Bool)
     -> Maybe SubscriptionWorker
     -> Maybe EkgNodeMetrics
     -> MVar (Map NodeId Timer) -- ^ Keepalive timer.
@@ -450,7 +431,6 @@ runDiffusionLayerFull logTrace
                       convEstablishTimeout
                       ourVerInfo
                       defaultPort
-                      mKademliaParams
                       mSubscriptionWorker
                       mEkgNodeMetrics
                       keepaliveTimerVar
@@ -458,54 +438,52 @@ runDiffusionLayerFull logTrace
                       subscriptionStates
                       listeners
                       k =
-    maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
-        timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse -> do
-            -- Concurrently run the dequeue thread, subscription thread, and
-            -- main action.
-            let sendActions :: SendActions
-                sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
-                dequeueDaemon = OQ.dequeueThread oq (sendMsgFromConverse converse)
-                -- If there's no subscription thread, the main action with
-                -- outbound queue is all we need, but if there is a subscription
-                -- thread, we run it forever and race it with the others. This
-                -- ensures that
-                -- 1) The subscription system never stops trying.
-                -- 2) The subscription system is incapable of stopping shutdown
-                --    (unless it uninterruptible masks exceptions indefinitely).
-                -- FIXME perhaps it's better to let the subscription thread
-                -- decide if it should go forever or not. Or, demand it does,
-                -- by choosing `forall x . IO x` as the result.
-                withSubscriptionDaemon :: IO a -> IO (Either x a)
-                withSubscriptionDaemon =
-                    case mSubscriptionThread (fst <$> mKademlia) sendActions of
-                        Nothing -> fmap Right
-                        Just subscriptionThread -> \other ->
-                          -- A subscription worker can finish normally (without
-                          -- exception). But we don't want that, so we'll run it
-                          -- forever.
-                          let subForever = subscriptionThread >> subForever
-                          in  race subForever other
-                mainAction = do
-                    maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
-                    maybe (pure ()) (joinKademlia logTrace) mKademlia
-                    let fdi = FullDiffusionInternals
-                            { fdiNode = nd
-                            , fdiConverse = converse
-                            , fdiSendActions = sendActions
-                            }
-                    t <- k fdi
-                    -- If everything went well, stop the outbound queue
-                    -- normally. If 'k fdi' threw an exception, the dequeue
-                    -- thread ('dequeueDaemon') will be killed.
-                    OQ.waitShutdown oq
-                    pure t
+    timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse -> do
+        -- Concurrently run the dequeue thread, subscription thread, and
+        -- main action.
+        let sendActions :: SendActions
+            sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
+            dequeueDaemon = OQ.dequeueThread oq (sendMsgFromConverse converse)
+            -- If there's no subscription thread, the main action with
+            -- outbound queue is all we need, but if there is a subscription
+            -- thread, we run it forever and race it with the others. This
+            -- ensures that
+            -- 1) The subscription system never stops trying.
+            -- 2) The subscription system is incapable of stopping shutdown
+            --    (unless it uninterruptible masks exceptions indefinitely).
+            -- FIXME perhaps it's better to let the subscription thread
+            -- decide if it should go forever or not. Or, demand it does,
+            -- by choosing `forall x . IO x` as the result.
+            withSubscriptionDaemon :: IO a -> IO (Either x a)
+            withSubscriptionDaemon =
+                case mSubscriptionThread sendActions of
+                    Nothing -> fmap Right
+                    Just subscriptionThread -> \other ->
+                      -- A subscription worker can finish normally (without
+                      -- exception). But we don't want that, so we'll run it
+                      -- forever.
+                      let subForever = subscriptionThread >> subForever
+                      in  race subForever other
+            mainAction = do
+                maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
+                let fdi = FullDiffusionInternals
+                        { fdiNode = nd
+                        , fdiConverse = converse
+                        , fdiSendActions = sendActions
+                        }
+                t <- k fdi
+                -- If everything went well, stop the outbound queue
+                -- normally. If 'k fdi' threw an exception, the dequeue
+                -- thread ('dequeueDaemon') will be killed.
+                OQ.waitShutdown oq
+                pure t
 
-                action = Concurrently dequeueDaemon *> Concurrently mainAction
+            action = Concurrently dequeueDaemon *> Concurrently mainAction
 
-            outcome <- withSubscriptionDaemon (runConcurrently action)
-            case outcome of
-              Left  impossible -> pure impossible
-              Right t          -> pure t
+        outcome <- withSubscriptionDaemon (runConcurrently action)
+        case outcome of
+          Left  impossible -> pure impossible
+          Right t          -> pure t
   where
     oqEnqueue :: Msg
               -> (NodeId -> VerInfo -> Conversation PackingType t)
@@ -513,24 +491,12 @@ runDiffusionLayerFull logTrace
     oqEnqueue msgType l = do
         itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, l))
         return (M.fromList itList)
-    mSubscriptionThread :: Maybe KademliaDHTInstance
-                        -> SendActions
+    mSubscriptionThread :: SendActions
                         -> Maybe (IO ())
-    mSubscriptionThread mKademliaInst sactions = case mSubscriptionWorker of
+    mSubscriptionThread sactions = case mSubscriptionWorker of
         Just (SubscriptionWorkerBehindNAT dnsDomains) -> Just $
             dnsSubscriptionWorker logTrace oq defaultPort dnsDomains keepaliveTimerVar slotDuration subscriptionStates sactions
-        Just (SubscriptionWorkerKademlia nodeType valency fallbacks) -> case mKademliaInst of
-            -- Caller wanted a DHT subscription worker, but not a Kademlia
-            -- instance. Shouldn't be allowed, but oh well FIXME later.
-            Nothing -> Nothing
-            Just kInst -> Just $ dhtSubscriptionWorker
-                logTrace
-                oq
-                kInst
-                nodeType
-                valency
-                fallbacks
-                sactions
+        Just (SubscriptionWorkerKademlia _ _ _) -> Nothing
         Nothing -> Nothing
 
 sendMsgFromConverse
@@ -557,48 +523,3 @@ timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners k = do
     mkReceiveDelay = const (pure Nothing)
     mkConnectDelay = const (pure Nothing)
     nodeEnv = defaultNodeEnvironment { nodeAckTimeout = convEstablishTimeout }
-
-----------------------------------------------------------------------------
--- Kademlia
-----------------------------------------------------------------------------
-
-createKademliaInstance
-    :: Trace IO (Severity, Text)
-    -> KademliaParams
-    -> Word16 -- ^ Default port to bind to.
-    -> IO KademliaDHTInstance
-createKademliaInstance logTrace kp defaultPort =
-    startDHTInstance logTrace instConfig defaultBindAddress
-  where
-    instConfig = kp {kpPeers = ordNub $ kpPeers kp}
-    defaultBindAddress = ("0.0.0.0", defaultPort)
-
--- | RAII for 'KademliaDHTInstance'.
-bracketKademliaInstance
-    :: Trace IO (Severity, Text)
-    -> (KademliaParams, Bool)
-    -> Word16
-    -> ((KademliaDHTInstance, Bool) -> IO a)
-    -> IO a
-bracketKademliaInstance logTrace (kp, mustJoin) defaultPort action =
-    bracket (createKademliaInstance logTrace kp defaultPort) stopDHTInstance $ \kinst ->
-        action (kinst, mustJoin)
-
-maybeBracketKademliaInstance
-    :: Trace IO (Severity, Text)
-    -> Maybe (KademliaParams, Bool)
-    -> Word16
-    -> (Maybe (KademliaDHTInstance, Bool) -> IO a)
-    -> IO a
-maybeBracketKademliaInstance _ Nothing _ k = k Nothing
-maybeBracketKademliaInstance logTrace (Just kp) defaultPort k =
-    bracketKademliaInstance logTrace kp defaultPort (k . Just)
-
--- | Join the Kademlia network.
-joinKademlia :: Trace IO (Severity, Text) -> (KademliaDHTInstance, Bool) -> IO ()
-joinKademlia logTrace (kInst, mustJoin) = case mustJoin of
-    True  -> kademliaJoinNetworkRetry logTrace kInst (kdiInitialPeers kInst) retryInterval
-    False -> kademliaJoinNetworkNoThrow logTrace kInst (kdiInitialPeers kInst)
-  where
-    retryInterval :: Second
-    retryInterval = 5

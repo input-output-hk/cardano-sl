@@ -35,7 +35,6 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
 import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Txp.Settings (TxpGlobalSettings)
 import           Pos.DB.Update (UpdateContext)
-import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Shutdown (HasShutdownContext (..),
@@ -110,7 +109,7 @@ data NodeContext = NodeContext
     -- ^ Settings for global Txp.
     , ncConnectedPeers      :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
-    , ncNetworkConfig       :: !(NetworkConfig KademliaParams)
+    , ncNetworkConfig       :: !(NetworkConfig ())
     , ncMisbehaviorMetrics  :: Maybe MisbehaviorMetrics
     }
 
@@ -188,6 +187,3 @@ instance HasMisbehaviorMetrics NodeContext where
       where
         getter nc = nc ^. ncMisbehaviorMetrics_L
         setter mm = set ncMisbehaviorMetrics_L mm
-
-instance HasLens (NetworkConfig KademliaParams) NodeContext (NetworkConfig KademliaParams) where
-    lensOf = ncNetworkConfig_L

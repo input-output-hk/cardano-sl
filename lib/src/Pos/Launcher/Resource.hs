@@ -52,7 +52,6 @@ import           Pos.DB.Txp (GenericTxpLocalData (..), TxpGlobalSettings,
 import           Pos.DB.Update (mkUpdateContext)
 import qualified Pos.DB.Update as GState
 import qualified Pos.GState as GS
-import           Pos.Infra.DHT.Real (KademliaParams (..))
 import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
@@ -267,7 +266,7 @@ data AllocateNodeContextData ext = AllocateNodeContextData
     { ancdNodeParams  :: !NodeParams
     , ancdSscParams   :: !SscParams
     , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SimpleSlottingStateVar -> InitMode ()
-    , ancdNetworkCfg  :: NetworkConfig KademliaParams
+    , ancdNetworkCfg  :: NetworkConfig ()
     , ancdEkgStore    :: !Metrics.Store
     , ancdTxpMemState :: !(GenericTxpLocalData ext)
     }

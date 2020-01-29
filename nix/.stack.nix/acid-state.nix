@@ -29,7 +29,6 @@
           (hsPkgs.filelock)
           (hsPkgs.filepath)
           (hsPkgs.mtl)
-          (hsPkgs.network)
           (hsPkgs.template-haskell)
           (hsPkgs.th-expand-syns)
           ] ++ (if system.isWindows
@@ -64,19 +63,6 @@
             (hsPkgs.safecopy)
             ];
           };
-        "examples" = {
-          depends = [
-            (hsPkgs.base)
-            (hsPkgs.acid-state)
-            (hsPkgs.cereal)
-            (hsPkgs.containers)
-            (hsPkgs.directory)
-            (hsPkgs.mtl)
-            (hsPkgs.network)
-            (hsPkgs.safecopy)
-            (hsPkgs.time)
-            ];
-          };
         };
       benchmarks = {
         "loading-benchmark" = {
@@ -95,8 +81,8 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "https://github.com/parsonsmatt/acid-state";
-      rev = "a1b23e2056f134e53f705a694ab85deeecabec5c";
-      sha256 = "0mgdk8252g7wbb0afyn21pcn3bwh4vainy3h2d0xsv4hlpgqgnw8";
+      url = "https://github.com/avieth/acid-state";
+      rev = "7c00aeeeb731f5c98fe1104693c0136b384cb824";
+      sha256 = "08ncrjdqdxw7wmf74v6k8j9kk7w86q7na1smcfqszv23hg5y4agr";
       });
     }

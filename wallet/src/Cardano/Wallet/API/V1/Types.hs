@@ -239,7 +239,7 @@ instance Arbitrary (V1 Core.PassPhrase) where
 instance ToSchema (V1 Core.PassPhrase) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1PassPhrase") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & format ?~ "hex|base16"
 
 instance ToJSON (V1 Core.Coin) where
@@ -257,7 +257,7 @@ instance Arbitrary (V1 Core.Coin) where
 instance ToSchema (V1 Core.Coin) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1Coin") $ mempty
-            & type_ .~ SwaggerNumber
+            & type_ ?~ SwaggerNumber
             & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
 
 instance ToJSON (V1 Core.Address) where
@@ -275,7 +275,7 @@ instance Arbitrary (V1 Core.Address) where
 instance ToSchema (V1 Core.Address) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "Address") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & format ?~ "base58"
 
 instance FromHttpApiData (V1 Core.Address) where
@@ -318,7 +318,7 @@ instance Arbitrary (V1 Core.Timestamp) where
 instance ToSchema (V1 Core.Timestamp) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "Timestamp") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & description ?~ "Time in ISO 8601 format"
 
 --
@@ -364,7 +364,7 @@ deriveJSON
 instance ToSchema AssuranceLevel where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "AssuranceLevel") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & enum_ ?~ ["normal", "strict"]
 
 deriveSafeBuildable ''AssuranceLevel
@@ -418,7 +418,7 @@ deriveJSON Aeson.defaultOptions  { A.constructorTagModifier = reverse . drop 6 .
 instance ToSchema WalletOperation where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "WalletOperation") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & enum_ ?~ ["create", "restore"]
 
 deriveSafeBuildable ''WalletOperation
@@ -548,15 +548,15 @@ instance FromJSON EstimatedCompletionTime where
 instance ToSchema EstimatedCompletionTime where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "EstimatedCompletionTime") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["quantity", "unit"]
             & properties .~ (mempty
                 & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
+                    & type_ ?~ SwaggerNumber
                     & minimum_ .~ Just 0
                     )
                 & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
+                    & type_ ?~ SwaggerString
                     & enum_ ?~ ["milliseconds"]
                     )
                 )
@@ -596,14 +596,14 @@ instance FromJSON SyncThroughput where
 instance ToSchema SyncThroughput where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "SyncThroughput") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["quantity", "unit"]
             & properties .~ (mempty
                 & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
+                    & type_ ?~ SwaggerNumber
                     )
                 & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
+                    & type_ ?~ SwaggerString
                     & enum_ ?~ ["blocksPerSecond"]
                     )
                 )
@@ -685,11 +685,11 @@ instance ToSchema SyncState where
     declareNamedSchema _ = do
       syncProgress <- declareSchemaRef @SyncProgress Proxy
       pure $ NamedSchema (Just "SyncState") $ mempty
-          & type_ .~ SwaggerObject
+          & type_ ?~ SwaggerObject
           & required .~ ["tag"]
           & properties .~ (mempty
               & at "tag" ?~ (Inline $ mempty
-                  & type_ .~ SwaggerString
+                  & type_ ?~ SwaggerString
                   & enum_ ?~ ["restoring", "synced"]
                   )
               & at "data" ?~ syncProgress
@@ -797,7 +797,7 @@ instance Example MnemonicBalance where
 instance ToSchema PublicKey where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "PublicKey") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & format ?~ "base58"
 
 --------------------------------------------------------------------------------
@@ -841,7 +841,7 @@ instance FromJSON (V1 AddressOwnership) where
 instance ToSchema (V1 AddressOwnership) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1AddressOwnership") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & enum_ ?~ ["isOurs", "ambiguousOwnership"]
 
 instance Arbitrary (V1 AddressOwnership) where
@@ -945,7 +945,7 @@ instance BuildableSafeGen AccountIndex where
 
 instance ToParamSchema AccountIndex where
     toParamSchema _ = mempty
-        & type_ .~ SwaggerNumber
+        & type_ ?~ SwaggerNumber
         & minimum_ .~ Just (fromIntegral $ getAccIndex minBound)
         & maximum_ .~ Just (fromIntegral $ getAccIndex maxBound)
 
@@ -1337,7 +1337,7 @@ instance FromJSON (V1 Core.InputSelectionPolicy) where
 instance ToSchema (V1 Core.InputSelectionPolicy) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1InputSelectionPolicy") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & enum_ ?~ ["OptimizeForSecurity", "OptimizeForHighThroughput"]
 
 instance Arbitrary (V1 Core.InputSelectionPolicy) where
@@ -1422,7 +1422,7 @@ deriveJSON defaultOptions { A.constructorTagModifier = reverse . drop 11 . rever
 instance ToSchema TransactionType where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "TransactionType") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & enum_ ?~ ["local", "foreign"]
             & description ?~ mconcat
                 [ "A transaction is 'local' if all the inputs and outputs "
@@ -1454,7 +1454,7 @@ deriveJSON defaultOptions { A.constructorTagModifier = reverse . drop 11 . rever
 instance ToSchema TransactionDirection where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "TransactionDirection") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
             & enum_ ?~ ["outgoing", "incoming"]
 
 -- | This is an information-less variant of 'PtxCondition'.
@@ -1492,17 +1492,17 @@ instance ToJSON TransactionStatus where
 instance ToSchema TransactionStatus where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "TransactionStatus") $ mempty
-            & type_ .~ SwaggerObject
+            & type_ ?~ SwaggerObject
             & required .~ ["tag", "data"]
             & properties .~ (mempty
                 & at "tag" ?~ Inline (mempty
-                    & type_ .~ SwaggerString
+                    & type_ ?~ SwaggerString
                     & enum_ ?~
                         map (String . transactionStatusToText)
                             allTransactionStatuses
                 )
                 & at "data" ?~ Inline (mempty
-                    & type_ .~ SwaggerObject
+                    & type_ ?~ SwaggerObject
                 )
             )
 
@@ -1686,7 +1686,7 @@ instance ToSchema ShieldedRedemptionCode where
     declareNamedSchema _ =
         pure
             $ NamedSchema (Just "ShieldedRedemptionCode") $ mempty
-            & type_ .~ SwaggerString
+            & type_ ?~ SwaggerString
 
 deriveSafeBuildable ''ShieldedRedemptionCode
 instance BuildableSafeGen ShieldedRedemptionCode where

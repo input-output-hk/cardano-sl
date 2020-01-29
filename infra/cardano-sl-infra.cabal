@@ -21,7 +21,6 @@ library
                         Pos.Infra.Diffusion.Types
                         Pos.Infra.Diffusion.Subscription.Common
                         Pos.Infra.Diffusion.Subscription.Dns
-                        Pos.Infra.Diffusion.Subscription.Dht
                         Pos.Infra.Diffusion.Subscription.Status
                         Pos.Infra.Diffusion.Subscription.Subscriber
 
@@ -48,18 +47,6 @@ library
                         Pos.Infra.Slotting.Types
                         Pos.Infra.Slotting.Error
                         Pos.Infra.Slotting.Util
-
-                        -- Pos.Infra.DHT
-                        Pos.Infra.DHT
-                        Pos.Infra.DHT.Constants
-                        Pos.Infra.DHT.Model
-                        Pos.Infra.DHT.Model.Types
-                        Pos.Infra.DHT.Real
-                        Pos.Infra.DHT.Real.Real
-                        Pos.Infra.DHT.Real.Types
-                        Pos.Infra.DHT.Real.Param
-                        Pos.Infra.DHT.Real.CLI
-                        Pos.Infra.DHT.Workers
 
                         -- Pos.Infra.Communication
                         Pos.Infra.Communication.Constants
@@ -104,10 +91,6 @@ library
                         Pos.Infra.Statistics.Ekg
                         Pos.Infra.Statistics.Statsd
 
-                        -- Pos.Infra.Binary
-                        Pos.Infra.Binary
-                        Pos.Infra.Binary.DHTModel
-
                         -- Pos.Util
                         Pos.Infra.Util.JsonLog.Events
                         Pos.Infra.Util.LogSafe
@@ -146,7 +129,6 @@ library
                       , http-client
                       , http-client-tls
                       , iproute
-                      , kademlia
                       , lens
                       , megaparsec
                       , mtl
@@ -246,7 +228,6 @@ test-suite infra-test
                   , hedgehog
                   , hspec
                   , iproute
-                  , kademlia
                   , universum
                   , yaml
 

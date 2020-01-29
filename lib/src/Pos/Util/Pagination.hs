@@ -53,7 +53,7 @@ instance ToSchema Page where
 
 instance ToParamSchema Page where
     toParamSchema _ = mempty
-        & type_ .~ SwaggerInteger
+        & type_ ?~ SwaggerInteger
         & default_ ?~ (Number 1) -- Always show the first page by default.
         & minimum_ ?~ 1
 
@@ -77,7 +77,7 @@ instance ToSchema PerPage where
 
 instance ToParamSchema PerPage where
     toParamSchema _ = mempty
-        & type_ .~ SwaggerInteger
+        & type_ ?~ SwaggerInteger
         & default_ ?~ (Number $ fromIntegral defaultPerPageEntries)
         & minimum_ ?~ 1
         & maximum_ ?~ (fromIntegral maxPerPageEntries)
@@ -138,7 +138,7 @@ instance ToSchema PaginationMetadata where
         pure $ over schema (over properties adjustPropsSchema) schm
       where
         totalSchema = Inline $ mempty
-            & type_ .~ SwaggerNumber
+            & type_ ?~ SwaggerNumber
             & minimum_ ?~ 0
             & maximum_ ?~ fromIntegral (maxBound :: Int)
         adjustPropsSchema s = s

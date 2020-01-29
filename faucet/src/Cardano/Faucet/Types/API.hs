@@ -76,7 +76,7 @@ instance ToSchema WithdrawalRequest where
         addrSchema <- declareSchemaRef (Proxy :: Proxy (V1 Address))
         recaptchaSchema <- declareSchemaRef (Proxy :: Proxy Text)
         return $ NamedSchema (Just "WithdrawalRequest") $ mempty
-          & type_ .~ SwaggerObject
+          & type_ ?~ SwaggerObject
           & properties .~ (mempty & at "address" ?~ addrSchema
                                   & at "g-recaptcha-response" ?~ recaptchaSchema)
           & required .~ ["address", "g-recaptcha-response"]
@@ -103,7 +103,7 @@ instance ToSchema WithdrawalQFull where
     declareNamedSchema _ = do
         strSchema <- declareSchemaRef (Proxy :: Proxy Text)
         return $ NamedSchema (Just "WithdrawalQFull") $ mempty
-          & type_ .~ SwaggerObject
+          & type_ ?~ SwaggerObject
           & properties .~ (mempty
               & at "status" ?~ strSchema
               & at "error" ?~ strSchema)

@@ -19,7 +19,7 @@ import           Options.Applicative (Parser, execParser, fullDesc, header,
                      help, helper, info, long, progDesc, short, strOption,
                      (<**>))
 
-import           Servant hiding (header)
+import           Servant
 import           System.Remote.Monitoring (forkServer, serverMetricStore)
 import           System.Remote.Monitoring.Statsd (forkStatsd)
 import           System.Wlog (LoggerNameBox, launchFromFile, usingLoggerName)

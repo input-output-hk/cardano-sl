@@ -39,6 +39,7 @@ let
       }
       {
         packages.cardano-sl.patches = [ ./patches/cardano-sl.patch ];
+        packages.libiserv.patches = [ ./patches/libiserv-network-3.patch ];
         packages.ekg-wai.components.library.enableSeparateDataOutput = true;
       }
     ];

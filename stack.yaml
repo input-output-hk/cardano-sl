@@ -220,7 +220,7 @@ extra-deps:
 - servant-0.15
 - servant-client-0.15
 - servant-client-core-0.15
-- servant-server-0.15
+- servant-server-0.16.1
 
 - connection-0.3.0
 - warp-3.2.27

@@ -37,7 +37,7 @@ import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost,
 import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket,
                      tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)))
-import           Servant.Server (Handler, HasServer, ServantErr (errBody),
+import           Servant.Server (Handler, HasServer, ServerError (errBody),
                      Server, ServerT, err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 

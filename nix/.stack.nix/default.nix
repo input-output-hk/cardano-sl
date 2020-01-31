@@ -41,7 +41,7 @@
         "servant" = (((hackage.servant)."0.15").revisions).default;
         "servant-client" = (((hackage.servant-client)."0.15").revisions).default;
         "servant-client-core" = (((hackage.servant-client-core)."0.15").revisions).default;
-        "servant-server" = (((hackage.servant-server)."0.15").revisions).default;
+        "servant-server" = (((hackage.servant-server)."0.16.1").revisions).default;
         "connection" = (((hackage.connection)."0.3.0").revisions).default;
         "warp" = (((hackage.warp)."3.2.27").revisions).default;
         "wai-extra" = (((hackage.wai-extra)."3.0.26").revisions).default;

@@ -123,7 +123,7 @@ import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..))
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
-import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
+import           Servant.Server (Handler (..), HasServer (..), ServerError (..),
                      Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger
@@ -142,10 +142,10 @@ import           Pos.Util.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 -- Utility functions
 -------------------------------------------------------------------------
 
-serverHandlerL :: Iso (Handler a) (Handler b) (ExceptT ServantErr IO a) (ExceptT ServantErr IO b)
+serverHandlerL :: Iso (Handler a) (Handler b) (ExceptT ServerError IO a) (ExceptT ServerError IO b)
 serverHandlerL = iso runHandler' Handler
 
-serverHandlerL' :: Iso (Handler a) (Handler b) (IO $ Either ServantErr a) (IO $ Either ServantErr b)
+serverHandlerL' :: Iso (Handler a) (Handler b) (IO $ Either ServerError a) (IO $ Either ServerError b)
 serverHandlerL' = serverHandlerL . iso runExceptT ExceptT
 
 inRouteServer
@@ -215,8 +215,8 @@ class ModifiesApiRes t where
     type ApiModifiedRes t a :: *
     modifyApiResult
         :: Proxy t
-        -> IO (Either ServantErr a)
-        -> IO (Either ServantErr (ApiModifiedRes t a))
+        -> IO (Either ServerError a)
+        -> IO (Either ServerError (ApiModifiedRes t a))
 
 -- | Wrapper to modify result of API.
 -- @modType@ argument specifies transformation and should be instance of
@@ -624,7 +624,7 @@ nextRequestId = atomically $ do
 applyServantLogging
     :: ( MonadIO m
        , MonadCatch m
-       , MonadError ServantErr m
+       , MonadError ServerError m
        , Reifies config ApiLoggingConfig
        , ReflectMethod (method :: k)
        )

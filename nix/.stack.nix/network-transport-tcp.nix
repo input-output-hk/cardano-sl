@@ -41,7 +41,7 @@
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/avieth/network-transport-tcp";
-      rev = "984386467466d89621eda1cff8bbb435a9b9c0ef";
-      sha256 = "0a6ckmk1qyknzfj79hnb3cpk9ybwn2hwcbq66jnds8hgnxpnm4an";
+      rev = "613332da47e2c3e4a79017ca188c9e6568671222";
+      sha256 = "1csbzsw670wbgngqzrdm66pl558vi8vrv86nxxr0gkc0mfz47f2c";
       });
     }

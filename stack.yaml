@@ -91,7 +91,7 @@ packages:
 # As above, seems relatively straightforward to PR.
 - location:
     git: https://github.com/avieth/network-transport-tcp
-    commit: 984386467466d89621eda1cff8bbb435a9b9c0ef
+    commit: 613332da47e2c3e4a79017ca188c9e6568671222
   extra-dep: true
 
 # Works with latest network, because it does not depend upon network!

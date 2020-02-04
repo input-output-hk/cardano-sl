@@ -9,11 +9,12 @@ module Test.Pos.Core.ChronoSpec
        ( spec
        ) where
 
-import           Universum
+import           Universum hiding (Each)
 
 import qualified Data.List.NonEmpty as NE
 import qualified GHC.Exts as IL (IsList (..))
 
+import           Pos.Util.TypeOps (Each)
 import           Pos.Core.Chrono (Chrono (..), NE, NewestFirst (..),
                      OldestFirst (..))
 

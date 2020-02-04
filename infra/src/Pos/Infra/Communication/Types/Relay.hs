@@ -16,7 +16,7 @@ module Pos.Infra.Communication.Types.Relay
        , SscMessageConstraints
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding (Each, id)
 
 import           Control.Lens (Wrapped (..), iso)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
@@ -33,6 +33,7 @@ import           Pos.Chain.Txp (TxMsgContents (..))
 import           Pos.Chain.Update (UpdateProposal, UpdateVote, uvProposalId)
 import           Pos.Core (StakeholderId)
 import           Pos.Crypto (hash)
+import           Pos.Util.TypeOps (Each)
 import           Pos.Util.Util (cborError)
 
 -- | Inventory message. Can be used to announce the fact that you have

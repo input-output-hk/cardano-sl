@@ -7,7 +7,7 @@ module Pos.Network.Block.WorkMode
     , BlockWorkMode
     ) where
 
-import           Universum
+import           Universum hiding (Each)
 
 import           Data.Default (Default)
 
@@ -31,6 +31,7 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag)
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders)
+import           Pos.Util.TypeOps (Each)
 import           Pos.Util.Util (HasLens, HasLens')
 import           Pos.Util.Wlog (WithLogger)
 

@@ -54,6 +54,7 @@ library
                        Pos.Util.Trace
                        Pos.Util.Trace.Unstructured
                        Pos.Util.Trace.Named
+                       Pos.Util.TypeOps
                        Pos.Util.Util
                        Pos.Util.Wlog
                        Pos.Util.Log.Rotator

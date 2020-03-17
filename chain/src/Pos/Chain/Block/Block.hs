@@ -252,8 +252,12 @@ mkGenesisBlock pm prevHeader epoch leaders = GenericBlock header body extra
     extra = GenesisExtraBodyData $ mkAttributes ()
 
 -- | Creates the very first genesis block.
-genesisBlock0 :: ProtocolMagic -> GenesisHash -> SlotLeaders -> GenesisBlock
-genesisBlock0 pm genesisHash leaders = mkGenesisBlock pm (Left genesisHash) 0 leaders
+genesisBlock0 :: ConsensusEra -> ProtocolMagic -> GenesisHash -> SlotLeaders -> GenesisBlock
+genesisBlock0 Original pm genesisHash leaders =
+    mkGenesisBlock pm (Left genesisHash) 0 leaders
+
+genesisBlock0 (OBFT _) pm genesisHash _leaders =
+    mkGenesisBlock pm (Left genesisHash) 0 []
 
 -- | To verify a genesis block we only have to check the body proof.
 verifyGenesisBlock

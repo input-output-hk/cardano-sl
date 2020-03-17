@@ -39,13 +39,14 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Chain.Block (Block, MainBlock, genesisBlock0, headerHash,
                      mainBlockSlot, mainBlockTxPayload)
 import           Pos.Chain.Genesis as Genesis (Config (..))
-import           Pos.Chain.Genesis (GenesisData)
+import           Pos.Chain.Genesis (GenesisData, configBlockVersionData)
 import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
                      TxOut, TxOutAux (..), TxWitness, TxpConfiguration,
                      TxpError (..), UtxoLookup, UtxoM, UtxoModifier,
                      applyTxToUtxo, evalUtxoM, flattenTxPayload, genesisUtxo,
                      runUtxoM, topsortTxs, txOutAddress, utxoGet, utxoToLookup)
+import           Pos.Chain.Update (consensusEraBVD)
 import           Pos.Core (Address, ChainDifficulty, Timestamp (..),
                      difficultyL)
 import           Pos.Core.JsonLog (CanJsonLog (..))
@@ -222,6 +223,7 @@ getBlockHistoryDefault
 getBlockHistoryDefault genesisConfig addrs = do
     let genesisHash = configGenesisHash genesisConfig
     let bot = headerHash $ genesisBlock0
+            (consensusEraBVD (configBlockVersionData genesisConfig))
             (configProtocolMagic genesisConfig)
             genesisHash
             (genesisLeaders genesisConfig)

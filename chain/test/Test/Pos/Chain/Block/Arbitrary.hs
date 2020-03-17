@@ -492,9 +492,9 @@ genHeaderAndParams pm era = do
                 Block.BlockHeaderGenesis h -> h ^. Block.gbhExtra . Block.gehAttributes
                 Block.BlockHeaderMain h    -> h ^. Block.gbhExtra . Block.mehAttributes
 
-        thisEpochLeaderSchedule :: Maybe (NonEmpty (Core.AddressHash PublicKey))
+        thisEpochLeaderSchedule :: Maybe [Core.AddressHash PublicKey]
         thisEpochLeaderSchedule =
-            mkEpochLeaderSchedule era (getEpochOrSlot header) headers
+            toList <$> mkEpochLeaderSchedule era (getEpochOrSlot header) headers
 
         params = Block.VerifyHeaderParams
             { Block.vhpPrevHeader = prev

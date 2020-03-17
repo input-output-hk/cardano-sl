@@ -10,7 +10,6 @@ import           Universum
 import           Control.Lens (makeLenses, makePrisms, uses)
 import           Data.Conduit (ConduitT, await, runConduitPure, (.|))
 import qualified Data.Conduit.List as CL
-import           Data.List.NonEmpty (fromList)
 
 import           Formatting (int, sformat, (%))
 
@@ -237,7 +236,7 @@ followTheSatoshiM epochSlots (SharedSeed seed) totalCoins = do
     ftsState <- ftsStateInit <$> nextStakeholder
     let sortedCoinIndices = sortWith snd (assignToSlots epochSlots coinIndices)
     res <- evaluatingStateT ftsState $ findLeaders sortedCoinIndices
-    pure . fromList . arrangeBySlots $ res
+    pure . arrangeBySlots $ res
   where
     coinIndices :: [CoinIndex]
     coinIndices = map (CoinIndex . fromInteger) . deterministic seed $

@@ -39,6 +39,7 @@ module UTxO.Context (
   ) where
 
 import qualified Data.HashMap.Strict as HM
+import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Formatting (bprint, build, sformat, (%))
@@ -567,7 +568,7 @@ leaderForSlot leaders slotId TransCtxt{..} = actorsStake Map.! leader
     CardanoContext{..} = tcCardano
 
     leader :: StakeholderId
-    leader = leaders NE.!! slotIx
+    leader = leaders List.!! slotIx
 
     slotIx :: Int
     slotIx = fromIntegral $ getSlotIndex (siSlot slotId)

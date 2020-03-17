@@ -211,9 +211,7 @@ genSharedSeed :: Gen SharedSeed
 genSharedSeed = SharedSeed <$> gen32Bytes
 
 genSlotLeaders :: Gen SlotLeaders
-genSlotLeaders = do
-    stakeHolderList <- Gen.list (Range.linear 1 10) genStakeholderId
-    pure $ fromJust $ nonEmpty stakeHolderList
+genSlotLeaders = Gen.list (Range.linear 1 10) genStakeholderId
 
 genStakeholderId :: Gen StakeholderId
 genStakeholderId = genAbstractHash genPublicKey

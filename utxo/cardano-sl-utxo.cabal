@@ -28,7 +28,7 @@ library
 
                        Data.Validated
   -- other-modules:
-  build-depends:       base >=4.10 && <4.12
+  build-depends:       base >=4.10 && <4.14
                      , QuickCheck
                      , cardano-sl
                      , cardano-sl-binary

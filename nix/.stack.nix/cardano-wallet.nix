@@ -134,6 +134,27 @@
             (hsPkgs.universum)
             ];
           };
+        "export-wallets" = {
+          depends = [
+            (hsPkgs.base)
+            (hsPkgs.aeson)
+            (hsPkgs.aeson-pretty)
+            (hsPkgs.bytestring)
+            (hsPkgs.cardano-crypto)
+            (hsPkgs.cardano-sl)
+            (hsPkgs.cardano-sl-core)
+            (hsPkgs.cardano-sl-crypto)
+            (hsPkgs.cardano-sl-crypto)
+            (hsPkgs.cardano-sl-infra)
+            (hsPkgs.cardano-sl-util)
+            (hsPkgs.cardano-wallet)
+            (hsPkgs.contravariant)
+            (hsPkgs.memory)
+            (hsPkgs.optparse-applicative)
+            (hsPkgs.text)
+            (hsPkgs.universum)
+            ];
+          };
         };
       tests = {
         "unit" = {

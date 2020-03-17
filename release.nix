@@ -49,22 +49,16 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
   package-set-path = ./nix/nix-tools.nix;
   packages = [
     "cardano-sl"
-    "cardano-sl-auxx"
     "cardano-sl-chain"
     "cardano-sl-core"
     "cardano-sl-crypto"
     "cardano-sl-db"
     "cardano-sl-generator"
     "cardano-sl-infra"
-    "cardano-sl-faucet"
     "cardano-sl-networking"
     "cardano-sl-node"
     "cardano-sl-tools"
     "cardano-sl-util"
-    "cardano-sl-x509"
-    "cardano-wallet"
-    "cardano-sl-explorer"
-    "cardano-sl-cluster"
   ];
   extraBuilds = {
     inherit (default) tests demoCluster explorerFrontend faucetFrontend explorerPythonAPI;
@@ -76,11 +70,5 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
   } // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" "demo" "testnet" ]));
   required-targets = jobs: [
     jobs.nix-tools.exes.cardano-sl-node.x86_64-linux
-    jobs.nix-tools.exes.cardano-sl-auxx.x86_64-linux
-    jobs.nix-tools.exes.cardano-sl-faucet.x86_64-linux
-    jobs.nix-tools.exes.cardano-sl-explorer.x86_64-linux
-    jobs.nix-tools.exes.cardano-wallet.x86_64-linux
-    jobs.nix-tools.exes.cardano-wallet.x86_64-darwin
-  ] ++ (builtins.attrValues jobs.tests)
-  ++ (builtins.attrValues jobs.daedalus-bridge);
+  ];
 } (builtins.removeAttrs args ["cardano"]))

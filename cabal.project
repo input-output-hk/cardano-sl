@@ -1,3 +1,78 @@
 packages:
-  */*.cabal
-  */test/*.cabal
+  lib binary util infra core chain db crypto networking client utxo
+  binary/test util/test core/test chain/test db/test crypto/test
+
+constraints:
+    ip < 1.5
+  , canonical-json >= 0.6.0.0
+  , cborg >= 0.2.2.0
+  , ekg-prometheus-adapter >= 0.1.0.4
+  , hedgehog >= 1.0
+  , libsystemd-journal >= 1.4.4
+  , bimap >= 0.4.0
+  , primitive < 0.7
+  , katip >= 0.8.0.0
+  , dns < 4.0.0
+  , network >= 3.1.0.1
+  , unliftio-core < 0.2
+
+  -- Needed for cardano-sl
+  , safecopy < 0.10.0
+  , servant >= 0.16
+  , swagger2 == 2.4
+  , generics-sop < 0.5
+  , type-operators < 0.2
+
+index-state: 2020-01-31T21:11:24Z
+
+max-backjumps: 5000
+reorder-goals: True
+
+tests: False
+
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/cardano-crypto
+  tag: 2547ad1e80aeabca2899951601079408becbc92c
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/log-warper
+  tag: 16246d4fbf16da7984f2a4b6c42f2ed5098182e4
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/rocksdb-haskell-ng
+  tag: 49f501a082d745f3b880677220a29cafaa181452
+
+source-repository-package
+  type: git
+  location: https://github.com/serokell/network-transport
+  tag: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+
+source-repository-package
+  type: git
+  location: https://github.com/avieth/network-transport-tcp
+  tag: 2024d562d693518d983943331838b1857c2bf063
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/universum
+  tag: 15f7db758ff5a24b874de2247f6f7a4576562da5
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/serokell-util
+  tag: 457f1d149c6e238841f283a1faf7bc8fb021b27d
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/ether
+  tag: a311878ae17ed5f201421bdcd5392a24b746ff0b
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/transformers-lift
+  tag: c830bc7e7e41895e3c50488a92d34405b68b4ad8
+

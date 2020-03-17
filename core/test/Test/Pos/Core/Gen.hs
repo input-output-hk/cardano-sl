@@ -65,7 +65,6 @@ import           Universum
 
 import           Data.Fixed (Fixed (..))
 import qualified Data.Map as M
-import           Data.Maybe
 import           Data.Time.Units (Microsecond, Millisecond, fromMicroseconds)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen

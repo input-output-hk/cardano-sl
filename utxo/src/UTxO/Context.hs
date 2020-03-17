@@ -54,9 +54,10 @@ import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      GeneratedSecrets (..), GenesisData (..),
                      GenesisDelegation (..), PoorSecret (..), RichSecrets (..),
-                     configEpochSlots)
+                     configEpochSlots, configBlockVersionData)
 import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
+import           Pos.Chain.Update (consensusEraBVD)
 import           Pos.Core as Core
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto
@@ -113,7 +114,8 @@ initCardanoContext genesisConfig = CardanoContext
     ccData       = configGenesisData genesisConfig
     ccLeaders    = genesisLeaders genesisConfig
     ccMagic      = configProtocolMagic genesisConfig
-    ccBlock0     = genesisBlock0 ccMagic (configGenesisHash genesisConfig) ccLeaders
+    consensusEra = consensusEraBVD (configBlockVersionData genesisConfig)
+    ccBlock0     = genesisBlock0 consensusEra ccMagic (configGenesisHash genesisConfig) ccLeaders
     ccUtxo       = genesisUtxo ccData
 
 {-------------------------------------------------------------------------------

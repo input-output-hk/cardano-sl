@@ -8,9 +8,9 @@ module Pos.DB.DB
 import           Universum
 
 import           Pos.Chain.Block (genesisBlock0, headerHash)
-import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Genesis as Genesis (Config (..), configBlockVersionData)
 import           Pos.Chain.Lrc (genesisLeaders)
-import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Chain.Update (BlockVersionData, consensusEraBVD)
 import           Pos.DB.Block (prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))
 import           Pos.DB.Lrc (prepareLrcDB)
@@ -30,7 +30,8 @@ initNodeDBs genesisConfig = do
     prepareGStateDB genesisConfig initialTip
     prepareLrcDB genesisConfig
   where
-    gb = genesisBlock0 (configProtocolMagic genesisConfig)
+    gb = genesisBlock0 (consensusEraBVD (configBlockVersionData genesisConfig))
+                       (configProtocolMagic genesisConfig)
                        (configGenesisHash genesisConfig)
                        (genesisLeaders genesisConfig)
 

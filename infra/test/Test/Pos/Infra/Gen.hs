@@ -9,8 +9,6 @@ module Test.Pos.Infra.Gen
         , genMempoolMsg
         , genReqMsg
         , genResMsg
-        , genDHTData
-        , genDHTKey
 
         -- Slotting Generators
         , genEpochSlottingData
@@ -41,17 +39,14 @@ import qualified Data.Map as DM
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import           Network.Kademlia.HashNodeId (genNonce, hashAddress)
 
 import           Network.Broadcast.OutboundQueue (MaxBucketSize (..))
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import qualified Network.DNS as DNS
 import           Pos.Core (EpochIndex (..))
-import           Pos.Crypto.Random (deterministic)
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..))
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
                      MempoolMsg (..), ReqMsg (..), ResMsg (..))
-import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 import           Pos.Infra.Network.Types (NodeName (..))
 import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
@@ -81,12 +76,6 @@ genMempoolMsg = pure MempoolMsg
 
 genDataMsg :: Gen a -> Gen (DataMsg a)
 genDataMsg genA = DataMsg <$> genA
-
-genDHTKey :: Gen DHTKey
-genDHTKey = pure $ DHTKey $ hashAddress $ deterministic "nonce" genNonce
-
-genDHTData :: Gen DHTData
-genDHTData = pure $ DHTData ()
 
 ----------------------------------------------------------------------------
 -- Slotting Generators
@@ -182,7 +171,6 @@ genNodeMetadata = do
     nmValency'    <- Gen.int (Range.linear 1 10)
     nmFallbacks'  <- Gen.int (Range.linear 1 10)
     nmAddress'    <- genNodeAddr (Just <$> genDomain)
-    nmKademlia'   <- Gen.bool
     nmPublicDNS'  <- Gen.bool
     nmMaxSubscrs' <- genMaxBucketSize
     choiceInt <- Gen.int8 (Range.linear 1 10)
@@ -200,7 +188,6 @@ genNodeMetadata = do
                        nmValency'
                        nmFallbacks'
                        nmAddress'
-                       nmKademlia'
                        nmPublicDNS'
                        nmMaxSubscrs'
         else do
@@ -213,7 +200,6 @@ genNodeMetadata = do
                        nmValency'
                        nmFallbacks'
                        nmAddress'
-                       nmKademlia'
                        nmPublicDNS'
                        nmMaxSubscrs'
 

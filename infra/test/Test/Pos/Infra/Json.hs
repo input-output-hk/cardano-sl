@@ -187,7 +187,6 @@ exampleNodeMetadata =
                            \eJbAddwugsFhFXSFxxdzJWRkwpySNAlLhrxHsyfQdLmrmkBmGWsiiu\
                            \FMuwpIdDRwdRXK") (Just 6732))
         True
-        True
         BucketSizeUnlimited
 
 
@@ -214,7 +213,6 @@ exampleTopologyStatic = TopologyStatic $
                                 (NodeAddrDNS
                                     (Just "ekKxWFhuqyvriOtsMUMQfUkhffLkpd")
                                     (Just 16071))
-                                True
                                 False
                                 BucketSizeUnlimited)]
 

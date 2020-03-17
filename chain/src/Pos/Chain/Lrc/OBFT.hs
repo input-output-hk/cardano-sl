@@ -39,9 +39,9 @@ getEpochSlotLeaderScheduleObftPure
     -> NonEmpty StakeholderId
     -> SlotLeaders
 getEpochSlotLeaderScheduleObftPure epochIndex epochSlotCount stakeholders =
-    case nonEmpty slotLeaderSchedule of
-        Just sls -> sls
-        Nothing  -> error "getEpochSlotLeaderScheduleObftPure: Empty slot leader schedule"
+    case slotLeaderSchedule of
+        []  -> error "getEpochSlotLeaderScheduleObftPure: Empty slot leader schedule"
+        sls -> sls
   where
     slotLeaderSchedule =
         map (\si -> getSlotLeaderObftPure si epochSlotCount stakeholders)

@@ -10,8 +10,8 @@ import           Serokell.Util (enumerate, listChunkedJson, pairBuilder)
 
 import           Pos.Core.Common.StakeholderId
 
--- | 'NonEmpty' list of slot leaders.
-type SlotLeaders = NonEmpty StakeholderId
+-- | list of slot leaders.
+type SlotLeaders = [StakeholderId]
 
 -- | Pretty-printer for slot leaders. Note: it takes list (not
 -- 'NonEmpty' as an argument, because one can always convert @NonEmpty

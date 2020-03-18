@@ -39,6 +39,7 @@ module UTxO.Context (
   ) where
 
 import qualified Data.HashMap.Strict as HM
+import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Formatting (bprint, build, sformat, (%))
@@ -53,9 +54,10 @@ import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      GeneratedSecrets (..), GenesisData (..),
                      GenesisDelegation (..), PoorSecret (..), RichSecrets (..),
-                     configEpochSlots)
+                     configEpochSlots, configBlockVersionData)
 import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
+import           Pos.Chain.Update (consensusEraBVD)
 import           Pos.Core as Core
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto
@@ -112,7 +114,8 @@ initCardanoContext genesisConfig = CardanoContext
     ccData       = configGenesisData genesisConfig
     ccLeaders    = genesisLeaders genesisConfig
     ccMagic      = configProtocolMagic genesisConfig
-    ccBlock0     = genesisBlock0 ccMagic (configGenesisHash genesisConfig) ccLeaders
+    consensusEra = consensusEraBVD (configBlockVersionData genesisConfig)
+    ccBlock0     = genesisBlock0 consensusEra ccMagic (configGenesisHash genesisConfig) ccLeaders
     ccUtxo       = genesisUtxo ccData
 
 {-------------------------------------------------------------------------------
@@ -567,7 +570,7 @@ leaderForSlot leaders slotId TransCtxt{..} = actorsStake Map.! leader
     CardanoContext{..} = tcCardano
 
     leader :: StakeholderId
-    leader = leaders NE.!! slotIx
+    leader = leaders List.!! slotIx
 
     slotIx :: Int
     slotIx = fromIntegral $ getSlotIndex (siSlot slotId)

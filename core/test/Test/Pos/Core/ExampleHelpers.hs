@@ -53,7 +53,6 @@ module Test.Pos.Core.ExampleHelpers
 import           Universum
 
 import           Data.List ((!!))
-import           Data.List.NonEmpty (fromList)
 import qualified Data.Map as M
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
@@ -183,7 +182,7 @@ exampleStakesList = zip sis coins
     coins = map Coin [79, 44, 9999999]
 
 exampleSlotLeaders :: SlotLeaders
-exampleSlotLeaders = map abstractHash (fromList (examplePublicKeys 16 3))
+exampleSlotLeaders = map abstractHash (examplePublicKeys 16 3)
 
 staticSafeSigners :: [SafeSigner]
 staticSafeSigners = map FakeSigner (exampleSecretKeys 1 6)

@@ -54,6 +54,7 @@ import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure,
 import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
 
+import           Serokell.Util.Base64 (base64F)
 
 ----------------------------------------------------------------------------
 -- Implementations for 'MonadRealDB'
@@ -140,13 +141,18 @@ deleteBlock hh = do
 ----------------------------------------------------------------------------
 
 prepareBlockDB
-    :: MonadDB m
+    :: (MonadDB m, MonadIO m)
     => GenesisBlock -> m ()
-prepareBlockDB blk =
+prepareBlockDB blk = do
+    putStrLn ("==================================== EBB ====================================" :: String)
+    putStrLn (formatToString base64F serializedEbb :: String)
+    putStrLn ("==================================== EBB ====================================" :: String)
+
     dbPutSerBlunds
-    $ one ( CB.getBlockHeader $ Left blk
-          , Serialized . serialize' $ bimap (serialize' @Block) serialize' (Left blk, genesisUndo))
+     $ one ( CB.getBlockHeader $ Left blk
+           , Serialized . serialize' $ serialize' <$> (serializedEbb, genesisUndo))
   where
+    serializedEbb = serialize' @Block (Left blk)
     genesisUndo =
         Undo
         { undoTx = mempty

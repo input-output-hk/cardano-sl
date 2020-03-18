@@ -379,7 +379,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
 
 -- | Produce N slot leaders so we can test it realistically.
 produceSlotLeaders :: MonadIO m => SlotLeadersNumber -> m SlotLeaders
-produceSlotLeaders slotLeadersNumber = liftIO $ NE.fromList <$> stakeholders
+produceSlotLeaders slotLeadersNumber = liftIO stakeholders
   where
     stakeholders :: IO [StakeholderId]
     stakeholders = replicateM (fromIntegral slotLeadersNumber) generatedStakeHolder

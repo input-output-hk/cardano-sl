@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE TypeApplications  #-}
 
@@ -29,6 +30,7 @@ import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.Trace (Trace (..))
 import           Pos.Util.UserSecret (readUserSecret)
+import           System.Directory (doesDirectoryExist)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
@@ -51,20 +53,24 @@ main :: IO ()
 main = do
     let preferences = prefs showHelpOnEmpty
     Options{pm,dbPath,usPath} <- customExecParser preferences parserInfo
+    let dbOpts = DatabaseOptions
+            { dbPathAcidState = dbPath <> "-acid"
+            , dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
+            , dbRebuild       = False
+            }
+    guardDatabase dbOpts
     userSecret <- readUserSecret (contramap snd stderrTrace) usPath
     bracketLegacyKeystore userSecret $ \ks -> do
-        let dbMode = UseFilePath $ DatabaseOptions
-                { Kernel.dbPathAcidState = dbPath <> "-acid"
-                , Kernel.dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
-                , Kernel.dbRebuild       = False
-                }
         fInjects <- mkFInjects Nothing
-        bracketPassiveWallet pm dbMode log ks mockNodeStateDef fInjects $ \pw -> do
+        bracketPassiveWallet pm (UseFilePath dbOpts) log ks mockNodeStateDef fInjects $ \pw -> do
             wallets <- extractWallet pw
             BL8.putStrLn $ Json.encodePretty (Export <$> wallets)
   where
     log = const (B8.hPutStrLn stderr . T.encodeUtf8)
     stderrTrace = Trace $ Op $ TIO.hPutStrLn stderr
+    guardDatabase = doesDirectoryExist . dbPathAcidState  >=> \case
+        True  -> pure ()
+        False -> fail "There's no acid-state database matching the given path."
 
 extractWallet
     :: Kernel.PassiveWallet

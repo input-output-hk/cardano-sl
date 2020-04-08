@@ -73,29 +73,26 @@ main = do
 
 extractWallet
     :: Kernel.PassiveWallet
-    -> IO [(WalletName, EncryptedSecretKey)]
+    -> IO [(Maybe WalletName, EncryptedSecretKey)]
 extractWallet pw = do
     wKeys <- Keystore.getKeys (pw ^. Kernel.walletKeystore)
     let nm  = makeNetworkMagic (pw ^.  Kernel.walletProtocolMagic)
     snapshot <- Kernel.getWalletSnapshot pw
-    fmap catMaybes $ forM wKeys $ \esk -> do
+    forM wKeys $ \esk -> do
         let rootId  = eskToHdRootId nm esk
         case Kernel.lookupHdRootId snapshot rootId of
-            Left _                    -> do
-                let wid = T.decodeUtf8 $ addrToBase58 $ getHdRootId rootId ^. fromDb
-                log Error $ "No wallet for id: " <> wid
-                pure Nothing
-
+            Left _ ->
+                pure (Nothing, esk)
             Right HdRoot{_hdRootName} ->
-                pure $ Just (_hdRootName, esk)
+                pure (Just _hdRootName, esk)
   where
     log = pw ^. Kernel.walletLogMessage
 
 newtype Export a = Export a deriving (Show)
 
-instance ToJSON (Export (WalletName, EncryptedSecretKey)) where
+instance ToJSON (Export (Maybe WalletName, EncryptedSecretKey)) where
     toJSON (Export (name, EncryptedSecretKey{eskPayload, eskHash})) = Json.object
-        [ "name" .= getWalletName name
+        [ "name" .= getWalletName <$> name
         , "encrypted_root_private_key" .= base16 (unXPrv eskPayload)
         , "passphrase_hash" .= base16 (getEncryptedPass eskHash)
         ]

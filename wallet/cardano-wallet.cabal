@@ -369,6 +369,7 @@ executable export-wallets
     , cardano-sl-util
     , cardano-wallet
     , contravariant
+    , cryptonite
     , directory
     , memory
     , optparse-applicative

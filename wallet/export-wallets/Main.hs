@@ -7,26 +7,24 @@ module Main where
 
 import           Universum
 
-import           Cardano.Crypto.Wallet (unXPrv)
+import           Cardano.Crypto.Wallet (toXPub, unXPrv, unXPub)
 import           Cardano.Wallet.Kernel (DatabaseMode (..), DatabaseOptions (..),
                      bracketPassiveWallet)
-import           Cardano.Wallet.Kernel.DB.HdWallet (HdRoot (..), HdRootId (..),
-                     HdRootId (..), WalletName (..), eskToHdRootId)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdRoot (..),
+                     WalletName (..), eskToHdRootId)
 import           Cardano.Wallet.Kernel.Keystore (bracketLegacyKeystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (mockNodeStateDef)
+import           Crypto.Hash (Blake2b_160, hash)
 import           Data.Aeson (ToJSON (..), (.=))
 import           Data.ByteArray.Encoding (Base (..), convertToBase)
 import           Data.ByteString (ByteString)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import           Options.Applicative
-import           Pos.Core.Common (addrToBase58)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedPass (..), EncryptedSecretKey (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..),
                      ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Infra.InjectFail (mkFInjects)
-import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.Trace (Trace (..))
 import           Pos.Util.UserSecret (readUserSecret)
 import           System.Directory (doesDirectoryExist)
@@ -37,6 +35,7 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import qualified Data.Aeson as Json
 import qualified Data.Aeson.Encode.Pretty as Json
+import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import qualified Data.Text.Encoding as T
@@ -85,19 +84,19 @@ extractWallet pw = do
                 pure (Nothing, esk)
             Right HdRoot{_hdRootName} ->
                 pure (Just _hdRootName, esk)
-  where
-    log = pw ^. Kernel.walletLogMessage
 
 newtype Export a = Export a deriving (Show)
 
 instance ToJSON (Export (Maybe WalletName, EncryptedSecretKey)) where
     toJSON (Export (name, EncryptedSecretKey{eskPayload, eskHash})) = Json.object
-        [ "name" .= getWalletName <$> name
+        [ "id" .= base16 (mkWalletId eskPayload)
+        , "name" .= (getWalletName <$> name)
         , "encrypted_root_private_key" .= base16 (unXPrv eskPayload)
         , "passphrase_hash" .= base16 (getEncryptedPass eskHash)
         ]
       where
         base16 = T.decodeUtf8 . convertToBase @ByteString @ByteString Base16
+        mkWalletId = BA.convert . hash @_ @Blake2b_160 . unXPub . toXPub
 
 --
 -- Command-line

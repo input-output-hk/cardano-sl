@@ -149,6 +149,7 @@
             (hsPkgs.cardano-sl-util)
             (hsPkgs.cardano-wallet)
             (hsPkgs.contravariant)
+            (hsPkgs.cryptonite)
             (hsPkgs.directory)
             (hsPkgs.memory)
             (hsPkgs.optparse-applicative)

@@ -43,7 +43,7 @@ import qualified Data.Text.IO as TIO
 
 data Options = Options
     { pm     :: ProtocolMagic
-    , dbPath :: FilePath
+    , dbPath :: Maybe FilePath
     , usPath :: FilePath
     }
 
@@ -51,24 +51,33 @@ main :: IO ()
 main = do
     let preferences = prefs showHelpOnEmpty
     Options{pm,dbPath,usPath} <- customExecParser preferences parserInfo
-    let dbOpts = DatabaseOptions
-            { dbPathAcidState = dbPath <> "-acid"
-            , dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
-            , dbRebuild       = False
-            }
-    guardDatabase dbOpts
+    dbMode <- getDbMode dbPath
     userSecret <- readUserSecret (contramap snd stderrTrace) usPath
     bracketLegacyKeystore userSecret $ \ks -> do
         fInjects <- mkFInjects Nothing
-        bracketPassiveWallet pm (UseFilePath dbOpts) log ks mockNodeStateDef fInjects $ \pw -> do
+        bracketPassiveWallet pm dbMode log ks mockNodeStateDef fInjects $ \pw -> do
             wallets <- extractWallet pw
             BL8.putStrLn $ Json.encodePretty (Export <$> wallets)
   where
     log = const (B8.hPutStrLn stderr . T.encodeUtf8)
+
     stderrTrace = Trace $ Op $ TIO.hPutStrLn stderr
+
     guardDatabase = doesDirectoryExist . dbPathAcidState  >=> \case
         True  -> pure ()
         False -> fail "There's no acid-state database matching the given path."
+
+    getDbMode = \case
+        Nothing ->
+            pure UseInMemory
+        Just dbPath -> do
+            let dbOpts = DatabaseOptions
+                    { dbPathAcidState = dbPath <> "-acid"
+                    , dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
+                    , dbRebuild       = False
+                    }
+            guardDatabase dbOpts
+            pure (UseFilePath dbOpts)
 
 extractWallet
     :: Kernel.PassiveWallet
@@ -122,8 +131,8 @@ pmOption = mainnetFlag <|> (ProtocolMagic <$> magicOption <*> pure RequiresMagic
         <> metavar "MAGIC"
 
 -- --db-path FILEPATH
-dbOption :: Parser FilePath
-dbOption = option str $ mempty
+dbOption :: Parser (Maybe FilePath)
+dbOption = optional $ option str $ mempty
     <> long "wallet-db-path"
     <> metavar "FILEPATH"
     <> help "Path to the wallet's database."

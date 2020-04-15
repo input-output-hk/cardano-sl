@@ -24,6 +24,7 @@ import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedPass (..), EncryptedSecretKey (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..),
                      ProtocolMagicId (..), RequiresNetworkMagic (..))
+import           Pos.Crypto.Signing (checkPassMatches, emptyPassphrase)
 import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Util.Trace (Trace (..))
 import           Pos.Util.UserSecret (readUserSecret)
@@ -97,11 +98,14 @@ extractWallet pw = do
 newtype Export a = Export a deriving (Show)
 
 instance ToJSON (Export (Maybe WalletName, EncryptedSecretKey)) where
-    toJSON (Export (name, EncryptedSecretKey{eskPayload, eskHash})) = Json.object
+    toJSON (Export (name, esk@EncryptedSecretKey{eskPayload, eskHash})) = Json.object
         [ "id" .= base16 (mkWalletId eskPayload)
         , "name" .= (getWalletName <$> name)
         , "encrypted_root_private_key" .= base16 (unXPrv eskPayload)
         , "passphrase_hash" .= base16 (getEncryptedPass eskHash)
+        , "is_passphrase_empty" .= case checkPassMatches emptyPassphrase esk of
+            Nothing -> False
+            Just{}  -> True
         ]
       where
         base16 = T.decodeUtf8 . convertToBase @ByteString @ByteString Base16

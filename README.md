@@ -6,8 +6,18 @@
 
 ## What is Cardano SL?
 
-**This codebase is now deprecated in favour of
-[cardano-node](https://github.com/input-output-hk/cardano-node),
-[cardano-db-sync](https://github.com/input-output-hk/cardano-db-sync),
-[cardano-graphql](https://github.com/input-output-hk/cardano-graphql) and
-[cardano-rest](https://github.com/input-output-hk/cardano-rest).**
+**This codebase is now deprecated in favour of more granular components.**
+
+Looking for a node?
+  - [cardano-node](https://github.com/input-output-hk/cardano-node)
+
+Looking for an explorer?
+  - [cardano-db-sync](https://github.com/input-output-hk/cardano-db-sync)
+  - [cardano-graphql](https://github.com/input-output-hk/cardano-graphql)
+  - [cardano-rest](https://github.com/input-output-hk/cardano-rest)
+
+Looking for a wallet?
+  - [cardano-wallet](https://github.com/input-output-hk/cardano-wallet)
+  
+Don't know where to start?
+  - [Adrestia user-guide](https://input-output-hk.github.io/adrestia/)

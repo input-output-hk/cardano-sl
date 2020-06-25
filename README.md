@@ -6,7 +6,9 @@
 
 ## What is Cardano SL?
 
-**This codebase is now deprecated in favour of more granular components.**
+**This codebase is now deprecated in favour of the new Shelley-capable Cardano implementation.**
+
+The new Cardano implementation consists of more granular components:
 
 Looking for a node?
   - [cardano-node](https://github.com/input-output-hk/cardano-node)

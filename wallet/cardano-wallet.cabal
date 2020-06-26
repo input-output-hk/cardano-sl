@@ -337,6 +337,51 @@ executable cardano-generate-swagger-file
   main-is:
       Main.hs
 
+executable export-wallets
+  default-language:
+      Haskell2010
+  default-extensions:
+      FlexibleContexts
+      MonadFailDesugaring
+      NoImplicitPrelude
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables
+      TypeApplications
+      TypeOperators
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+      -fno-warn-orphans
+      -O2
+
+  build-depends:
+      base
+    , aeson
+    , aeson-pretty
+    , bytestring
+    , cardano-crypto
+    , cardano-sl
+    , cardano-sl-core
+    , cardano-sl-crypto
+    , cardano-sl-crypto
+    , cardano-sl-infra
+    , cardano-sl-util
+    , cardano-wallet
+    , contravariant
+    , cryptonite
+    , directory
+    , memory
+    , optparse-applicative
+    , text
+    , universum >= 0.1.11
+
+  hs-source-dirs:
+      export-wallets
+  main-is:
+      Main.hs
+
+
 test-suite unit
   default-language:
       Haskell2010

@@ -122,7 +122,7 @@ checkTx txValRules it =
         verifyGeneric $
         concat $ zipWith outputPredicates [0 ..] $ toList (_txOutputs it)
     outputPredicates (i :: Word) TxOut {..} =
-        [ ( txOutValue > Coin 0
+        [ ( txOutValue >= Coin 0
           , sformat
                 ("output #"%int%" has non-positive value: "%coinF)
                 i txOutValue
